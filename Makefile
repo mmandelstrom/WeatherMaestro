@@ -10,6 +10,10 @@ SRC_DIR := src
 # Detta är en enkel variabel definition
 BUILD_DIR := build
 
+# Namnet på den körbara filen
+# Detta är en enkel variabel definition
+BIN := WeatherMaestro
+
 # Flaggor: standard, varningar, optimering + auto-dep för headers 
 # Detta är en enkel variabel definition
 CFLAGS := -std=c90 -Wall -Wextra -MMD -MP -g -Iincludes -Isrc/libs/cjson -I/usr/include/openssl
@@ -18,6 +22,14 @@ PROFILE ?= default
 
 ifeq ($(PROFILE),debug)
   CFLAGS = -std=c99 -Wall -Wextra -MMD -MP -Iincludes -Isrc/libs/cjson -O0 -g -I/usr/include/openssl
+else ifeq ($(PROFILE),server)
+	SRC_DIR = server/src
+	BUILD_DIR = build/server
+	BIN = WMServer
+else ifeq ($(PROFILE),client)
+	SRC_DIR = client/src
+	BUILD_DIR = build/client
+	BIN = WMClient
 endif
 # Länkarflaggor
 # Detta är en enkel variabel definition
@@ -44,9 +56,7 @@ OBJ := $(patsubst %.c,$(BUILD_DIR)/%.o,$(SRC))
 # Så mappningen stämmer rekursivt.
 DEP := $(OBJ:.o=.d)
 
-# Namnet på den körbara filen
-# Detta är en enkel variabel definition
-BIN := WeatherCLI
+
 
 # Standardmål: bygg binären
 # Se det som en function man kan anropa utifrån (make all)
