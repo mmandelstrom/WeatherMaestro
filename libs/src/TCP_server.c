@@ -1,4 +1,5 @@
 #include "../include/TCP_server.h"
+#include "../include/TCP_client.h"
 #include <arpa/inet.h>
 #include <asm-generic/socket.h>
 #include <netinet/in.h>
@@ -6,6 +7,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+int TCP_server_set_nonblocking(int fd) {
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags < 0) {
+    return -1;
+  }
+  return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
 
 int TCP_server_init(TCP_server *_Server, uint16_t _Port, int _Backlog) {
   if (_Server == NULL) {
@@ -35,10 +47,17 @@ int TCP_server_init(TCP_server *_Server, uint16_t _Port, int _Backlog) {
   address.sin_family = AF_INET;
   address.sin_port = htons(_Server->port);
   address.sin_addr.s_addr = htonl(INADDR_ANY);
-  return bind(_Server->fd, (struct sockaddr *)&address, sizeof(address));
+  if (bind(_Server->fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+    perror("bind");
+    return -1;
+  }
 
   if (listen(_Server->fd, _Server->backlog) < 0) {
     perror("listen");
+    return -1;
+  }
+
+  if (TCP_server_set_nonblocking(_Server->fd) < 0) {
     return -1;
   }
 
@@ -60,12 +79,13 @@ void TCP_server_dispose(TCP_server *_Server) {
   if (_Server == NULL) {
     return;
   }
+  close(_Server->fd);
   memset(_Server, 0, sizeof(TCP_server));
   _Server = NULL;
 }
-int TCP_server_read(TCP_server *_Server, char *buf, int len) {
-  return recv(_Server->fd, buf, len, MSG_DONTWAIT);
+int TCP_server_read(TCP_client *_Client, char *buf, int len) {
+  return recv(_Client->fd, buf, len, MSG_DONTWAIT);
 }
-int TCP_server_write(TCP_server *_Server, uint8_t *buf, int len) {
-  return send(_Server->fd, buf, len, MSG_NOSIGNAL);
+int TCP_server_write(TCP_client *_Client, uint8_t *buf, int len) {
+  return send(_Client->fd, buf, len, MSG_NOSIGNAL);
 }

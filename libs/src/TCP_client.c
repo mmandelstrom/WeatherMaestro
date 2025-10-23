@@ -56,6 +56,7 @@ void TCP_client_dispose(TCP_client *_Client) {
   if (_Client == NULL) {
     return;
   }
+  close(_Client->fd);
   memset(_Client, 0, sizeof(TCP_client));
   _Client = NULL;
 }

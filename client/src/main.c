@@ -18,13 +18,17 @@ int main() {
     printf("Failed to connect to %s:%d\n", ip, port);
   }
 
-  TCP_client_write(&client, (uint8_t *)message, strlen(message));
-  int bytesRead = TCP_client_read(&client, buffer, sizeof(buffer) - 1);
-  if (bytesRead > 0) {
-    buffer[bytesRead] = '\0'; // Null-terminera strängen
-    printf("%s", buffer);
-  }
-
+  
+		while(1)
+		{
+			TCP_client_write(&client, (const uint8_t*)message, strlen(message));
+			int bytesRead = TCP_client_read(&client, buffer, sizeof(buffer) - 1);
+			if (bytesRead > 0)
+			{
+				buffer[bytesRead] = '\0';
+				printf("%s", buffer);
+			}
+		}
   TCP_client_dispose(&client);
 
   return 0;
