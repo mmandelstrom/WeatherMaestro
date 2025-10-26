@@ -2,12 +2,13 @@
 #include "../include/TCP_client.h"
 #include <arpa/inet.h>
 #include <asm-generic/socket.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 int TCP_server_set_nonblocking(int fd) {
@@ -17,7 +18,6 @@ int TCP_server_set_nonblocking(int fd) {
   }
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
-
 
 int TCP_server_init(TCP_server *_Server, uint16_t _Port, int _Backlog) {
   if (_Server == NULL) {
@@ -83,7 +83,7 @@ void TCP_server_dispose(TCP_server *_Server) {
   memset(_Server, 0, sizeof(TCP_server));
   _Server = NULL;
 }
-int TCP_server_read(TCP_client *_Client, char *buf, int len) {
+int TCP_server_read(TCP_client *_Client, uint8_t *buf, int len) {
   return recv(_Client->fd, buf, len, MSG_DONTWAIT);
 }
 int TCP_server_write(TCP_client *_Client, uint8_t *buf, int len) {
