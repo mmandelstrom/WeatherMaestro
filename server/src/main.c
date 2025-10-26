@@ -1,5 +1,5 @@
-#include "../../libs/include/TCP_server.h"
-#include "../../libs/include/TCP_client.h"
+#include "../../core/include/tcp_client.h"
+#include "../include/tcp_server.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <errno.h>

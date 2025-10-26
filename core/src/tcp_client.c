@@ -1,4 +1,4 @@
-#include "../include/TCP_client.h"
+#include "../include/tcp_client.h"
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <stdbool.h>
