@@ -1,6 +1,11 @@
+<<<<<<< HEAD
 #include "../../libs/include/TCP_client.h"
 #include "../../libs/include/TCP_server.h"
 #include <errno.h>
+=======
+#include "../../core/include/tcp_client.h"
+#include "../include/tcp_server.h"
+>>>>>>> frank
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>

@@ -1,5 +1,4 @@
-#include "../include/TCP_server.h"
-#include "../include/TCP_client.h"
+#include "../include/tcp_server.h"
 #include <arpa/inet.h>
 #include <asm-generic/socket.h>
 #include <fcntl.h>

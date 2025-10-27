@@ -53,3 +53,19 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# No build-files
+build/*
+
+# No external folder (needed files from these should be copied/linked to includes folder)
+external/*
+
+# No cache files
+data/cache/*
+data/cities/*
+
+# No _ files
+_*
+
+# No backup files
+*.bak

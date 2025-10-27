@@ -1,4 +1,4 @@
-#include "../../libs/include/TCP_client.h"
+#include "../../core/include/tcp_client.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
