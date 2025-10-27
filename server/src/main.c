@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "../../libs/include/http_client.h"
 
 #define BACKLOG 15
 

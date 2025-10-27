@@ -8,18 +8,18 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-int TCP_client_init(TCP_client *_Client, uint16_t _Port, const char *_IP) {
+int tcp_client_init(TCP_client *_Client, uint16_t _Port, const char *_IP) {
   if (_Client == NULL) {
     return -1;
   }
   _Client->fd = -1;
   _Client->port = _Port;
   strcpy(_Client->ip, _IP);
-  _Client->isConnected = false;
+  _Client->is_connected = false;
   return 0;
 }
 
-int TCP_client_connect(TCP_client *_Client) {
+int tcp_client_connect(TCP_client *_Client) {
   struct sockaddr_in address;
   socklen_t addresslen = sizeof(address);
 
@@ -44,15 +44,15 @@ int TCP_client_connect(TCP_client *_Client) {
 
   return 0;
 }
-int TCP_client_read(TCP_client *_Client, uint8_t *buf, int len) {
+int tcp_client_read(TCP_client *_Client, uint8_t *buf, int len) {
   return recv(_Client->fd, buf, len, MSG_DONTWAIT);
 }
 
-int TCP_client_write(TCP_client *_Client, uint8_t *buf, int len) {
+int tcp_client_write(TCP_client *_Client, uint8_t *buf, int len) {
   return send(_Client->fd, buf, len, MSG_NOSIGNAL);
 }
 
-void TCP_client_dispose(TCP_client *_Client) {
+void tcp_client_dispose(TCP_client *_Client) {
   if (_Client == NULL) {
     return;
   }
