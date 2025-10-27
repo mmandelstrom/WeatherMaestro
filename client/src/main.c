@@ -60,7 +60,7 @@ int main() {
     return 1;
   }
 
-  size_t capacity = 512;
+  size_t capacity = 1;
   int bytesRecieved;
   size_t usedSpace = 0;
   char *response = (char *)malloc(capacity + 1);
@@ -76,6 +76,7 @@ int main() {
     now = SystemMonotonicMS();
 
     if (usedSpace >= capacity) {
+      printf("Capacity before expansion: %zu\n", capacity);
       size_t newCapacity = capacity * 2;
       char *tempBuf = (char *)realloc(response, newCapacity + 1);
       if (tempBuf == NULL) {
@@ -85,6 +86,7 @@ int main() {
       }
       capacity = newCapacity;
       response = tempBuf;
+      printf("Capacity after: %zu\n", capacity);
     }
 
     size_t spaceLeft = capacity - usedSpace;

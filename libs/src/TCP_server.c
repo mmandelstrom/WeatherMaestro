@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include "../../utils/include/utils.h"
 
 int TCP_server_set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
@@ -25,7 +26,6 @@ int TCP_server_init(TCP_server *_Server, uint16_t _Port, int _Backlog) {
   }
   _Server->fd = -1;
   _Server->port = _Port;
-  _Server->isConnected = false;
   _Server->backlog = _Backlog;
 
   _Server->fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -83,6 +83,96 @@ void TCP_server_dispose(TCP_server *_Server) {
   memset(_Server, 0, sizeof(TCP_server));
   _Server = NULL;
 }
+
+int TCP_server_work(TCP_client* _Client) {
+  uint64_t now = SystemMonotonicMS();
+  uint64_t timeout = now + 5000;
+  size_t capacity = 128;
+  int bytesRecieved;
+  size_t usedSpace = 0;
+
+  while (now < timeout) {
+    now = SystemMonotonicMS();
+
+    if (usedSpace >= capacity) {
+      printf("Capacity before expansion: %zu\n", capacity);
+      size_t newCapacity = capacity * 2;
+      char *tempBuf = (char *)realloc(response, newCapacity + 1);
+      if (tempBuf == NULL) {
+        free(response);
+        perror("realloc");
+        return -1;
+      }
+      capacity = newCapacity;
+      response = tempBuf;
+      printf("Capacity after: %zu\n", capacity);
+    }
+
+    size_t spaceLeft = capacity - usedSpace;
+
+    bytesRecieved =
+        TCP_client_read(&client, (uint8_t *)response + usedSpace, spaceLeft);
+
+    if (bytesRecieved > 0) {
+      usedSpace += bytesRecieved;
+      continue;
+    } else if (bytesRecieved == 0) {
+      break;
+    }
+
+
+  size_t capacity = 1;
+  int bytesRecieved;
+  size_t usedSpace = 0;
+  char *response = (char *)malloc(capacity + 1);
+  if (response == NULL) {
+    perror("malloc");
+    return -1;
+  }
+
+  now = SystemMonotonicMS();
+  timeout = now + 5000;
+
+  while (now < timeout) {
+    now = SystemMonotonicMS();
+
+    if (usedSpace >= capacity) {
+      printf("Capacity before expansion: %zu\n", capacity);
+      size_t newCapacity = capacity * 2;
+      char *tempBuf = (char *)realloc(response, newCapacity + 1);
+      if (tempBuf == NULL) {
+        free(response);
+        perror("realloc");
+        return -1;
+      }
+      capacity = newCapacity;
+      response = tempBuf;
+      printf("Capacity after: %zu\n", capacity);
+    }
+
+    size_t spaceLeft = capacity - usedSpace;
+
+    bytesRecieved =
+        TCP_client_read(&client, (uint8_t *)response + usedSpace, spaceLeft);
+
+    if (bytesRecieved > 0) {
+      usedSpace += bytesRecieved;
+      continue;
+    } else if (bytesRecieved == 0) {
+      break;
+    }
+  }
+
+  if (bytesRecieved > 0) {
+    printf("TIMEOUT ON READ!\r\n");
+    return 1;
+  }
+
+  response[usedSpace] = '\0';
+  printf("DATA: %s\n", response);
+ 
+}
+
 int TCP_server_read(TCP_client *_Client, uint8_t *buf, int len) {
   return recv(_Client->fd, buf, len, MSG_DONTWAIT);
 }

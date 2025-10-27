@@ -3,11 +3,23 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef enum {
+  CLIENT_STATE_INIT, /*Should set to 0- whatever is the last number by default*/
+  CLIENT_STATE_CONNECTING,
+  CLIENT_STATE_READING,
+  CLIENT_STATE_WRITING,
+  CLIENT_STATE_DISPOSING,
+  CLIENT_STATE_ERROR
+} ClientState;
+
+
 typedef struct {
   int fd;
   uint16_t port;
-  char ip[16];
-  bool isConnected;
+  char* host;
+  char* readData;
+  char* writeData;
+  ClientState state;
 
 } TCP_client;
 

@@ -4,11 +4,21 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef enum {
+  SERVER_STATE_INIT,
+  SERVER_STATE_CONNECTING,
+  SERVER_STATE_READING,
+  SERVER_STATE_WRITING,
+  SERVER_STATE_DISPOSING,
+  SERVER_STATE_ERROR
+} ServerState;
+
+
 typedef struct {
   int fd;
   uint16_t port;
-  bool isConnected;
   int backlog;
+  ServerState state;
 
 } TCP_server;
 
