@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 199309L
+
 #include "../include/utils.h"
 #include <time.h>
 #include <stdint.h>
