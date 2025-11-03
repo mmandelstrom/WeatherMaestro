@@ -12,7 +12,7 @@ typedef struct
 {
     void* context;
      /*replace callback with work function from other module?*/
-    void (*callback)(void* _Context, uint64_t _MonTime)
+    void (*callback)(void* _Context, uint64_t _MonTime);
 
 } smw_task;
 
@@ -28,6 +28,7 @@ extern smw g_smw;
 int smw_init();
 
 smw_task* smw_create_task(void* _Context, void (*_Callback)(void* _Context, uint64_t _MonTime));
+
 void smw_destroyTask(smw_task* _Task);
 
 void smw_work(uint64_t _MonTime);
