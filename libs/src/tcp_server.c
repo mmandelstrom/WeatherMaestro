@@ -1,4 +1,4 @@
-#include "../include/TCP_server.h"
+#include "../include/tcp_server.h"
 #include <asm-generic/socket.h>
 #include <fcntl.h>
 #include <netinet/in.h>

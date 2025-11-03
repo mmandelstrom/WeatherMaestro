@@ -1,4 +1,4 @@
-#include "../include/TCP_client.h"
+#include "../include/tcp_client.h"
 
 /*---------------------Internal functions------------------------------*/
 int tcp_client_set_nonblocking(int fd);

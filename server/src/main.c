@@ -1,5 +1,6 @@
-#include "../../libs/include/TCP_server.h"
-#include "../../libs/include/TCP_client.h"
+#include "../../libs/include/tcp_client.h"
+#include "../../libs/include/tcp_server.h"
+
 
 #define BACKLOG 15
 

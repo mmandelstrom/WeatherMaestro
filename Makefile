@@ -3,7 +3,7 @@ CC       := gcc
 CFLAGS   := -Wall -Wextra -Ilibs/include
 
 # OBS: smw.c (inte sm_worker.c)
-LIB_SRCS := libs/src/smw.c libs/src/TCP_client.c libs/src/TCP_server.c
+LIB_SRCS := libs/src/smw.c libs/src/tcp_client.c libs/src/tcp_server.c
 LIB_OBJS := $(LIB_SRCS:.c=.o)
 
 CLIENT_SRC := client/src/main.c

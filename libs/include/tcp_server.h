@@ -1,7 +1,7 @@
 #ifndef __TCP_H__
 #define __TCP_H__
 #define _POSIX_C_SOURCE 200809L
-#include "../include/TCP_client.h"
+#include "../include/tcp_client.h"
 #define MAX_CLIENTS 15
 
 typedef enum {
