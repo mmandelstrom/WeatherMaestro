@@ -1,62 +1,225 @@
 #include "../include/TCP_client.h"
-#include <arpa/inet.h>
-#include <netdb.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
-int TCP_client_init(TCP_client *_Client, uint16_t _Port, const char *_IP) {
-  if (_Client == NULL) {
-    return -1;
-  }
+#include <fcntl.h>
+
+/*---------------------Internal functions------------------------------*/
+int TCP_client_set_nonblocking(int fd);
+/*---------------------------------------------------------------------*/
+
+int TCP_client_set_nonblocking(int fd) {
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags == -1) return -1;
+    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) return -1;
+    return 0;
+}
+
+int TCP_client_Initiate(TCP_client* _Client, const char* _Host, const char* _Port) {
   _Client->fd = -1;
-  _Client->port = _Port;
-  strcpy(_Client->ip, _IP);
-  _Client->isConnected = false;
+  _Client->readData = NULL;
+  _Client->writeData = NULL;
+
+  struct addrinfo addresses;
+  memset(&addresses, 0, sizeof(addresses));
+  addresses.ai_family = AF_UNSPEC;      /* IPv4 & IPv6 */
+  addresses.ai_socktype = SOCK_STREAM;  /* TCP */
+  addresses.ai_protocol = IPPROTO_TCP;
+
+  struct addrinfo* result = NULL;
+  int rc = getaddrinfo(_Host, _Port, &addresses, &result);
+  if (rc != 0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rc));
+    return -1;
+  }
+
+  int fd = -1;
+
+  for (struct addrinfo *addr_info = result; addr_info; addr_info = addr_info->ai_next) {
+    fd = socket(addr_info->ai_family, addr_info->ai_socktype, addr_info->ai_protocol);
+    if (fd < 0) continue;
+
+    if (TCP_client_set_nonblocking(fd) != 0) {
+      close(fd); fd = -1;
+      continue;
+    }
+
+    int cres = connect(fd, addr_info->ai_addr, addr_info->ai_addrlen);
+    if (cres == 0) {
+      /*connected*/
+      break;
+    }
+    if (cres < 0 && errno == EINPROGRESS) {
+      /* non-blocking connect pågår */
+      break;
+    }
+
+    close(fd);
+    fd = -1;
+  }
+
+  freeaddrinfo(result);
+
+  if (fd < 0) {
+    return -1;
+  }
+
+  _Client->fd = fd;
   return 0;
 }
 
-int TCP_client_connect(TCP_client *_Client) {
-  struct sockaddr_in address;
-  socklen_t addresslen = sizeof(address);
 
-  _Client->fd = socket(AF_INET, SOCK_STREAM, 0);
+
+int TCP_client_InitiatePtr(TCP_client** _ClientPtr, const char* _Host, const char* _Port) {
+  if (!_ClientPtr) {
+    return -1;
+  }
+  TCP_client* client = (TCP_client*)malloc(sizeof(TCP_client));
+  if (!client) {
+    perror("malloc");
+    return -2;
+  }
+  int result = TCP_client_Initiate(client, _Host, _Port);
+  if (result != 0) {
+    free(client);
+    return -3;
+  }
+  
+  *(_ClientPtr) = client;
+
+  return 0;
+}
+
+int TCP_client_Read(TCP_client* _Client) {
+  if (!_Client) {
+    return -1;
+  }
+
   if (_Client->fd < 0) {
-    perror("socket");
-    return -1;
+    return -2;
   }
 
-  address.sin_family = AF_INET;
-  address.sin_port = htons(_Client->port);
-
-  if (inet_pton(AF_INET, _Client->ip, &address.sin_addr) == -1) {
-    perror("pton");
-    return -1;
+  if (_Client->readData) {
+    free(_Client->readData);
+    _Client->readData = NULL;
   }
 
-  if (connect(_Client->fd, (struct sockaddr *)&address, addresslen) < 0) {
-    perror("connect");
+  size_t capacity = 512;
+  _Client->readData = (char*)malloc(capacity + 1);
+  if (!_Client->readData) {
+    perror("malloc");
+    return -3;
+  }
+  ssize_t bytesRead;
+  size_t usedSpace = 0;
+  size_t spaceLeft = capacity;
+
+  while(1) {
+
+    if (usedSpace >= capacity) {
+      size_t newCapacity = capacity * 2;
+      char* tempBuffer = (char*)realloc(_Client->readData, newCapacity + 1);
+      if (!tempBuffer) {
+        free(_Client->readData);
+        _Client->readData = NULL;
+        perror("realloc");
+        return -4;
+      }
+      capacity = newCapacity;
+      _Client->readData = tempBuffer;
+      spaceLeft = capacity - usedSpace;
+    }
+    
+    bytesRead = recv(_Client->fd, _Client->readData + usedSpace, spaceLeft, 0);
+
+    if (bytesRead < 0) {
+      if (errno == EINTR) continue;
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ENOTCONN) {
+        if (usedSpace == 0) {
+          return 0;
+        }
+
+        _Client->readData[usedSpace] = '\0';
+        return (int)usedSpace;
+      }
+
+      free(_Client->readData);
+      _Client->readData = NULL;
+      perror("recv");
+      return -5;
+    }
+   
+
+    if (bytesRead == 0) {
+      _Client->readData[usedSpace] = '\0';
+      return (int)usedSpace;
+    }
+
+    if (bytesRead > 0) {
+      usedSpace += (size_t)bytesRead;
+      spaceLeft = capacity - usedSpace;
+    }
+  }
+}
+
+
+int TCP_client_Write(TCP_client* _Client, size_t _Length) {
+  if (!_Client || _Client->fd < 0 || !_Client->writeData) {
     return -1;
   }
+  
+  size_t bytesLeft = _Length;
+  size_t totalSent = 0;
+  ssize_t bytesSent;
+  char* message = _Client->writeData;
 
-  return 0;
-}
-int TCP_client_read(TCP_client *_Client, uint8_t *buf, int len) {
-  return recv(_Client->fd, buf, len, MSG_DONTWAIT);
+  while (bytesLeft > 0) {
+
+      bytesSent = send(_Client->fd, message, bytesLeft, 0);
+
+      if (bytesSent < 0) {
+        if (errno == EINTR) continue;
+        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ENOTCONN) {
+          return totalSent;
+        }
+
+        perror("send");
+        return -2; // fatal error
+      }
+
+      if (bytesSent == 0) {
+        return (int)totalSent;
+      }
+
+      totalSent += bytesSent;
+      bytesLeft -= bytesSent;
+      message += bytesSent;
+  }
+    return (int)totalSent;
 }
 
-int TCP_client_write(TCP_client *_Client, uint8_t *buf, int len) {
-  return send(_Client->fd, buf, len, MSG_NOSIGNAL);
-}
-
-void TCP_client_dispose(TCP_client *_Client) {
+void TCP_client_Dispose(TCP_client* _Client) {
   if (_Client == NULL) {
     return;
   }
-  close(_Client->fd);
-  memset(_Client, 0, sizeof(TCP_client));
-  _Client = NULL;
+  if (_Client->fd >= 0) {
+    close(_Client->fd);
+    _Client->fd = -1;
+  }
+  if (_Client->readData != NULL) {
+    free(_Client->readData);
+    _Client->readData = NULL;
+  }
+  if (_Client->writeData != NULL) {
+    free(_Client->writeData);
+    _Client->writeData = NULL;
+  }
 }
+
+void TCP_client_DisposePtr(TCP_client** _ClientPtr) {
+  if (_ClientPtr == NULL || *(_ClientPtr) == NULL) {
+    return;
+  }
+  TCP_client_Dispose(*(_ClientPtr));
+  free(*(_ClientPtr));
+  *(_ClientPtr) = NULL;
+}
+

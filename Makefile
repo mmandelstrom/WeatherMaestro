@@ -1,7 +1,9 @@
-# === Project Settings ===
+# === Project Settings === 
 CC       := gcc
 CFLAGS   := -Wall -Wextra -Ilibs/include
-LIB_SRCS := libs/src/sm_worker.c libs/src/TCP_client.c libs/src/TCP_server.c
+
+# OBS: smw.c (inte sm_worker.c)
+LIB_SRCS := libs/src/smw.c libs/src/TCP_client.c libs/src/TCP_server.c
 LIB_OBJS := $(LIB_SRCS:.c=.o)
 
 CLIENT_SRC := client/src/main.c
@@ -23,14 +25,19 @@ all: $(CLIENT_BIN) $(SERVER_BIN)
 # --- Client ---
 $(CLIENT_BIN): $(CLIENT_OBJ) $(LIB_OBJS)
 	@echo "🔧 Linking $@"
-	$(CC) $(CFLAGS) $(CLIENT_INC) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 # --- Server ---
 $(SERVER_BIN): $(SERVER_OBJ) $(LIB_OBJS)
 	@echo "🔧 Linking $@"
-	$(CC) $(CFLAGS) $(SERVER_INC) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
-# --- Generic Object Rule ---
+# --- Target-specifika flaggor (för include-sökvägar) ---
+client/src/%.o: CFLAGS += $(CLIENT_INC)
+server/src/%.o: CFLAGS += $(SERVER_INC)
+libs/src/%.o:   CFLAGS += -Ilibs/include
+
+# --- Generisk objekregel ---
 %.o: %.c
 	@echo "🧩 Compiling $<"
 	$(CC) $(CFLAGS) -c $< -o $@
