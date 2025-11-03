@@ -12,19 +12,22 @@ int main(void) {
     return 1;
   }
 
-  const char *geoString = "GET /geo?stockholm HTTP/1.1\r\n"
-"Host: localhost:8080\r\n"
-"User-Agent: curl/8.16.0\r\n"
-"Accept: */*\r\n\r\n";
 
-  const char *weatherString = "GET /weatherdata?latitude=59.3293&longitude=18.0686 HTTP/1.1\r\n"
-"Host: localhost:8080\r\n"
-"User-Agent: curl/8.16.0\r\n"
-"Accept: */*\r\n\r\n";
+  const char* optionsResponse =
+"HTTP/1.1 204 No Content\r\n"
+"Access-Control-Allow-Origin: *\r\n"
+"Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+"Access-Control-Allow-Headers: Content-Type\r\n"
+"Access-Control-Max-Age: 86400\r\n"
+"Content-Length: 0\r\n"
+"Connection: close\r\n"
+"\r\n";
 
   const char* geoResponse =
 "HTTP/1.1 200 OK\r\n"
+"Access-Control-Allow-Origin: *\r\n"
 "Content-Type: application/json; charset=utf-8\r\n"
+"Connection: close\r\n"
 "\r\n"
 "[\n"
 "  {\n"
@@ -35,12 +38,15 @@ int main(void) {
 "  }\n"
 "]\0";
 
-  const char* weatherData = 
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: application/json; charset=utf-8\r\n\r\n"
-    "[\n"
+  const char* weatherData =
+"HTTP/1.1 200 OK\r\n"
+"Access-Control-Allow-Origin: *\r\n"
+"Content-Type: application/json; charset=utf-8\r\n"
+"Connection: close\r\n"
+"\r\n"
+"[\n"
 "  {\n"
-"    \"timestamp\": \"2025-10-31T07:99:59+01:00\",\n"
+"    \"timestamp\": \"2025-10-31T07:59:59+01:00\",\n"
 "    \"latitude\": 59.3753,\n"
 "    \"longitude\": 17.969,\n"
 "    \"interval\": 15,\n"
@@ -52,9 +58,12 @@ int main(void) {
 "  }\n"
 "]\0";
 
-const char* jsonError =
+  const char* jsonError =
 "HTTP/1.1 400 Bad Request\r\n"
-"Content-Type: application/json; charset=utf-8\r\n\r\n"
+"Access-Control-Allow-Origin: *\r\n"
+"Content-Type: application/json; charset=utf-8\r\n"
+"Connection: close\r\n"
+"\r\n"
 "[\n"
 "  {\n"
 "    \"error\": {\n"
@@ -63,6 +72,7 @@ const char* jsonError =
 "    }\n"
 "  }\n"
 "]\0";
+
 
   while (1) {
     int cfd = tcp_server_accept(&server);
@@ -76,53 +86,30 @@ const char* jsonError =
 
     int bytesRead = 0;
     int i;
-    for (i = 0; i < 50; ++i) { /*500ms timeout*/
+
+    for (i = 0; i < 200; ++i) {        /* ≈2s total */
       bytesRead = tcp_client_read(&client);
-      if (bytesRead != 0) break;
-      /* sleep_ms(10); */
-    }
-
+      if (bytesRead != 0) break;       /* >0 done, <0: error */
+        usleep(10000);
+      }
+   
     if (bytesRead > 0 && client.readData) {
-      /*Print request in terminal*/
-      printf("\n=== Incoming request (%d bytes) ===\n", bytesRead);
-      printf("%.*s\n", bytesRead, client.readData);
-      printf("===================================\n");
-    } else if (bytesRead < 0) {
-    
-      if (client.readData) free(client.readData);
-      close(client.fd);
-      continue;
+      if (strncmp(client.readData, "OPTIONS ", 8) == 0) {
+        client.writeData = strdup(optionsResponse);
+      }
+      else if (strncmp(client.readData, "GET /api/v1/geo?city_name=", sizeof("GET /api/v1/geo?city_name=") - 1) == 0) {
+        client.writeData = strdup(geoResponse);
+      }
+      else if (strncmp(client.readData, "GET /api/v1/weatherdata?", sizeof("GET /api/v1/weatherdata?") - 1) == 0) {
+        client.writeData = strdup(weatherData);
+      }
+      else {
+        client.writeData = strdup(jsonError);
+      }
+      if (!client.writeData) { perror("malloc"); close(client.fd); continue; }
+      tcp_client_write(&client, strlen(client.writeData));
     }
 
-    printf("readData: %s", client.readData);
-    printf("Geostring: %s", geoString);
-
-    if ((strcmp(geoString, client.readData)) == 0) {
-      client.writeData = (char*)malloc(strlen(geoResponse) + 1);
-        if (!client.writeData) {
-          printf("Failed");
-          return -1;
-      }
-      strcpy(client.writeData, geoResponse);
-    } 
-
-       else if (strcmp(weatherString, client.readData) == 0) {
-        client.writeData = (char*)malloc(strlen(weatherData) + 1);
-        if (!client.writeData) {
-          printf("Failed");
-          return -1;
-      }
-      strcpy(client.writeData, weatherData);
-    } else {
-       client.writeData = (char*)malloc(strlen(jsonError) + 1);
-        if (!client.writeData) {
-          printf("Failed");
-          return -1;
-      }
-      strcpy(client.writeData, jsonError);
-    }
-
-    tcp_client_write(&client, strlen(client.writeData));
 
     if (client.readData)  free(client.readData);
     if (client.writeData) free(client.writeData);
