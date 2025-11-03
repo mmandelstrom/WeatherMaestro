@@ -12,14 +12,14 @@
 
 #define BACKLOG 15
 
-static void sleep_ms(int ms) {
+/* static void sleep_ms(int ms) {
   struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
   nanosleep(&ts, NULL);
-}
+} */
 
 int main(void) {
   TCP_server server;
-  if (TCP_server_init(&server, "8080", 15) < 0) {
+  if (TCP_server_init(&server, "8080", BACKLOG) < 0) {
     perror("TCP_server_init");
     return 1;
   }
@@ -35,10 +35,11 @@ int main(void) {
     client.fd = cfd;
 
     int bytesRead = 0;
-    for (int i = 0; i < 50; ++i) { /*500ms timeout*/
-      bytesRead = TCP_server_read(&client);
+    int i;
+    for (i = 0; i < 50; ++i) { /*500ms timeout*/
+      bytesRead = TCP_client_read(&client);
       if (bytesRead != 0) break;
-      sleep_ms(10);
+      /* sleep_ms(10); */
     }
 
     if (bytesRead > 0 && client.readData) {
@@ -73,7 +74,7 @@ int main(void) {
     memcpy(client.writeData, header, (size_t)header_len);
     memcpy(client.writeData + header_len, body, strlen(body));
 
-    TCP_server_write(&client, resp_len);
+    TCP_client_write(&client, resp_len);
 
     if (client.readData)  free(client.readData);
     if (client.writeData) free(client.writeData);

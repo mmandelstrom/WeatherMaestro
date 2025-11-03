@@ -53,3 +53,7 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+#Untracking these for now
+external/
+core/

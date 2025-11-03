@@ -16,7 +16,7 @@ void HTTPServerConnection_TaskWork(void* _Context, uint64_t _MonTime);
 
 int HTTPServerConnection_Initiate(HTTPServerConnection* _Connection, int _fd)
 {
-	TCP_client_init(&_Connection->tcpClient, _fd);
+	TCP_client_Initiate(&_Connection->tcpClient, );
 	
 	_Connection->task = smw_create_task(_Connection, HTTPServerConnection_TaskWork);
   _Connection->state = 0;
@@ -87,7 +87,7 @@ Http_Server_Connection_State http_server_work_read_firstline(HTTPServerConnectio
       request = temp_buf;
     }
 
-    int bytes_recvd = TCP_client_read(&_Connection->tcpClient, (uint8_t*)request + used_space, capacity - used_space);
+    int bytes_recvd = TCP_client_read(&_Connection->tcpClient);
     if (bytes_recvd > 0)
     {
       used_space += bytes_recvd;
@@ -156,7 +156,7 @@ Http_Server_Connection_State http_server_work_read_headers(HTTPServerConnection*
       request = temp_buf;
     }
 
-    int bytes_recvd = TCPClient_Read(&_Connection->tcpClient, (uint8_t*)request + used_space, capacity - used_space);
+    int bytes_recvd = TCP_client_read(&_Connection->tcpClient);
     if (bytes_recvd > 0)
     {
       used_space += bytes_recvd;
@@ -267,8 +267,7 @@ Http_Server_Connection_State http_server_work_respond(HTTPServerConnection* _Con
 
     printf("RESPONSE: %s\n", _Connection->response);
 
-    int bytes_sent = TCPClient_Write(&_Connection->tcpClient, 
-        (const uint8_t*)_Connection->response, 
+    int bytes_sent = TCP_client_write(&_Connection->tcpClient,
         strlen(_Connection->response));
 
     if (bytes_sent < 0) {
@@ -338,7 +337,7 @@ void HTTPServerConnection_TaskWork(void* _Context, uint64_t _MonTime)
 
 void HTTPServerConnection_Dispose(HTTPServerConnection* _Connection)
 {
-	TCPClient_Dispose(&_Connection->tcpClient);
+	TCP_client_Dispose(&_Connection->tcpClient);
 	smw_destroyTask(_Connection->task);
 }
 

@@ -1,5 +1,6 @@
 #ifndef __TCP_H__
 #define __TCP_H__
+#define _POSIX_C_SOURCE 200809L
 #include "../include/TCP_client.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -28,7 +29,7 @@ int TCP_server_init(TCP_server *_Server, const char* _Port, int _Backlog);
 int TCP_server_accept(TCP_server *_Server);
 
 void TCP_server_dispose(TCP_server *_Server);
-int TCP_server_read(TCP_client *_Client);
-int TCP_server_write(TCP_client *_Client, size_t _Length);
+/* int TCP_server_read(TCP_client *_Client);
+int TCP_server_write(TCP_client *_Client, size_t _Length); */
 
 #endif /* __TCP_H__ */

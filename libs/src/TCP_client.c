@@ -87,7 +87,7 @@ int TCP_client_InitiatePtr(TCP_client** _ClientPtr, const char* _Host, const cha
 
   return 0;
 }
-
+/*
 int TCP_client_Read(TCP_client* _Client) {
   if (!_Client) {
     return -1;
@@ -195,7 +195,7 @@ int TCP_client_Write(TCP_client* _Client, size_t _Length) {
   }
     return (int)totalSent;
 }
-
+*/
 void TCP_client_Dispose(TCP_client* _Client) {
   if (_Client == NULL) {
     return;
@@ -214,6 +214,113 @@ void TCP_client_Dispose(TCP_client* _Client) {
   }
 }
 
+int TCP_client_read(TCP_client* _Client) {
+  if (!_Client) {
+    return -1;
+  }
+
+  if (_Client->fd < 0) {
+    return -2;
+  }
+
+  if (_Client->readData) {
+    free(_Client->readData);
+    _Client->readData = NULL;
+  }
+
+  size_t capacity = 512;
+  _Client->readData = (char*)malloc(capacity + 1);
+  if (!_Client->readData) {
+    perror("malloc");
+    return -3;
+  }
+  ssize_t bytesRead;
+  size_t usedSpace = 0;
+  size_t spaceLeft = capacity;
+
+  while(1) {
+
+    if (usedSpace >= capacity) {
+      size_t newCapacity = capacity * 2;
+      char* tempBuffer = (char*)realloc(_Client->readData, newCapacity + 1);
+      if (!tempBuffer) {
+        free(_Client->readData);
+        _Client->readData = NULL;
+        perror("realloc");
+        return -4;
+      }
+      capacity = newCapacity;
+      _Client->readData = tempBuffer;
+      spaceLeft = capacity - usedSpace;
+    }
+
+    bytesRead = recv(_Client->fd, _Client->readData + usedSpace, spaceLeft, 0);
+
+    if (bytesRead < 0) {
+      if (errno == EINTR) continue;
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ENOTCONN) {
+        if (usedSpace == 0) {
+          return 0;
+        }
+
+        _Client->readData[usedSpace] = '\0';
+                
+        return (int)usedSpace;
+      }
+
+      free(_Client->readData);
+      _Client->readData = NULL;
+      perror("recv");
+      return -5;
+    }
+
+    if (bytesRead == 0) {
+      _Client->readData[usedSpace] = '\0';
+      return (int)usedSpace;
+    }
+
+    if (bytesRead > 0) {
+      usedSpace += (size_t)bytesRead;
+      spaceLeft = capacity - usedSpace;
+    }
+  }
+}
+
+int TCP_client_write(TCP_client* _Client, size_t _Length) {
+  if (!_Client || _Client->fd < 0 || !_Client->writeData) {
+    return -1;
+  }
+  
+  size_t bytesLeft = _Length;
+  size_t totalSent = 0;
+  ssize_t bytesSent;
+  char* message = _Client->writeData;
+
+  while (bytesLeft > 0) {
+
+      bytesSent = send(_Client->fd, message, bytesLeft, 0);
+
+      if (bytesSent < 0) {
+        if (errno == EINTR) continue;
+        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ENOTCONN) {
+          return totalSent;
+        }
+
+        perror("send");
+        return -2; // fatal error
+      }
+
+      if (bytesSent == 0) {
+        return (int)totalSent;
+      }
+
+      totalSent += bytesSent;
+      bytesLeft -= bytesSent;
+      message += bytesSent;
+  }
+    return (int)totalSent;
+}
+ 
 void TCP_client_DisposePtr(TCP_client** _ClientPtr) {
   if (_ClientPtr == NULL || *(_ClientPtr) == NULL) {
     return;

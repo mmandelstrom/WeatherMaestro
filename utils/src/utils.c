@@ -3,6 +3,8 @@
 #include "../include/utils.h"
 #include <time.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 
 uint64_t SystemMonotonicMS() {
   long ms;
@@ -20,3 +22,14 @@ uint64_t SystemMonotonicMS() {
   return result;
 }
 
+/* Concatenates two strings using malloc, strcpy and strcat
+ * (goes without saying but needs to be freed by caller) */
+char* stringcat(const char* _a, const char* _b)
+{
+  size_t len = strlen(_a) + strlen(_b) + 1;
+  char* ab = (char*)malloc(sizeof(char) * len);
+  strcpy(ab, _a);
+  strcat(ab, _b);
+
+  return ab;
+}

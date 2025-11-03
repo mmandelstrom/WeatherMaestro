@@ -24,12 +24,12 @@ all: $(CLIENT_BIN) $(SERVER_BIN)
 
 # --- Client ---
 $(CLIENT_BIN): $(CLIENT_OBJ) $(LIB_OBJS)
-	@echo "🔧 Linking $@"
+	@echo "Linking $@"
 	$(CC) $(CFLAGS) -o $@ $^
 
 # --- Server ---
 $(SERVER_BIN): $(SERVER_OBJ) $(LIB_OBJS)
-	@echo "🔧 Linking $@"
+	@echo " Linking $@"
 	$(CC) $(CFLAGS) -o $@ $^
 
 # --- Target-specifika flaggor (för include-sökvägar) ---
@@ -39,7 +39,7 @@ libs/src/%.o:   CFLAGS += -Ilibs/include
 
 # --- Generisk objekregel ---
 %.o: %.c
-	@echo "🧩 Compiling $<"
+	@echo "Compiling $<"
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # --- Individual Builds ---
@@ -48,6 +48,5 @@ server: $(SERVER_BIN)
 
 # --- Cleanup ---
 clean:
-	@echo "🧹 Cleaning build files..."
+	@echo "Cleaning build files..."
 	rm -f $(CLIENT_OBJ) $(SERVER_OBJ) $(LIB_OBJS) $(CLIENT_BIN) $(SERVER_BIN)
-

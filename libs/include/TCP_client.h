@@ -36,8 +36,8 @@ typedef struct {
 
 int TCP_client_Initiate(TCP_client* _Client, const char* _Host, const char* _Port);
 int TCP_client_InitiatePtr(TCP_client** _ClientPtr, const char* _Host, const char* _Port);
-int TCP_client_Read(TCP_client* _Client);
-int TCP_client_Write(TCP_client* _Client, size_t _Length);
+int TCP_client_read(TCP_client* _Client);
+int TCP_client_write(TCP_client* _Client, size_t _Length);
 void TCP_client_Dispose(TCP_client* _Client);
 void TCP_client_DisposePtr(TCP_client** _ClientPtr);
 

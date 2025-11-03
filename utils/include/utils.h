@@ -4,4 +4,6 @@
 
 uint64_t SystemMonotonicMS();
 
+char* stringcat(const char* _a, const char* _b);
+
 #endif
