@@ -1,6 +1,5 @@
 #ifndef __TCP_CLIENT_H__
 #define __TCP_CLIENT_H__
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,35 +28,16 @@ typedef enum {
 
 typedef struct {
   int fd;
-  char* readData; /*Allocated in TCP_client_Read, free'd in dispose*/
-  char* writeData; /*Allocated in TCP_client_Read, free'd in dispose*/
-} TCP_client;
+  char* readData; /*Allocated in TCP_Client_Read, free'd in dispose*/
+  char* writeData; /*Allocated in TCP_Client_Read, free'd in dispose*/
+} TCP_Client;
 
 
-int TCP_client_Initiate(TCP_client* _Client, const char* _Host, const char* _Port);
-int TCP_client_InitiatePtr(TCP_client** _ClientPtr, const char* _Host, const char* _Port);
-int TCP_client_read(TCP_client* _Client);
-int TCP_client_write(TCP_client* _Client, size_t _Length);
-void TCP_client_Dispose(TCP_client* _Client);
-void TCP_client_DisposePtr(TCP_client** _ClientPtr);
+int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port);
+int tcp_client_init_ptr(TCP_Client** _ClientPtr, const char* _Host, const char* _Port);
+int tcp_client_read(TCP_Client* _Client);
+int tcp_client_write(TCP_Client* _Client, size_t _Length);
+void tcp_client_dispose(TCP_Client* _Client);
+void tcp_client_dispose_ptr(TCP_Client** _ClientPtr);
 
-
-/*
-typedef struct {
-  int fd;
-  uint16_t port;
-  char* host;
-  char* readData;
-  char* writeData;
-  ClientState state;
-
-} TCP_client;
-
-
-int TCP_client_init(TCP_client *_Client, uint16_t _Port, const char *_IP);
-int TCP_client_connect(TCP_client *_Client);
-int TCP_client_read(TCP_client *_Client, uint8_t *buf, int len);
-int TCP_client_write(TCP_client *_Client, uint8_t *buf, int len);
-void TCP_client_dispose(TCP_client *_Client);
-*/
 #endif

@@ -1,14 +1,5 @@
-#include "../../libs/include/TCP_client.h"
 #include "../../libs/include/TCP_server.h"
-#include <stdint.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
+#include "../../libs/include/TCP_client.h"
 
 #define BACKLOG 15
 
@@ -18,26 +9,26 @@
 } */
 
 int main(void) {
-  TCP_server server;
-  if (TCP_server_init(&server, "8080", BACKLOG) < 0) {
-    perror("TCP_server_init");
+  TCP_Server server;
+  if (tcp_server_init(&server, "8080", BACKLOG) < 0) {
+    perror("TCP_Server_init");
     return 1;
   }
 
   while (1) {
-    int cfd = TCP_server_accept(&server);
+    int cfd = tcp_server_accept(&server);
     if (cfd < 0) {
       /*No client currently*/
       continue;
     }
 
-    TCP_client client = {0};
+    TCP_Client client = {0};
     client.fd = cfd;
 
     int bytesRead = 0;
     int i;
     for (i = 0; i < 50; ++i) { /*500ms timeout*/
-      bytesRead = TCP_client_read(&client);
+      bytesRead = tcp_client_read(&client);
       if (bytesRead != 0) break;
       /* sleep_ms(10); */
     }
@@ -74,14 +65,14 @@ int main(void) {
     memcpy(client.writeData, header, (size_t)header_len);
     memcpy(client.writeData + header_len, body, strlen(body));
 
-    TCP_client_write(&client, resp_len);
+    tcp_client_write(&client, resp_len);
 
     if (client.readData)  free(client.readData);
     if (client.writeData) free(client.writeData);
     close(client.fd);
   }
 
-  TCP_server_dispose(&server);
+  tcp_server_dispose(&server);
   return 0;
 }
 

@@ -14,7 +14,7 @@
 #include <stdio.h>
 #define MAX_CLIENTS 15
 
-int TCP_server_set_nonblocking(int fd) {
+int tcp_server_set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
   if (flags < 0) {
     return -1;
@@ -22,7 +22,7 @@ int TCP_server_set_nonblocking(int fd) {
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-int TCP_server_init(TCP_server *_Server, const char *_Port, int _Backlog) {
+int tcp_server_init(TCP_Server *_Server, const char *_Port, int _Backlog) {
   if (!_Server) {
     return -1;
   }
@@ -71,7 +71,7 @@ int TCP_server_init(TCP_server *_Server, const char *_Port, int _Backlog) {
 
     _Server->fd = fd;
 
-    if (TCP_server_set_nonblocking(_Server->fd) < 0) {
+    if (tcp_server_set_nonblocking(_Server->fd) < 0) {
       close(_Server->fd);
       _Server->fd = -1;
       fd = -1;
@@ -89,7 +89,29 @@ int TCP_server_init(TCP_server *_Server, const char *_Port, int _Backlog) {
   return -1;
 }
 
-int TCP_server_accept(TCP_server *_Server) {
+
+int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, int _Backlog) {
+  if (!_ServerPtr) {
+    return -1;
+  }
+  TCP_Server* server = (TCP_Server*)malloc(sizeof(TCP_Server));
+  if (!server) {
+    perror("malloc");
+    return -2;
+  }
+  int result = tcp_server_init(server, _Port, _Backlog);
+  if (result != 0) {
+    free(server);
+    return -3;
+  }
+  
+  *(_ServerPtr) = server;
+
+  return 0;
+}
+
+
+int tcp_server_accept(TCP_Server *_Server) {
   if (!_Server) {
     return -1;
   }
@@ -102,17 +124,17 @@ int TCP_server_accept(TCP_server *_Server) {
     return -1;
   }
 
-  (void)TCP_server_set_nonblocking(client_fd);
+  (void)tcp_server_set_nonblocking(client_fd);
 
   return client_fd;
 }
 
-void TCP_server_dispose(TCP_server *_Server) {
+void tcp_server_dispose(TCP_Server *_Server) {
   if (_Server == NULL) {
     return;
   }
   close(_Server->fd);
-  memset(_Server, 0, sizeof(TCP_server));
+  memset(_Server, 0, sizeof(TCP_Server));
   _Server = NULL;
   if (_Server->fd >= 0) {
     close(_Server->fd);
@@ -121,5 +143,14 @@ void TCP_server_dispose(TCP_server *_Server) {
 
   _Server->port = NULL;
   _Server->backlog = 0;
+}
+
+void tcp_server_dispose_ptr(TCP_Server** _ServerPtr) {
+  if (_ServerPtr == NULL || *(_ServerPtr) == NULL) {
+    return;
+  }
+  tcp_server_dispose(*(_ServerPtr));
+  free(*(_ServerPtr));
+  *(_ServerPtr) = NULL;
 }
 

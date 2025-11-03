@@ -2,9 +2,7 @@
 #define __TCP_H__
 #define _POSIX_C_SOURCE 200809L
 #include "../include/TCP_client.h"
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
+#define MAX_CLIENTS 15
 
 typedef enum {
   SERVER_STATE_INIT,
@@ -22,14 +20,12 @@ typedef struct {
   int backlog;
   ServerState state;
 
-} TCP_server;
+} TCP_Server;
 
-int TCP_server_init(TCP_server *_Server, const char* _Port, int _Backlog);
-
-int TCP_server_accept(TCP_server *_Server);
-
-void TCP_server_dispose(TCP_server *_Server);
-/* int TCP_server_read(TCP_client *_Client);
-int TCP_server_write(TCP_client *_Client, size_t _Length); */
+int tcp_server_init(TCP_Server *_Server, const char* _Port, int _Backlog);
+int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, int _Backlog);
+int tcp_server_accept(TCP_Server *_Server);
+void tcp_server_dispose(TCP_Server *_Server);
+void tcp_server_dispose_ptr(TCP_Server** _ServerPtr);
 
 #endif /* __TCP_H__ */
