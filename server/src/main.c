@@ -1,13 +1,9 @@
 #include "../../libs/include/tcp_client.h"
 #include "../../libs/include/tcp_server.h"
-
+#include <stdio.h>
+#include <string.h>
 
 #define BACKLOG 15
-
-/* static void sleep_ms(int ms) {
-  struct timespec ts = { ms / 1000, (ms % 1000) * 1000000L };
-  nanosleep(&ts, NULL);
-} */
 
 int main(void) {
   TCP_Server server;
@@ -15,6 +11,58 @@ int main(void) {
     perror("TCP_Server_init");
     return 1;
   }
+
+  const char *geoString = "GET /geo?stockholm HTTP/1.1\r\n"
+"Host: localhost:8080\r\n"
+"User-Agent: curl/8.16.0\r\n"
+"Accept: */*\r\n\r\n";
+
+  const char *weatherString = "GET /weatherdata?latitude=59.3293&longitude=18.0686 HTTP/1.1\r\n"
+"Host: localhost:8080\r\n"
+"User-Agent: curl/8.16.0\r\n"
+"Accept: */*\r\n\r\n";
+
+  const char* geoResponse =
+"HTTP/1.1 200 OK\r\n"
+"Content-Type: application/json; charset=utf-8\r\n"
+"\r\n"
+"[\n"
+"  {\n"
+"    \"city\": \"Stockholm\",\n"
+"    \"country\": \"Sweden\",\n"
+"    \"latitude\": 59.3293,\n"
+"    \"longitude\": 18.0686\n"
+"  }\n"
+"]\0";
+
+  const char* weatherData = 
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: application/json; charset=utf-8\r\n\r\n"
+    "[\n"
+"  {\n"
+"    \"timestamp\": \"2025-10-31T07:99:59+01:00\",\n"
+"    \"latitude\": 59.3753,\n"
+"    \"longitude\": 17.969,\n"
+"    \"interval\": 15,\n"
+"    \"windspeed\": 2.4,\n"
+"    \"winddirection\": \"nw\",\n"
+"    \"temperature\": 13,\n"
+"    \"is_day\": true,\n"
+"    \"weathercode\": 1\n"
+"  }\n"
+"]\0";
+
+const char* jsonError =
+"HTTP/1.1 400 Bad Request\r\n"
+"Content-Type: application/json; charset=utf-8\r\n\r\n"
+"[\n"
+"  {\n"
+"    \"error\": {\n"
+"      \"code\": 400,\n"
+"      \"message\": \"bad request\"\n"
+"    }\n"
+"  }\n"
+"]\0";
 
   while (1) {
     int cfd = tcp_server_accept(&server);
@@ -46,27 +94,35 @@ int main(void) {
       continue;
     }
 
-  
-    /*httpresponse*/
-    const char *body = "Hello from C server!\n";
-    char header[256];
-    int header_len = snprintf(
-      header, sizeof(header),
-      "HTTP/1.1 200 OK\r\n"
-      "Content-Type: text/plain; charset=utf-8\r\n"
-      "Content-Length: %zu\r\n"
-      "Connection: close\r\n"
-      "\r\n",
-      strlen(body)
-    );
+    printf("readData: %s", client.readData);
+    printf("Geostring: %s", geoString);
 
-    /*writedata with header and rsponse*/
-    size_t resp_len = (size_t)header_len + strlen(body);
-    client.writeData = (char*)malloc(resp_len);
-    memcpy(client.writeData, header, (size_t)header_len);
-    memcpy(client.writeData + header_len, body, strlen(body));
+    if ((strcmp(geoString, client.readData)) == 0) {
+      client.writeData = (char*)malloc(strlen(geoResponse) + 1);
+        if (!client.writeData) {
+          printf("Failed");
+          return -1;
+      }
+      strcpy(client.writeData, geoResponse);
+    } 
 
-    tcp_client_write(&client, resp_len);
+       else if (strcmp(weatherString, client.readData) == 0) {
+        client.writeData = (char*)malloc(strlen(weatherData) + 1);
+        if (!client.writeData) {
+          printf("Failed");
+          return -1;
+      }
+      strcpy(client.writeData, weatherData);
+    } else {
+       client.writeData = (char*)malloc(strlen(jsonError) + 1);
+        if (!client.writeData) {
+          printf("Failed");
+          return -1;
+      }
+      strcpy(client.writeData, jsonError);
+    }
+
+    tcp_client_write(&client, strlen(client.writeData));
 
     if (client.readData)  free(client.readData);
     if (client.writeData) free(client.writeData);
