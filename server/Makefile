@@ -1,6 +1,6 @@
-# ======================================
-# 🌤WeatherMaestro Server Makefile
-# ======================================
+# =================================================
+# ======= 🌤WeatherMaestro Server Makefile ========
+# =================================================
 
 # Compiler (use clang on macOS, gcc otherwise)
 UNAME_S := $(shell uname -s)
@@ -42,9 +42,7 @@ DEP := $(OBJ:.o=.d)
 # Binary name
 BIN := ../server_app
 
-# ========================
-# Build rules
-# ========================
+# ==================== Recipes ====================
 
 all: $(BIN)
 	@echo "Build complete."
@@ -68,8 +66,12 @@ clean:
 	@echo "Clean complete."
 
 valgrind: $(BIN)
-	@echo "Running using valgrind..."
+	@echo "Debugging using valgrind..."
 	@valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BIN)
+
+gdb: $(BIN)
+	@echo "Debugging using gdb..."
+	@gdb ./$(BIN)
 
 print:
 	@echo "Source files: $(SRC)"
@@ -78,4 +80,6 @@ print:
 
 -include $(DEP)
 
-.PHONY: all run clean print
+# ==================== Phonies ====================
+
+.PHONY: all run clean print gdb valgrind
