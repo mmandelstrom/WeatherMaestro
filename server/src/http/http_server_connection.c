@@ -1,40 +1,36 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <string.h>
-
-#include "../include/http_server.h"
-#include "../include/http_status_codes.h"
+#include "../../include/http.h"
 
 //-----------------Internal Functions-----------------
 
-void HTTPServerConnection_TaskWork(void* _Context, uint64_t _MonTime);
+void http_server_connection_taskwork(void* _Context, uint64_t _MonTime);
 
 //----------------------------------------------------
 
 #define RESPONSE_TEMPLATE "HTTP/1.1 %i %s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s"
 
-int HTTPServerConnection_Initiate(HTTPServerConnection* _Connection, int _fd)
+int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
 {
-	TCP_client_Initiate(&_Connection->tcpClient, );
+
+  _Connection->tcpClient.fd = _fd;
+	/* tcp_client_init(&_Connection->tcpClient, ); */
 	
-	_Connection->task = smw_create_task(_Connection, HTTPServerConnection_TaskWork);
+	_Connection->task = scheduler_create_task(_Connection, http_server_connection_taskwork);
   _Connection->state = 0;
   _Connection->status_code = HttpStatus_Continue;
 
 	return 0;
 }
 
-int HTTPServerConnection_InitiatePtr(int _fd, HTTPServerConnection** _ConnectionPtr)
+int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _ConnectionPtr)
 {
 	if(_ConnectionPtr == NULL)
 		return -1;
 
-	HTTPServerConnection* _Connection = (HTTPServerConnection*)malloc(sizeof(HTTPServerConnection));
+	HTTP_Server_Connection* _Connection = (HTTP_Server_Connection*)malloc(sizeof(HTTP_Server_Connection));
 	if(_Connection == NULL)
 		return -2;
 
-	int result = HTTPServerConnection_Initiate(_Connection, _fd);
+	int result = http_server_connection_initiate(_Connection, _fd);
 	if(result != 0)
 	{
 		free(_Connection);
@@ -46,18 +42,18 @@ int HTTPServerConnection_InitiatePtr(int _fd, HTTPServerConnection** _Connection
 	return 0;
 }
 
-void HTTPServerConnection_SetCallback(HTTPServerConnection* _Connection, void* _Context, HTTPServerConnection_OnRequest _OnRequest)
+void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _OnRequest)
 {
   _Connection->context = _Context;
   _Connection->onRequest = _OnRequest;
 }
 
 // --- TASKWORK STATE FUNCTIONS ---
-Http_Server_Connection_State http_server_work_init(HTTPServerConnection* _Connection)
+HTTPServerConnectionState http_server_connection_work_init(HTTP_Server_Connection* _Connection)
 {
   return HTTP_SERVER_READING_FIRSTLINE;
 }
-Http_Server_Connection_State http_server_work_read_firstline(HTTPServerConnection* _Connection)
+HTTPServerConnectionState http_server_connection_work_read_firstline(HTTP_Server_Connection* _Connection)
 {
   size_t used_space = 0;
   size_t capacity = 4;
@@ -87,7 +83,7 @@ Http_Server_Connection_State http_server_work_read_firstline(HTTPServerConnectio
       request = temp_buf;
     }
 
-    int bytes_recvd = TCP_client_read(&_Connection->tcpClient);
+    int bytes_recvd = tcp_client_read(&_Connection->tcpClient);
     if (bytes_recvd > 0)
     {
       used_space += bytes_recvd;
@@ -126,7 +122,7 @@ Http_Server_Connection_State http_server_work_read_firstline(HTTPServerConnectio
   perror("timeout");
   return HTTP_SERVER_DONE;
 }
-Http_Server_Connection_State http_server_work_read_headers(HTTPServerConnection* _Connection)
+HTTPServerConnectionState http_server_connection_work_read_headers(HTTP_Server_Connection* _Connection)
 {
   size_t used_space = 0;
   size_t capacity = 4;
@@ -156,7 +152,7 @@ Http_Server_Connection_State http_server_work_read_headers(HTTPServerConnection*
       request = temp_buf;
     }
 
-    int bytes_recvd = TCP_client_read(&_Connection->tcpClient);
+    int bytes_recvd = tcp_client_read(&_Connection->tcpClient);
     if (bytes_recvd > 0)
     {
       used_space += bytes_recvd;
@@ -191,7 +187,7 @@ Http_Server_Connection_State http_server_work_read_headers(HTTPServerConnection*
           while (*value == ' ') value++;
 
           /* Extract host header */
-          if (strcasecmp(key, "Host") == 0)
+          if (strcmp(key, "Host") == 0)
             _Connection->host = strdup(value);
 
           header = strtok(NULL, "\r\n");
@@ -222,12 +218,12 @@ Http_Server_Connection_State http_server_work_read_headers(HTTPServerConnection*
   perror("timeout");
   return HTTP_SERVER_DONE;
 }
-Http_Server_Connection_State http_server_work_read_body(HTTPServerConnection* _Connection)
+HTTPServerConnectionState http_server_connection_work_read_body(HTTP_Server_Connection* _Connection)
 {
   // TBA
   return HTTP_SERVER_RESPONDING;
 }
-Http_Server_Connection_State http_server_work_respond(HTTPServerConnection* _Connection)
+HTTPServerConnectionState http_server_connection_work_respond(HTTP_Server_Connection* _Connection)
 {
   _Connection->status_code = HttpStatus_OK;
 
@@ -267,7 +263,7 @@ Http_Server_Connection_State http_server_work_respond(HTTPServerConnection* _Con
 
     printf("RESPONSE: %s\n", _Connection->response);
 
-    int bytes_sent = TCP_client_write(&_Connection->tcpClient,
+    int bytes_sent = tcp_client_write(&_Connection->tcpClient,
         strlen(_Connection->response));
 
     if (bytes_sent < 0) {
@@ -278,7 +274,7 @@ Http_Server_Connection_State http_server_work_respond(HTTPServerConnection* _Con
 
   return HTTP_SERVER_CALLBACKING;
 }
-Http_Server_Connection_State http_server_work_callback(HTTPServerConnection* _Connection)
+HTTPServerConnectionState http_server_connection_work_callback(HTTP_Server_Connection* _Connection)
 {
   if(_Connection->onRequest != NULL)
   {
@@ -292,61 +288,61 @@ Http_Server_Connection_State http_server_work_callback(HTTPServerConnection* _Co
 }
 // -----------------------
 
-void HTTPServerConnection_TaskWork(void* _Context, uint64_t _MonTime)
+void http_server_connection_taskwork(void* _Context, uint64_t _MonTime)
 {
-	HTTPServerConnection* _Connection = (HTTPServerConnection*)_Context;
+	HTTP_Server_Connection* _Connection = (HTTP_Server_Connection*)_Context;
 
   switch (_Connection->state)
   {
     case HTTP_SERVER_INITING:
     {
-      _Connection->state = http_server_work_init(_Connection);
+      _Connection->state = http_server_connection_work_init(_Connection);
     } break;
 
     case HTTP_SERVER_READING_FIRSTLINE:
     {
-      _Connection->state = http_server_work_read_firstline(_Connection);
+      _Connection->state = http_server_connection_work_read_firstline(_Connection);
     } break;
 
     case HTTP_SERVER_READING_HEADERS:
     {
-      _Connection->state = http_server_work_read_headers(_Connection);
+      _Connection->state = http_server_connection_work_read_headers(_Connection);
     } break;
 
     case HTTP_SERVER_READING_BODY:
     {
-      _Connection->state = http_server_work_read_body(_Connection);
+      _Connection->state = http_server_connection_work_read_body(_Connection);
     } break;
 
     case HTTP_SERVER_RESPONDING:
     {
-      _Connection->state = http_server_work_respond(_Connection);
+      _Connection->state = http_server_connection_work_respond(_Connection);
     } break;
 
     case HTTP_SERVER_CALLBACKING:
     {
-      _Connection->state = http_server_work_callback(_Connection);
+      _Connection->state = http_server_connection_work_callback(_Connection);
     } break;
 
     case HTTP_SERVER_DONE:
     {
-      HTTPServerConnection_Dispose(_Connection);
+      http_server_connection_dispose(_Connection);
     } break;
   }
 }
 
-void HTTPServerConnection_Dispose(HTTPServerConnection* _Connection)
+void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
 {
-	TCP_client_Dispose(&_Connection->tcpClient);
-	smw_destroyTask(_Connection->task);
+	tcp_client_dispose(&_Connection->tcpClient);
+	scheduler_destroy_task(_Connection->task);
 }
 
-void HTTPServerConnection_DisposePtr(HTTPServerConnection** _ConnectionPtr)
+void http_server_connection_dispose_ptr(HTTP_Server_Connection** _ConnectionPtr)
 {
 	if(_ConnectionPtr == NULL || *(_ConnectionPtr) == NULL)
 		return;
 
-	HTTPServerConnection_Dispose(*(_ConnectionPtr));
+	http_server_connection_dispose(*(_ConnectionPtr));
 
   /* Free malloced member strings */
   if ((*_ConnectionPtr)->method != NULL)

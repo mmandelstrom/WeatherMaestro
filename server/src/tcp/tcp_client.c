@@ -1,4 +1,4 @@
-#include "../include/tcp_client.h"
+#include "../../include/tcp.h"
 
 /*---------------------Internal functions------------------------------*/
 int tcp_client_set_nonblocking(int fd);
@@ -64,7 +64,6 @@ int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
   return 0;
 }
 
-
 int tcp_client_init_ptr(TCP_Client** _ClientPtr, const char* _Host, const char* _Port) {
   if (!_ClientPtr) {
     return -1;
@@ -84,7 +83,6 @@ int tcp_client_init_ptr(TCP_Client** _ClientPtr, const char* _Host, const char* 
 
   return 0;
 }
-
 
 int tcp_client_read(TCP_Client* _Client) {
   if (!_Client) {

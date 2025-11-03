@@ -17,8 +17,8 @@ CACHE_DIR := data/cache
 CITIES_DIR := data/cities
 
 # Compilation flags
-CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Werror -Wfatal-errors -Wno-format-truncation -Iinclude
-# CFLAGS := -std=c99 -MMD -MP -Iinclude -g
+# CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Werror -Wfatal-errors -Wno-format-truncation -I../libs
+CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -g -I../libs -I../utils
 
 # Linker flags (auto-detect platform)
 ifeq ($(UNAME_S),Darwin)
@@ -40,7 +40,7 @@ OBJ := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRC))
 DEP := $(OBJ:.o=.d)
 
 # Binary name
-BIN := server
+BIN := ../server_app
 
 # ========================
 # Build rules

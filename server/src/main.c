@@ -1,7 +1,7 @@
-#include "../../libs/include/tcp_client.h"
-#include "../../libs/include/tcp_server.h"
 #include <stdio.h>
 #include <string.h>
+
+#include "../include/tcp.h"
 
 #define BACKLOG 15
 
@@ -12,7 +12,7 @@ int main(void) {
     return 1;
   }
 
-  const char *geoString = "GET /geo?stockholm HTTP/1.1\r\n"
+  const char *geoString = "GET /geo?city_name=stockholm HTTP/1.1\r\n"
 "Host: localhost:8080\r\n"
 "User-Agent: curl/8.16.0\r\n"
 "Accept: */*\r\n\r\n";
@@ -99,25 +99,25 @@ const char* jsonError =
 
     if ((strcmp(geoString, client.readData)) == 0) {
       client.writeData = (char*)malloc(strlen(geoResponse) + 1);
-        if (!client.writeData) {
-          printf("Failed");
-          return -1;
+      if (!client.writeData) {
+        printf("Failed");
+        return -1;
       }
       strcpy(client.writeData, geoResponse);
     } 
 
-       else if (strcmp(weatherString, client.readData) == 0) {
-        client.writeData = (char*)malloc(strlen(weatherData) + 1);
-        if (!client.writeData) {
-          printf("Failed");
-          return -1;
+    else if (strcmp(weatherString, client.readData) == 0) {
+      client.writeData = (char*)malloc(strlen(weatherData) + 1);
+      if (!client.writeData) {
+        printf("Failed");
+        return -1;
       }
       strcpy(client.writeData, weatherData);
     } else {
-       client.writeData = (char*)malloc(strlen(jsonError) + 1);
-        if (!client.writeData) {
-          printf("Failed");
-          return -1;
+      client.writeData = (char*)malloc(strlen(jsonError) + 1);
+      if (!client.writeData) {
+        printf("Failed");
+        return -1;
       }
       strcpy(client.writeData, jsonError);
     }
