@@ -1,52 +1,63 @@
-# === Project Settings === 
-CC       := gcc
-CFLAGS   := -Wall -Wextra -Ilibs/include
+# ======================================
+# 🌤 WeatherMaestro Main Makefile 
+# ======================================
 
-# OBS: smw.c (inte sm_worker.c)
-LIB_SRCS := libs/src/smw.c libs/src/tcp_client.c libs/src/tcp_server.c
-LIB_OBJS := $(LIB_SRCS:.c=.o)
+MODULES := server client client_cpp
 
-CLIENT_SRC := client/src/main.c
-CLIENT_OBJ := $(CLIENT_SRC:.c=.o)
-CLIENT_INC := -Iclient/include
+#############################
+# PHONIES
+#############################
 
-SERVER_SRC := server/src/main.c
-SERVER_OBJ := $(SERVER_SRC:.c=.o)
-SERVER_INC := -Iserver/include
 
-CLIENT_BIN := client_app
-SERVER_BIN := server_app
+.PHONY: all \
+	clean \
+	$(MODULES) \
+	$(addsuffix /run,$(MODULES)) \
+	$(addsuffix /clean,$(MODULES)) \
+	$(addsuffix /valgrind,$(MODULES)) \
+	$(addsuffix /gdb,$(MODULES)) \
 
-# === Build Rules ===
-.PHONY: all clean client server
 
-all: $(CLIENT_BIN) $(SERVER_BIN)
+#############################
+# Recipes
+#############################
 
-# --- Client ---
-$(CLIENT_BIN): $(CLIENT_OBJ) $(LIB_OBJS)
-	@echo "Linking $@"
-	$(CC) $(CFLAGS) -o $@ $^
 
-# --- Server ---
-$(SERVER_BIN): $(SERVER_OBJ) $(LIB_OBJS)
-	@echo " Linking $@"
-	$(CC) $(CFLAGS) -o $@ $^
+# Default target: build all modules
+all: $(MODULES)
 
-# --- Target-specifika flaggor (för include-sökvägar) ---
-client/src/%.o: CFLAGS += $(CLIENT_INC)
-server/src/%.o: CFLAGS += $(SERVER_INC)
-libs/src/%.o:   CFLAGS += -Ilibs/include
-
-# --- Generisk objekregel ---
-%.o: %.c
-	@echo "Compiling $<"
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# --- Individual Builds ---
-client: $(CLIENT_BIN)
-server: $(SERVER_BIN)
-
-# --- Cleanup ---
 clean:
-	@echo "Cleaning build files..."
-	rm -f $(CLIENT_OBJ) $(SERVER_OBJ) $(LIB_OBJS) $(CLIENT_BIN) $(SERVER_BIN)
+	@for module in $(MODULES); do \
+		echo "Cleaning $$module..."; \
+		$(MAKE) -C $$module clean; \
+	done
+	@echo "All modules cleaned."
+
+# Build each module with symlinks created first
+$(MODULES):
+	@echo "Building module $@..."
+	$(MAKE) -C $@ all
+
+# Run target using make [module]/run
+$(addsuffix /run,$(MODULES)):
+	@MODULE=$(@D); \
+	echo "Running module $$MODULE..."; \
+	$(MAKE) -C $$MODULE run
+
+# Clean target using make [module]/clean
+$(addsuffix /clean,$(MODULES)):
+	@MODULE=$(@D); \
+	echo "Cleaning module $$MODULE..."; \
+	$(MAKE) -C $$MODULE clean
+
+# Run valgrind on target using [module]/valgrind
+$(addsuffix /valgrind,$(MODULES)):
+	@MODULE=$(@D); \
+	echo "Debugging module $$MODULE using valgrind..."; \
+	$(MAKE) -C $$MODULE valgrind
+
+# Run gdb on target using [module]/valgrind
+$(addsuffix /gdb,$(MODULES)):
+	@MODULE=$(@D); \
+	echo "Debugging module $$MODULE using gdb..."; \
+	$(MAKE) -C $$MODULE gdb 

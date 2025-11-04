@@ -1,5 +1,4 @@
-#include "../../libs/include/tcp_client.h"
-#include "../../libs/include/tcp_server.h"
+#include "../include/tcp.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -119,4 +118,3 @@ int main(void) {
   tcp_server_dispose(&server);
   return 0;
 }
-

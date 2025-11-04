@@ -1,4 +1,4 @@
-#include "../include/http_status_codes.h"
+#include "../include/http/HTTPStatusCodes.h"
 
 
 char HttpStatus_isInformational(int code) { return (code >= 100 && code < 200); } /*!< \returns \c true if the given \p code is an informational code. */

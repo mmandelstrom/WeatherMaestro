@@ -1,18 +1,4 @@
-#include "../include/tcp_server.h"
-#include <asm-generic/socket.h>
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <string.h>
-#include <stdio.h>
-#define MAX_CLIENTS 15
+#include "../../include/tcp.h"
 
 int tcp_server_set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
