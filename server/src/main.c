@@ -1,6 +1,7 @@
 #include "../include/tcp.h"
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #define BACKLOG 15
 
@@ -89,7 +90,7 @@ int main(void) {
     for (i = 0; i < 200; ++i) {        /* ≈2s total */
       bytesRead = tcp_client_read(&client);
       if (bytesRead != 0) break;       /* >0 done, <0: error */
-        usleep(10000);
+        sleep(1);
       }
    
     if (bytesRead > 0 && client.readData) {

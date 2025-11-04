@@ -8,14 +8,13 @@ int tcp_server_set_nonblocking(int fd) {
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-int tcp_server_init(TCP_Server *_Server, const char *_Port, int _Backlog) {
+int tcp_server_init(TCP_Server *_Server, const char *_Port, tcp_server_on_accept _OnAccept) {
   if (!_Server) {
     return -1;
   }
-  
+  _Server->on_accept = _OnAccept; 
   _Server->fd = -1;
   _Server->port = _Port;
-  _Server->backlog = _Backlog;
 
   struct addrinfo addresses;
   memset(&addresses, 0, sizeof(addresses));
@@ -48,7 +47,7 @@ int tcp_server_init(TCP_Server *_Server, const char *_Port, int _Backlog) {
       continue; /*try next*/
     }
 
-    if (listen(fd, _Backlog) != 0) {
+    if (listen(fd, BACKLOG) != 0) {
       perror("listen");
       close(fd);
       fd = -1;
@@ -76,7 +75,7 @@ int tcp_server_init(TCP_Server *_Server, const char *_Port, int _Backlog) {
 }
 
 
-int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, int _Backlog) {
+int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept) {
   if (!_ServerPtr) {
     return -1;
   }
@@ -85,7 +84,7 @@ int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, int _Backlog
     perror("malloc");
     return -2;
   }
-  int result = tcp_server_init(server, _Port, _Backlog);
+  int result = tcp_server_init(server, _Port, _OnAccept);
   if (result != 0) {
     free(server);
     return -3;
@@ -112,6 +111,8 @@ int tcp_server_accept(TCP_Server *_Server) {
 
   (void)tcp_server_set_nonblocking(client_fd);
 
+  _Server->on_accept(client_fd, (void*)_Server);
+
   return client_fd;
 }
 
@@ -128,7 +129,7 @@ void tcp_server_dispose(TCP_Server *_Server) {
   }
 
   _Server->port = NULL;
-  _Server->backlog = 0;
+  _Server->on_accept = NULL;
 }
 
 void tcp_server_dispose_ptr(TCP_Server** _ServerPtr) {

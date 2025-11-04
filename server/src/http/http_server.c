@@ -13,7 +13,7 @@ int http_server_init(HTTP_Server* _Server, http_server_on_connection _callback)
 {
 	_Server->on_connection = _callback;
 
-	/* tcp_server_init(&_Server->tcpServer, "58080", http_server_on_accept); */
+	tcp_server_init(&_Server->tcpServer, "58080", http_server_on_accept); 
 	
 	_Server->task = scheduler_create_task(_Server, http_server_taskwork);
 

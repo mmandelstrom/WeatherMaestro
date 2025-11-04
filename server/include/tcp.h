@@ -18,7 +18,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-
+#define BACKLOG 15
 #define MAX_CLIENTS 15
 
 
@@ -63,17 +63,18 @@ typedef enum {
   SERVER_STATE_ERROR
 } ServerState;
 
+typedef int (*tcp_server_on_accept)(int _FD, void* _Context);
+
 typedef struct {
   int fd;
   const char* port;
-  int backlog;
   ServerState state;
-
+  tcp_server_on_accept on_accept;
 } TCP_Server;
 
 
-int tcp_server_init(TCP_Server *_Server, const char* _Port, int _Backlog);
-int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, int _Backlog);
+int tcp_server_init(TCP_Server *_Server, const char* _Port, tcp_server_on_accept _OnAccept);
+int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept);
 int tcp_server_accept(TCP_Server *_Server);
 void tcp_server_dispose(TCP_Server *_Server);
 void tcp_server_dispose_ptr(TCP_Server** _ServerPtr);
