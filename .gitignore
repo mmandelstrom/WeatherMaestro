@@ -53,3 +53,13 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# No .bak
+*.bak
+
+# No binaries ending with _app
+*_app
+
+#Untracking these for now
+external/
+core/
