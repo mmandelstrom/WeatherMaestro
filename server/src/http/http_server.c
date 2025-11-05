@@ -20,7 +20,7 @@ int http_server_init(HTTP_Server* _Server, http_server_on_connection _callback)
 	return 0;
 }
 
-int HTTP_Server_InitiatePtr(http_server_on_connection _callback, HTTP_Server** _ServerPtr)
+int http_server_initiate_ptr(http_server_on_connection _callback, HTTP_Server** _ServerPtr)
 {
 	if(_ServerPtr == NULL)
 		return -1;
@@ -70,7 +70,7 @@ void http_server_dispose(HTTP_Server* _Server)
 	scheduler_destroy_task(_Server->task);
 }
 
-void HTTP_Server_DisposePtr(HTTP_Server** _ServerPtr)
+void http_server_dispose_ptr(HTTP_Server** _ServerPtr)
 {
 	if(_ServerPtr == NULL || *(_ServerPtr) == NULL)
 		return;

@@ -4,6 +4,41 @@
 #include "tcp.h"
 #include "scheduler.h"
 
+/* ******************************************************************* */
+/* ************************** HTTP PARSER **************************** */
+/* ******************************************************************* */
+
+#include "../../libs/include/HTTPStatusCodes.h"
+
+typedef enum
+{
+  HTTP_GET,
+  HTTP_POST,
+  HTTP_PUT,
+  HTTP_DOWNLOAD
+
+} HTTPMethod;
+
+typedef struct
+{
+  HTTPMethod method; // HTTP Method used
+  char* host; // Host IP/domain
+  char* port; // Host port
+  char* headers; // HTTP request headers
+  char* params; // HTTP request params
+
+} HTTP_Request;
+
+typedef struct
+{
+  HTTP_Request* request;
+
+  enum HttpStatus_Code status_code;
+  char* response; // Request response
+
+} HTTP_Response;
+
+int http_server_parse_request(HTTP_Request* _Request);
 
 /* ******************************************************************* */
 /* ************************ HTTP CONNECTION ************************** */
@@ -13,12 +48,10 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
-
-#include "../../libs/include/HTTPStatusCodes.h"
 #include "../../utils/include/utils.h"
 
 
-typedef int (*http_server_connection_on_request)(void* _Context);
+typedef int (*http_server_connection_on_request)(int _fd, void* _context);
 
 typedef enum
 {
@@ -37,12 +70,7 @@ typedef struct
 	TCP_Client tcpClient;
 
 	void* context;
-	http_server_connection_on_request onRequest;
-
-  enum HttpStatus_Code status_code;
-  char* host; // Request URL 
-	char* method; // HTTP method
-  char* response; // Request response
+	http_server_connection_on_request on_request;
 
   HTTPServerConnectionState state;
 
@@ -51,10 +79,10 @@ typedef struct
 } HTTP_Server_Connection;
 
 
-int http_server_connection_initiate(HTTP_Server_Connection* _Connection, int _FD);
-int http_server_connection_initiate_ptr(int _FD, HTTP_Server_Connection** _ConnectionPtr);
+int http_server_connection_initiate(HTTP_Server_Connection* _Connection, int _fd);
+int http_server_connection_initiate_ptr(int _fd, HTTP_Server_Connection** _ConnectionPtr);
 
-void http_server_connection_setcallback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _OnRequest);
+void http_server_connection_setcallback(HTTP_Server_Connection* _Connection, void* _context, http_server_connection_on_request _on_response);
 
 void http_server_connection_dispose(HTTP_Server_Connection* _Connection);
 void http_server_connection_dispose_ptr(HTTP_Server_Connection** _ConnectionPtr);

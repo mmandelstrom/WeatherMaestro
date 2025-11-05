@@ -16,7 +16,7 @@ int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
 	
 	_Connection->task = scheduler_create_task(_Connection, http_server_connection_taskwork);
   _Connection->state = 0;
-  _Connection->status_code = HttpStatus_Continue;
+  /* _Connection->status_code = HttpStatus_Continue; */
 
 	return 0;
 }
@@ -42,10 +42,10 @@ int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connectio
 	return 0;
 }
 
-void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _OnRequest)
+void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request)
 {
   _Connection->context = _Context;
-  _Connection->onRequest = _OnRequest;
+  _Connection->on_request = _on_request;
 }
 
 // --- TASKWORK STATE FUNCTIONS ---
