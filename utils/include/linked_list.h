@@ -22,6 +22,8 @@ typedef struct
 
 } Linked_List;
 
+#define linked_list_foreach(list, node) \
+  for (Linked_Item* node = (list)->head; node != NULL; node = node->next)
 
 int linked_list_add(Linked_List* _Linked_List, Linked_Item** _Linked_Item_Ptr, void* _item);
 

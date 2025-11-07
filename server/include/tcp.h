@@ -1,5 +1,5 @@
-#ifndef __TCP_SERVER_H__
-#define __TCP_SERVER_H__
+#ifndef __TCP_H__
+#define __TCP_H__
 
 #define _POSIX_C_SOURCE 200809L /* This must be defined before netdb.h */
 
@@ -18,6 +18,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+
 #define BACKLOG 15
 #define MAX_CLIENTS 15
 

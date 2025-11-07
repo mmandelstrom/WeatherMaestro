@@ -5,22 +5,23 @@
 //-----------------Internal Functions-----------------
 
 void http_server_taskwork(void* _Context, uint64_t _MonTime);
-int http_server_on_accept(int _FD, void* _Context);
+int http_server_on_accept(int _fd, void* _Context);
 
 //----------------------------------------------------
 
-int http_server_init(HTTP_Server* _Server, http_server_on_connection _callback)
+int http_server_init(HTTP_Server* _Server, http_server_on_connection _callback, void* _context)
 {
 	_Server->on_connection = _callback;
+  _Server->context = _context;
 
-	tcp_server_init(&_Server->tcpServer, "58080", http_server_on_accept); 
+	tcp_server_init(&_Server->tcp_server, "58080", http_server_on_accept); 
 	
 	_Server->task = scheduler_create_task(_Server, http_server_taskwork);
 
 	return 0;
 }
 
-int http_server_initiate_ptr(http_server_on_connection _callback, HTTP_Server** _ServerPtr)
+int http_server_initiate_ptr(http_server_on_connection _callback, void* _context, HTTP_Server** _ServerPtr)
 {
 	if(_ServerPtr == NULL)
 		return -1;
@@ -29,7 +30,7 @@ int http_server_initiate_ptr(http_server_on_connection _callback, HTTP_Server** 
 	if(_Server == NULL)
 		return -2;
 
-	int result = http_server_init(_Server, _callback);
+	int result = http_server_init(_Server, _callback, _context);
 	if(result != 0)
 	{
 		free(_Server);
@@ -41,12 +42,12 @@ int http_server_initiate_ptr(http_server_on_connection _callback, HTTP_Server** 
 	return 0;
 }
 
-int http_server_on_accept(int _FD, void* _Context)
+int http_server_on_accept(int _fd, void* _Context)
 {
 	HTTP_Server* _Server = (HTTP_Server*)_Context;
 
 	HTTP_Server_Connection* connection = NULL;
-	int result = http_server_connection_initiate_ptr(_FD, &connection);
+	int result = http_server_connection_init_ptr(_fd, &connection);
 	if(result != 0)
 	{
 		printf("HTTP_Server_OnAccept: Failed to initiate connection\n");
@@ -58,7 +59,7 @@ int http_server_on_accept(int _FD, void* _Context)
 	return 0;
 }
 
-void http_server_taskwork(void* _Context, uint64_t _MonTime)
+void http_server_taskwork(void* _context, uint64_t _montime)
 {
 	//HTTP_Server* _Server = (HTTP_Server*)_Context;
 	
@@ -66,7 +67,7 @@ void http_server_taskwork(void* _Context, uint64_t _MonTime)
 
 void http_server_dispose(HTTP_Server* _Server)
 {
-	tcp_server_dispose(&_Server->tcpServer);
+	tcp_server_dispose(&_Server->tcp_server);
 	scheduler_destroy_task(_Server->task);
 }
 

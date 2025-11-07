@@ -3,7 +3,7 @@
 void weather_server_taskwork(void* _context, uint64_t _montime);
 int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _Connection);
 
-int weather_server_init(WeatherServer* _Server)
+int weather_server_init(Weather_Server* _Server)
 {
   int result;
 
@@ -12,16 +12,19 @@ int weather_server_init(WeatherServer* _Server)
   if (result != 0)
     return -1;
 
+  Linked_List* Instances;
+  _Server->instances = Instances;
+
   _Server->task = scheduler_create_task(_Server, weather_server_taskwork);
 
   return 0;
 }
 
-int weather_server_init_ptr(WeatherServer** _Server_Ptr)
+int weather_server_init_ptr(Weather_Server** _Server_Ptr)
 {
   int result;
 
-  _Server_Ptr = malloc(sizeof(WeatherServer));
+  _Server_Ptr = malloc(sizeof(Weather_Server));
   if (_Server_Ptr == NULL)
     return -1;
 
@@ -47,15 +50,21 @@ WEATHER_SERVER_DONE
 
 void weather_server_taskwork(void* _Context, uint64_t _MonTime)
 {
-  
+	Weather_Server* _Server = (Weather_Server*)_Context;
+
+  Weather_Server_Instance* Instance;
+  weather_server_instance_taskwork(Instance, _MonTime);
 }
 
 int weather_server_on_http_connection(void* _Context, HTTP_Server_Connection* _Connection)
 {
   
+  /* */
+  
+  return 0;
 }
 
-void weather_server_dispose(WeatherServer* _Server)
+void weather_server_dispose(Weather_Server* _Server)
 {
 	http_server_dispose(&_Server->http_server);
 	scheduler_destroy_task(_Server->task);

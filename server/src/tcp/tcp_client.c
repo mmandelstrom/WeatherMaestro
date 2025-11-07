@@ -11,6 +11,7 @@ int tcp_client_set_nonblocking(int fd) {
     return 0;
 }
 
+
 int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
   _Client->fd = -1;
   _Client->readData = NULL;

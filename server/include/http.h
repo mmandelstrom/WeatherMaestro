@@ -1,44 +1,52 @@
 #ifndef __HTTP_SERVER_H_
 #define __HTTP_SERVER_H_
 
-#include "tcp.h"
-#include "scheduler.h"
 
 /* ******************************************************************* */
-/* ************************** HTTP PARSER **************************** */
+/* ************************** HTTP PARSING *************************** */
 /* ******************************************************************* */
+
+#include <stdint.h>
 
 #include "../../libs/include/HTTPStatusCodes.h"
 
 typedef enum
 {
+  HTTP_OPTIONS,
   HTTP_GET,
   HTTP_POST,
   HTTP_PUT,
-  HTTP_DOWNLOAD
+  HTTP_DOWNLOAD,
+
+  METHOD_COUNT
 
 } HTTPMethod;
 
 typedef struct
 {
-  HTTPMethod method; // HTTP Method used
-  char* host; // Host IP/domain
-  char* port; // Host port
-  char* headers; // HTTP request headers
-  char* params; // HTTP request params
-
-} HTTP_Request;
-
-typedef struct
-{
-  HTTP_Request* request;
-
   enum HttpStatus_Code status_code;
-  char* response; // Request response
+
+  const char*          head;
+  const char*          headers;
+  const char*          body;  
 
 } HTTP_Response;
 
-int http_server_parse_request(HTTP_Request* _Request);
+typedef struct
+{
+  HTTPMethod     method; // HTTP Method used
+  
+  uint8_t        buf[1024]; // Raw request buffer
+  int            buf_len;
+
+  const char*    headers; // HTTP request headers
+  const char*    params; // HTTP request params
+
+} HTTP_Request;
+
+/** Builds the request struct from input string */
+int http_server_parse_request_string(const char* _request_str, HTTP_Request* _Request);
+
 
 /* ******************************************************************* */
 /* ************************ HTTP CONNECTION ************************** */
@@ -48,71 +56,78 @@ int http_server_parse_request(HTTP_Request* _Request);
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
+
+#include "tcp.h"
+#include "scheduler.h"
+
 #include "../../utils/include/utils.h"
 
 
-typedef int (*http_server_connection_on_request)(int _fd, void* _context);
+/* The usecase of the function pointer is to let the connection instance point back to a server nstance's function without knowing exactly what it is or needs */
+typedef int (*http_server_connection_on_request)(void* _context);
 
 typedef enum
 {
-  HTTP_SERVER_INITING,
-  HTTP_SERVER_READING_FIRSTLINE,
-  HTTP_SERVER_READING_HEADERS,
-  HTTP_SERVER_READING_BODY,
-  HTTP_SERVER_RESPONDING,
-  HTTP_SERVER_CALLBACKING,
-  HTTP_SERVER_DONE
+  HTTP_SERVER_CONNECTION_INITIALIZING,
+  HTTP_SERVER_CONNECTION_READING_FIRSTLINE,
+  HTTP_SERVER_CONNECTION_READING_HEADERS,
+  HTTP_SERVER_CONNECTION_READING_BODY,
+  HTTP_SERVER_CONNECTION_RESPONDING,
+  HTTP_SERVER_CONNECTION_DISPOSING,
 
 } HTTPServerConnectionState;
 
 typedef struct
 {
-	TCP_Client tcpClient;
+  HTTPServerConnectionState         state;
 
-	void* context;
+	void*                             context;
 	http_server_connection_on_request on_request;
 
-  HTTPServerConnectionState state;
+  Scheduler_Task*                   task;
+  TCP_Client                        tcp_client;
 
-	Scheduler_Task* task;
+  HTTP_Request                      request;
+  HTTP_Response                     response;
 
 } HTTP_Server_Connection;
 
 
-int http_server_connection_initiate(HTTP_Server_Connection* _Connection, int _fd);
-int http_server_connection_initiate_ptr(int _fd, HTTP_Server_Connection** _ConnectionPtr);
+int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd);
+int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connection_Ptr);
 
-void http_server_connection_setcallback(HTTP_Server_Connection* _Connection, void* _context, http_server_connection_on_request _on_response);
+/* To be called by the dependent module to define what to run when request is made */
+void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request);
 
 void http_server_connection_dispose(HTTP_Server_Connection* _Connection);
-void http_server_connection_dispose_ptr(HTTP_Server_Connection** _ConnectionPtr);
+void http_server_connection_dispose_ptr(HTTP_Server_Connection** _Connection_Ptr);
 
 
 /* ******************************************************************* */
 /* ************************** HTTP SERVER **************************** */
 /* ******************************************************************* */
 /* This is the main HTTP building block
- * It spawns the TCP Server
- * Also a scheduler task for every connection made */
+ * It spawns the TCP Server and a scheduler task for every connection made */
 
 typedef int (*http_server_on_connection)(void* _Context, HTTP_Server_Connection* _Connection);
 
 typedef struct
 {
 	http_server_on_connection on_connection;
+  void*                     context;
 
-	TCP_Server tcpServer;
-	Scheduler_Task* task;
+	TCP_Server                tcp_server;
+	Scheduler_Task*           task;
 
 } HTTP_Server;
 
 
-int http_server_init(HTTP_Server* _Server, http_server_on_connection _OnConnection);
-int http_server_init_ptr(http_server_on_connection _OnConnection, HTTP_Server** _ServerPtr);
+int http_server_init(HTTP_Server* _Server, http_server_on_connection _on_connection, void* _context);
+int http_server_init_ptr(http_server_on_connection _on_connection, void* _context, HTTP_Server** _Server_Ptr);
 
 
 void http_server_dispose(HTTP_Server* _Server);
-void http_server_dispose_ptr(HTTP_Server** _ServerPtr);
+void http_server_dispose_ptr(HTTP_Server** _Server_Ptr);
 
 
 #endif //__HTTP_Server_h_
