@@ -18,7 +18,7 @@ typedef enum
 
 typedef struct
 {
-  HTTP_Server_Connection http_connection;
+  HTTP_Server_Connection* http_connection;
 
 } Weather_Server_Instance;
 
@@ -26,7 +26,7 @@ typedef struct
 int weather_server_instance_init(Weather_Server_Instance* _Server, HTTP_Server_Connection* _Connection);
 int weather_server_instance_init_ptr(HTTP_Server_Connection* _Connection, Weather_Server_Instance** _Server_Ptr);
 
-void weather_server_instance_taskwork(Weather_Server_Instance* _Instance, uint64_t _MonTime);
+void weather_server_instance_taskwork(Weather_Server_Instance* _Instance, uint64_t _montime);
 
 void weather_server_instance_dispose(Weather_Server_Instance* _Server);
 void weather_server_instance_dispose_ptr(Weather_Server_Instance** _Server_Ptr);

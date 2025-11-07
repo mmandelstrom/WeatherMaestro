@@ -2,7 +2,7 @@
 # 🌤 WeatherMaestro Main Makefile 
 # ======================================
 
-MODULES := server client client_cpp
+MODULES := server client
 
 #############################
 # PHONIES
@@ -56,7 +56,7 @@ $(addsuffix /valgrind,$(MODULES)):
 	echo "Debugging module $$MODULE using valgrind..."; \
 	$(MAKE) -C $$MODULE valgrind
 
-# Run gdb on target using [module]/valgrind
+# Run gdb on target using [module]/gdb
 $(addsuffix /gdb,$(MODULES)):
 	@MODULE=$(@D); \
 	echo "Debugging module $$MODULE using gdb..."; \

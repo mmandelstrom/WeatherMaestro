@@ -85,6 +85,11 @@ int tcp_client_init_ptr(TCP_Client** _ClientPtr, const char* _Host, const char* 
   return 0;
 }
 
+int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len) {
+  return recv(_Client->fd, _buf, _buf_len, MSG_DONTWAIT);
+}
+
+
 int tcp_client_read(TCP_Client* _Client) {
   if (!_Client) {
     return -1;

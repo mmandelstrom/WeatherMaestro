@@ -60,6 +60,9 @@ dkms.conf
 # No binaries ending with _app
 *_app
 
+# No build folder
+build/
+
 #Untracking these for now
 external/
 core/

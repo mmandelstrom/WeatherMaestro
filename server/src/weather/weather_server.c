@@ -7,7 +7,7 @@ int weather_server_init(Weather_Server* _Server)
 {
   int result;
 
-  result = http_server_init(&_Server->http_server, weather_server_on_http_connection);
+  result = http_server_init(&_Server->http_server, weather_server_on_http_connection, _Server);
 
   if (result != 0)
     return -1;
@@ -35,7 +35,7 @@ int weather_server_init_ptr(Weather_Server** _Server_Ptr)
   return 0;
 }
 
-// --- TASKWORK STATE FUNCTIONS ---
+/* --------------TASKWORK STATE FUNCTIONS-------------- */
 WeatherServerState weather_server_handle_request(Weather_Server* _Server)
 {
 
@@ -47,7 +47,7 @@ WEATHER_SERVER_RUNNING,
 WEATHER_SERVER_HANDLING_REQUEST,
 WEATHER_SERVER_DONE
 */
-
+/* ---------------------------------------------------- */
 void weather_server_taskwork(void* _Context, uint64_t _MonTime)
 {
 	Weather_Server* _Server = (Weather_Server*)_Context;
@@ -56,10 +56,23 @@ void weather_server_taskwork(void* _Context, uint64_t _MonTime)
   weather_server_instance_taskwork(Instance, _MonTime);
 }
 
-int weather_server_on_http_connection(void* _Context, HTTP_Server_Connection* _Connection)
+int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _Connection)
 {
   
-  /* */
+	Weather_Server* _Server = (Weather_Server*)_context;
+	
+	Weather_Server_Instance* Instance = NULL;
+	int result = weather_server_instance_init_ptr(_Connection, &Instance);
+	if(result != 0)
+	{
+		printf("WeatherServer_OnHTTPConnection: Failed to initiate instance\n");
+		return -1;
+	}
+
+  Linked_Item* LI;
+
+	linked_list_add(_Server->instances, &LI, Instance);
+
   
   return 0;
 }
