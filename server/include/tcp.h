@@ -19,6 +19,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#include "scheduler.h"
+
 #define BACKLOG 15
 #define MAX_CLIENTS 15
 
@@ -43,12 +45,12 @@ typedef struct {
 } TCP_Client;
 
 
-int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port);
-int tcp_client_init_ptr(TCP_Client** _ClientPtr, const char* _Host, const char* _Port);
+int tcp_client_init(TCP_Client* _Client, const char* _host, const char* _port);
+int tcp_client_init_ptr(TCP_Client** _ClientPtr, const char* _host, const char* _port);
 
 int tcp_client_read(TCP_Client* _Client);
 int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len);
-int tcp_client_write(TCP_Client* _Client, size_t _Length);
+int tcp_client_write(TCP_Client* _Client, size_t _length);
 
 void tcp_client_dispose(TCP_Client* _Client);
 void tcp_client_dispose_ptr(TCP_Client** _ClientPtr);
@@ -67,20 +69,25 @@ typedef enum {
   SERVER_STATE_ERROR
 } ServerState;
 
-typedef int (*tcp_server_on_accept)(int _FD, void* _Context);
+typedef int (*tcp_server_on_accept)(int _fd, void* _context);
 
 typedef struct {
   int fd;
   const char* port;
   ServerState state;
   tcp_server_on_accept on_accept;
+  Scheduler_Task* task;
+  void* context;
+
 } TCP_Server;
 
 
-int tcp_server_init(TCP_Server *_Server, const char* _Port, tcp_server_on_accept _OnAccept);
-int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept);
-int tcp_server_accept(TCP_Server *_Server);
-void tcp_server_dispose(TCP_Server *_Server);
-void tcp_server_dispose_ptr(TCP_Server** _ServerPtr);
+int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept _on_accept, void* _context);
+int tcp_server_init_ptr(TCP_Server** _Server_Ptr, const char* _port, tcp_server_on_accept _on_accept, void* _context);
+
+int tcp_server_accept(TCP_Server* _Server);
+
+void tcp_server_dispose(TCP_Server* _Server);
+void tcp_server_dispose_ptr(TCP_Server** _Server_Ptr);
 
 #endif /* __TCP_SERVER_H__ */

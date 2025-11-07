@@ -79,7 +79,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(BIN)
-	@echo "Running Weatherio..."
+	@echo "Running $<..."
 	@./$(BIN)
 
 clean:
@@ -88,11 +88,11 @@ clean:
 	@echo "Clean complete."
 
 valgrind: $(BIN)
-	@echo "Debugging using valgrind..."
+	@echo "Debugging $< using valgrind..."
 	@valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BIN)
 
 gdb: $(BIN)
-	@echo "Debugging using gdb..."
+	@echo "Debugging $< using gdb..."
 	@gdb ./$(BIN)
 
 print:

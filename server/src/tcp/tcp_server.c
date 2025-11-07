@@ -1,5 +1,11 @@
 #include "../../include/tcp.h"
 
+/* -----------------Internal Functions----------------- */
+
+void tcp_server_taskwork(void* _Context, uint64_t _MonTime);
+
+/* ---------------------------------------------------- */
+
 int tcp_server_set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
   if (flags < 0) {
@@ -8,11 +14,12 @@ int tcp_server_set_nonblocking(int fd) {
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-int tcp_server_init(TCP_Server *_Server, const char *_Port, tcp_server_on_accept _OnAccept) {
+int tcp_server_init(TCP_Server *_Server, const char *_Port, tcp_server_on_accept _OnAccept, void* _context) {
   if (!_Server) {
     return -1;
   }
   _Server->on_accept = _OnAccept; 
+  _Server->context = _context;
   _Server->fd = -1;
   _Server->port = _Port;
 
@@ -65,6 +72,8 @@ int tcp_server_init(TCP_Server *_Server, const char *_Port, tcp_server_on_accept
 
     printf("Server listening on port: %s\n", _Server->port);
     freeaddrinfo(res);
+	  
+    _Server->task = scheduler_create_task(_Server, tcp_server_taskwork);
 
     return 0;
   }
@@ -75,7 +84,7 @@ int tcp_server_init(TCP_Server *_Server, const char *_Port, tcp_server_on_accept
 }
 
 
-int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept) {
+int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept, void* _context) {
   if (!_ServerPtr) {
     return -1;
   }
@@ -84,7 +93,7 @@ int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_o
     perror("malloc");
     return -2;
   }
-  int result = tcp_server_init(server, _Port, _OnAccept);
+  int result = tcp_server_init(server, _Port, _OnAccept, _context);
   if (result != 0) {
     free(server);
     return -3;
@@ -104,16 +113,26 @@ int tcp_server_accept(TCP_Server *_Server) {
   struct sockaddr_storage address; /*Works for both ipv4 & ipv6*/
   socklen_t addressLength = sizeof(address);
 
+  /* int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength); */
   int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength);
   if (client_fd < 0) {
-    return -1;
+    return -1; // No connection yet
   }
 
-  (void)tcp_server_set_nonblocking(client_fd);
+  tcp_server_set_nonblocking(client_fd);
 
-  _Server->on_accept(client_fd, (void*)_Server);
+  int result = _Server->on_accept(client_fd, _Server);
+  if (result != 0)
+    close(client_fd);
 
-  return client_fd;
+  return 0;
+}
+
+void tcp_server_taskwork(void* _Context, uint64_t _MonTime)
+{
+	TCP_Server* _Server = (TCP_Server*)_Context;
+
+	tcp_server_accept(_Server);
 }
 
 void tcp_server_dispose(TCP_Server *_Server) {

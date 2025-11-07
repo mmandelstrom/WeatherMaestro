@@ -125,7 +125,6 @@ typedef struct
 int http_server_init(HTTP_Server* _Server, http_server_on_connection _on_connection, void* _context);
 int http_server_init_ptr(http_server_on_connection _on_connection, void* _context, HTTP_Server** _Server_Ptr);
 
-
 void http_server_dispose(HTTP_Server* _Server);
 void http_server_dispose_ptr(HTTP_Server** _Server_Ptr);
 

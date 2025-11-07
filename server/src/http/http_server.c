@@ -2,19 +2,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-//-----------------Internal Functions-----------------
+/* -----------------Internal Functions----------------- */
 
 void http_server_taskwork(void* _Context, uint64_t _MonTime);
 int http_server_on_accept(int _fd, void* _Context);
 
-//----------------------------------------------------
+/* ---------------------------------------------------- */
 
 int http_server_init(HTTP_Server* _Server, http_server_on_connection _callback, void* _context)
 {
 	_Server->on_connection = _callback;
   _Server->context = _context;
 
-	tcp_server_init(&_Server->tcp_server, "58080", http_server_on_accept); 
+	tcp_server_init(&_Server->tcp_server, "58080", http_server_on_accept, _Server); 
 	
 	_Server->task = scheduler_create_task(_Server, http_server_taskwork);
 
@@ -46,15 +46,17 @@ int http_server_on_accept(int _fd, void* _Context)
 {
 	HTTP_Server* _Server = (HTTP_Server*)_Context;
 
-	HTTP_Server_Connection* connection = NULL;
-	int result = http_server_connection_init_ptr(_fd, &connection);
+	HTTP_Server_Connection* Connection = NULL;
+	int result = http_server_connection_init_ptr(_fd, &Connection);
 	if(result != 0)
 	{
-		printf("HTTP_Server_OnAccept: Failed to initiate connection\n");
+		printf("HTTP Server on TCP Accept: Failed to initiate connection\n");
 		return -1;
 	}
 
-	_Server->on_connection(_Server, connection);
+  printf("On accept _Server: %p\n", _Server);
+
+	_Server->on_connection(_Server, Connection);
 	
 	return 0;
 }
