@@ -70,11 +70,12 @@ typedef struct {
   const char* port;
   ServerState state;
   tcp_server_on_accept on_accept;
+  void* context;
 } TCP_Server;
 
-
-int tcp_server_init(TCP_Server *_Server, const char* _Port, tcp_server_on_accept _OnAccept);
-int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept);
+void tcp_server_work(TCP_Server* _Server);
+int tcp_server_init(TCP_Server *_Server, const char* _Port, tcp_server_on_accept _OnAccept, void* _Context);
+int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept, void* _Context);
 int tcp_server_accept(TCP_Server *_Server);
 void tcp_server_dispose(TCP_Server *_Server);
 void tcp_server_dispose_ptr(TCP_Server** _ServerPtr);

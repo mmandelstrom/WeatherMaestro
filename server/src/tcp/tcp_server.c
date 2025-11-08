@@ -1,4 +1,7 @@
 #include "../../include/tcp.h"
+#include <asm-generic/errno-base.h>
+#include <asm-generic/errno.h>
+#include <stdio.h>
 
 int tcp_server_set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
@@ -8,10 +11,11 @@ int tcp_server_set_nonblocking(int fd) {
   return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 }
 
-int tcp_server_init(TCP_Server *_Server, const char *_Port, tcp_server_on_accept _OnAccept) {
+int tcp_server_init(TCP_Server *_Server, const char *_Port, tcp_server_on_accept _OnAccept, void* _Context) {
   if (!_Server) {
     return -1;
   }
+  _Server->context = _Context;
   _Server->on_accept = _OnAccept; 
   _Server->fd = -1;
   _Server->port = _Port;
@@ -75,7 +79,7 @@ int tcp_server_init(TCP_Server *_Server, const char *_Port, tcp_server_on_accept
 }
 
 
-int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept) {
+int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_on_accept _OnAccept, void* _Context) {
   if (!_ServerPtr) {
     return -1;
   }
@@ -84,7 +88,7 @@ int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_o
     perror("malloc");
     return -2;
   }
-  int result = tcp_server_init(server, _Port, _OnAccept);
+  int result = tcp_server_init(server, _Port, _OnAccept, _Context);
   if (result != 0) {
     free(server);
     return -3;
@@ -94,7 +98,6 @@ int tcp_server_init_ptr(TCP_Server** _ServerPtr, const char* _Port, tcp_server_o
 
   return 0;
 }
-
 
 int tcp_server_accept(TCP_Server *_Server) {
   if (!_Server) {
@@ -106,12 +109,15 @@ int tcp_server_accept(TCP_Server *_Server) {
 
   int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength);
   if (client_fd < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+      return 0;
+    }
+    perror("accept");
     return -1;
   }
 
   (void)tcp_server_set_nonblocking(client_fd);
-
-  _Server->on_accept(client_fd, (void*)_Server);
+  _Server->on_accept(client_fd, _Server->context);
 
   return client_fd;
 }

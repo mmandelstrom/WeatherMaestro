@@ -1,14 +1,19 @@
 #include "../include/tcp.h"
+#include "../include/http.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
 #define BACKLOG 15
 
+int fake_callback() {
+  printf("Callback\n");
+}
+
 int main(void) {
-  TCP_Server server;
-  if (tcp_server_init(&server, "8080", BACKLOG) < 0) {
-    perror("TCP_Server_init");
+  HTTP_Server server;
+  if (http_server_init(&server, fake_callback) < 0) {
+    perror("http_server_init");
     return 1;
   }
 
@@ -75,7 +80,7 @@ int main(void) {
 
 
   while (1) {
-    int cfd = tcp_server_accept(&server);
+    tcp_server_work(&server.tcpServer);
     if (cfd < 0) {
       /*No client currently*/
       continue;
