@@ -92,4 +92,6 @@ int tcp_server_accept(TCP_Server* _Server);
 void tcp_server_dispose(TCP_Server* _Server);
 void tcp_server_dispose_ptr(TCP_Server** _Server_Ptr);
 
+void tcp_server_work(TCP_Server* _Server);
+
 #endif /* __TCP_SERVER_H__ */

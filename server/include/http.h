@@ -105,9 +105,19 @@ void http_server_connection_dispose_ptr(HTTP_Server_Connection** _Connection_Ptr
 
 /* ******************************************************************* */
 /* ************************** HTTP SERVER **************************** */
-/* ******************************************************************* */
+/* **** **************************************************************** */
 /* This is the main HTTP building block
  * It spawns the TCP Server and a scheduler task for every connection made */
+
+typedef enum {
+  HTTP_SERVER_INIT,
+  HTTP_SERVER_LISTENING,
+  HTTP_SERVER_CONNECTING,
+  HTTP_SERVER_CONNECTED,
+  HTTP_SERVER_ERROR,
+  HTTP_SERVER_DISPOSING
+
+} HTTPServerState;
 
 typedef int (*http_server_on_connection)(void* _Context, HTTP_Server_Connection* _Connection);
 
@@ -118,6 +128,10 @@ typedef struct
 
 	TCP_Server                tcp_server;
 	Scheduler_Task*           task;
+	TCP_Server tcpServer;
+  HTTPServerState state;
+
+  int   client_fd;
 
 } HTTP_Server;
 
@@ -125,6 +139,7 @@ typedef struct
 int http_server_init(HTTP_Server* _Server, http_server_on_connection _on_connection, void* _context);
 int http_server_init_ptr(http_server_on_connection _on_connection, void* _context, HTTP_Server** _Server_Ptr);
 
+int http_server_on_accept(int _fd, void* _context);
 void http_server_dispose(HTTP_Server* _Server);
 void http_server_dispose_ptr(HTTP_Server** _Server_Ptr);
 
