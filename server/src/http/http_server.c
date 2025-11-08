@@ -20,7 +20,7 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
   _HTTPServer->state = HTTP_SERVER_INIT;
   _HTTPServer->task = NULL;
 
-	if (tcp_server_init(&_HTTPServer->tcpServer, "58080", http_server_on_accept, _HTTPServer) <0 ) {
+	if (tcp_server_init(&_HTTPServer->tcp_server, "58080", http_server_on_accept, _HTTPServer) <0 ) {
     perror("tcp_server_init");
     _HTTPServer->state = HTTP_SERVER_ERROR;
     _HTTPServer->task = scheduler_create_task(_HTTPServer, http_server_taskwork);
@@ -30,7 +30,7 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
   _HTTPServer->task = scheduler_create_task(_HTTPServer, http_server_taskwork);
   if (!_HTTPServer->task) {
     fprintf(stderr, "scheduler_create_task failed\n");
-    tcp_server_dispose(&_HTTPServer->tcpServer);
+    tcp_server_dispose(&_HTTPServer->tcp_server);
     _HTTPServer->state = HTTP_SERVER_ERROR;
     return -3;
   }
@@ -118,42 +118,37 @@ void http_server_taskwork(void* _context, uint64_t _montime)
       break;
 
     case HTTP_SERVER_LISTENING: {
-      printf("HTTP_SERVER_LISTENING\n");
-      int result = tcp_server_accept(&server->tcpServer);
-      printf("clientfd: %i\n", server->client_fd);
+      int result = tcp_server_accept(&server->tcp_server);
+      /* printf("clientfd: %i\n", server->client_fd); */
       if (result == -2) {
         server->state = HTTP_SERVER_ERROR;
       }
       else if (result == -1)
       {
-        printf("Retrying\n");
+        /* printf("Retrying\n"); */
       }
       else if (result == 0)
       {
-        printf("Accepting\n");
+        /* printf("Accepting\n"); */
       }
       break;
     }
     case HTTP_SERVER_CONNECTING: {
-      printf("HTTP_SERVER_CONNECTING\n");
       http_server_connection_handover(server->client_fd, server);
       break;
     }
     case HTTP_SERVER_CONNECTED: 
     {
-                                  printf("HTTP_SERVER_CONNECTED\n");
       server->state = HTTP_SERVER_LISTENING;
       /*Logic already handled in on_accept*/
       break;
     }
     case HTTP_SERVER_ERROR:
-                                  printf("HTTP_SERVER_ERROR\n");
     /* Add http server error enum*/
-
+    
       /*implement timeout logic here*/
     case HTTP_SERVER_DISPOSING: {
-                                  printf("HTTP_SERVER_DISPOSING\n");
-      tcp_server_dispose(&server->tcpServer);
+      tcp_server_dispose(&server->tcp_server);
 
       if (server->task) {
         scheduler_destroy_task(server->task);

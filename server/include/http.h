@@ -126,12 +126,12 @@ typedef struct
 	http_server_on_connection on_connection;
   void*                     context;
 
+  Scheduler_Task*           task;
 	TCP_Server                tcp_server;
-	Scheduler_Task*           task;
-	TCP_Server tcpServer;
-  HTTPServerState state;
 
-  int   client_fd;
+  HTTPServerState           state;
+
+  int                       client_fd; // Temp fd for handover to connection
 
 } HTTP_Server;
 

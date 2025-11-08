@@ -16,7 +16,7 @@ int weather_server_init(Weather_Server* _Server)
   if (result != 0)
     return -1;
 
-  Linked_List* Instances;
+  Linked_List* Instances = linked_list_create();
   _Server->instances = Instances;
 
   _Server->task = scheduler_create_task(_Server, weather_server_taskwork);
@@ -68,7 +68,7 @@ int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _C
 
   Linked_Item* LI;
 
-  linked_list_add(_Server->instances, &LI, Instance);
+  linked_list_item_add(_Server->instances, &LI, Instance);
 
 
   return 0;
@@ -84,6 +84,7 @@ void weather_server_taskwork(void* _Context, uint64_t _MonTime)
 
 void weather_server_dispose(Weather_Server* _Server)
 {
+  linked_list_destroy(&_Server->instances);
 	http_server_dispose(&_Server->http_server);
 	scheduler_destroy_task(_Server->task);
 }

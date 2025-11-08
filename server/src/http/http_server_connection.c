@@ -62,6 +62,7 @@ HTTPServerConnectionState http_server_connection_work_init(HTTP_Server_Connectio
 }
 HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTTP_Server_Connection* _Connection)
 {
+
   char* firstline;
 
   uint8_t buffer[TCP_MESSAGE_BUFFER_SIZE];
@@ -89,11 +90,8 @@ HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTT
     return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
   
 
-  printf("READ FIRSTLINE\n");
   return HTTP_SERVER_CONNECTION_READING_HEADERS;
 }
-
-
 HTTPServerConnectionState http_server_connection_work_request_read_headers(HTTP_Server_Connection* _Connection)
 {
   // Read TCP socket byte4byte to buffer until \r\n\r\request_n
@@ -148,26 +146,31 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
 
     case HTTP_SERVER_CONNECTION_READING_FIRSTLINE:
     {
+      printf("HTTP_SERVER_CONNECTION_READING_FIRSTLINE\n");
       _Connection->state = http_server_connection_work_request_read_firstline(_Connection);
     } break;
 
     case HTTP_SERVER_CONNECTION_READING_HEADERS:
     {
+      printf("HTTP_SERVER_CONNECTION_READING_HEADERS\n");
       _Connection->state = http_server_connection_work_request_read_headers(_Connection);
     } break;
 
     case HTTP_SERVER_CONNECTION_READING_BODY:
     {
+      printf("HTTP_SERVER_CONNECTION_READING_BODY\n");
       _Connection->state = http_server_connection_work_request_read_body(_Connection);
     } break;
 
     case HTTP_SERVER_CONNECTION_RESPONDING:
     {
+      printf("HTTP_SERVER_CONNECTION_READING_RESPONDING\n");
       _Connection->state = http_server_connection_work_respond(_Connection);
     } break;
 
     case HTTP_SERVER_CONNECTION_DISPOSING:
     {
+      printf("HTTP_SERVER_CONNECTION_READING_DISPOSING\n");
       http_server_connection_dispose(_Connection);
     } break;
   }

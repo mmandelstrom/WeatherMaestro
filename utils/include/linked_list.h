@@ -25,10 +25,18 @@ typedef struct
 #define linked_list_foreach(list, node) \
   for (Linked_Item* node = (list)->head; node != NULL; node = node->next)
 
-int linked_list_add(Linked_List* _Linked_List, Linked_Item** _Linked_Item_Ptr, void* _item);
+/** Adds new Linked_List using calloc for persistent use
+ * needs to be destroyed seperately with linked_list_destroy */
+Linked_List* linked_list_create();
 
-void linked_list_remove(Linked_List* _Linked_List, Linked_Item* _Linked_Item);
+int linked_list_item_add(Linked_List* _Linked_List, Linked_Item** _Linked_Item_Ptr, void* _item);
 
-void linked_list_dispose(Linked_List* _Linked_List);
+/** Removes specific item from list */
+void linked_list_item_remove(Linked_List* _Linked_List, Linked_Item* _Linked_Item);
 
+/** Disposes of all items in the list */
+void linked_list_item_dispose(Linked_List* _Linked_List);
+
+/** Destroys the calloced Linked_List */
+void linked_list_destroy(Linked_List** List_Ptr);
 #endif

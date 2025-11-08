@@ -116,10 +116,8 @@ int tcp_server_accept(TCP_Server *_Server) {
   struct sockaddr_storage address; /*Works for both ipv4 & ipv6*/
   socklen_t addressLength = sizeof(address);
 
-  printf("Server fd: %i\n", _Server->fd);
   /* int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength); */
   int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength);
-  printf("Client fd: %i\n", client_fd);
   if (client_fd < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
       return -1;
