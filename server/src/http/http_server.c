@@ -56,7 +56,7 @@ int http_server_on_accept(int _fd, void* _Context)
 
   printf("On accept _Server: %p\n", _Server);
 
-	_Server->on_connection(_Server, Connection);
+	/* _Server->on_connection(_Server, Connection); */
 	
 	return 0;
 }

@@ -72,12 +72,14 @@ typedef enum {
 typedef int (*tcp_server_on_accept)(int _fd, void* _context);
 
 typedef struct {
+  tcp_server_on_accept on_accept;
+  void* context;
+
   int fd;
   const char* port;
+
   ServerState state;
-  tcp_server_on_accept on_accept;
   Scheduler_Task* task;
-  void* context;
 
 } TCP_Server;
 

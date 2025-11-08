@@ -116,6 +116,9 @@ int tcp_server_accept(TCP_Server *_Server) {
   /* int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength); */
   int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength);
   if (client_fd < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+      return 0;
+    }
     return -1; // No connection yet
   }
 

@@ -88,6 +88,9 @@ HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTT
   else
     return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
   
+
+  printf("READ FIRSTLINE\n");
+  return HTTP_SERVER_CONNECTION_READING_HEADERS;
 }
 
 
@@ -115,7 +118,7 @@ HTTPServerConnectionState http_server_connection_work_request_read_body(HTTP_Ser
 HTTPServerConnectionState http_server_connection_work_respond(HTTP_Server_Connection* _Connection)
 {
   /* Just for easier usage*/
-  HTTP_Request* Request = &_Connection->request;
+  /* HTTP_Request* Request = &_Connection->request;
   HTTP_Response* Response = &_Connection->response;
 
   const char* reason_phrase = HttpStatus_reasonPhrase(Response->status_code);
@@ -123,7 +126,7 @@ HTTPServerConnectionState http_server_connection_work_respond(HTTP_Server_Connec
   int response_length = strlen(RESPONSE_TEMPLATE) + 
       strlen(reason_phrase) + 
       5; // Max status code length and nullterm
-
+*/
 
 
 
