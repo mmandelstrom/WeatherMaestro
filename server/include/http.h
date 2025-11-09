@@ -157,14 +157,7 @@ typedef struct {
     const char *port;
     tcp_server_on_accept on_accept;
     void *context; /*HTTP_Server*/
-} HTTPTcpInitArgs;
-
-
-typedef struct {
-    int fd;
-    HTTP_Server *http_server;
-} HTTPHandoverArgs;
-
+} HTTP_Tcp_Init_Args;
 
 int http_server_init(HTTP_Server* _Server, http_server_on_connection _on_connection, void* _context);
 int http_server_init_ptr(http_server_on_connection _on_connection, void* _context, HTTP_Server** _Server_Ptr);

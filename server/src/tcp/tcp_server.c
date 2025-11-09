@@ -115,7 +115,7 @@ int tcp_server_init_ptr(TCP_Server** _Server_Ptr, const char* _port, tcp_server_
 int tcp_server_accept(TCP_Server *_Server) {
   if (!_Server) {
     errno = EINVAL;
-    return -1;
+    return TCP_ACCEPT_FATAL_ERROR;
   }
 
   struct sockaddr_storage address; /*Works for both ipv4 & ipv6*/
@@ -125,21 +125,23 @@ int tcp_server_accept(TCP_Server *_Server) {
   int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength);
   if (client_fd < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-      return -1;
+      return TCP_ACCEPT_NO_CONNECTION;
     }
     perror("accept");
-    return -2; // No connection yet
+    return TCP_ACCEPT_FATAL_ERROR; // No connection yet
   }
 
-  tcp_server_set_nonblocking(client_fd);
+  if (tcp_server_set_nonblocking(client_fd) < 0) {
+    perror("tcp_server_set_nonblocking");
+    close(client_fd);
+    return TCP_ACCEPT_FATAL_ERROR;
+  }
 
   int result = _Server->on_accept(client_fd, _Server->context);
-  if (result != 0)
-  {
-    printf("Accept FD %i CLOSED\n", client_fd);
+  if (result != 0) {
     close(client_fd);
     errno = EIO; /*Generic I/O error*/
-    return -1;
+    return TCP_ACCEPT_NO_CONNECTION;
   }
 
   return client_fd;

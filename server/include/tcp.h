@@ -23,7 +23,8 @@
 
 #define BACKLOG 15
 #define MAX_CLIENTS 15
-
+#define TCP_ACCEPT_NO_CONNECTION -1
+#define TCP_ACCEPT_FATAL_ERROR -2
 
 /* ******************************************************************* */
 /* *************************** TCP CLIENT **************************** */

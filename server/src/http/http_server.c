@@ -331,4 +331,3 @@ void http_server_dispose_ptr(HTTP_Server** _ServerPtr)
 	free(*(_ServerPtr));
 	*(_ServerPtr) = NULL;
 }
-
