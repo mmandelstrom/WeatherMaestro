@@ -136,7 +136,9 @@ void weather_server_taskwork(void* _context, uint64_t _MonTime)
       printf("WEATHER_SERVER_DISPOSE\n");
       break;
   }
-  
+
+  server->state = next_state;
+
 }
 
 void weather_server_dispose(Weather_Server* _Server)
