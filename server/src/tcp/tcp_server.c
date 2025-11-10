@@ -68,7 +68,6 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
     _Server->fd = fd;
 
     if (tcp_server_set_nonblocking(_Server->fd) < 0) {
-      close(_Server->fd);
       _Server->fd = -1;
       fd = -1;
       continue;

@@ -1,4 +1,5 @@
 #include "../../include/weather.h"
+#include <stdio.h>
 
 /* -----------------Internal Functions----------------- */
 
@@ -16,7 +17,7 @@ int weather_server_init(Weather_Server* _Server)
   _Server->instances = NULL;
   _Server->task = NULL;
   _Server->state = WEATHER_SERVER_INIT;
-
+  _Server->handover_done = 0;
   int result;
 
   result = http_server_init(&_Server->http_server, weather_server_on_http_connection, _Server);
@@ -32,6 +33,7 @@ int weather_server_init(Weather_Server* _Server)
   _Server->instances = Instances;
 
   _Server->task = scheduler_create_task(_Server, weather_server_taskwork);
+
   _Server->state = WEATHER_SERVER_IDLE;
 
   return 0;
@@ -65,12 +67,11 @@ WEATHER_SERVER_HANDLING_REQUEST,
 WEATHER_SERVER_DONE
 */
 /* ---------------------------------------------------- */
-
 int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _Connection)
 {
 
   Weather_Server* _Server = (Weather_Server*)_context;
-
+/*
   Weather_Server_Instance* Instance = NULL;
   int result = weather_server_instance_init_ptr(_Connection, &Instance);
   if(result != 0)
@@ -82,13 +83,16 @@ int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _C
   Linked_Item* LI;
 
   linked_list_item_add(_Server->instances, &LI, Instance);
+  */
+  _Server->handover_done = 1;
 
   return 0;
 }
+
 int weather_server_on_http_error(void* _context)
 {
   if (!_context)
-  return -1;
+    return -1;
 
   Weather_Server* server = (Weather_Server*)_context;
   server->state = WEATHER_SERVER_DISPOSE;
@@ -96,12 +100,43 @@ int weather_server_on_http_error(void* _context)
 
 }
 
-void weather_server_taskwork(void* _Context, uint64_t _MonTime)
+void weather_server_taskwork(void* _context, uint64_t _MonTime)
 {
-	Weather_Server* _Server = (Weather_Server*)_Context;
+  if (!_context) 
+    return;
 
-  Weather_Server_Instance* Instance;
-  weather_server_instance_taskwork(Instance, _MonTime);
+  Weather_Server* server = (Weather_Server*)_context;
+  
+  WeatherServerState next_state = server->state;
+
+  switch(server->state) {
+    case WEATHER_SERVER_INIT:
+      printf("WEATHER_SERVER_INIT\n");
+      next_state = WEATHER_SERVER_IDLE;
+      break;
+    case WEATHER_SERVER_IDLE:
+      if (server->handover_done == 1) {
+        next_state = WEATHER_SERVER_HANDOVER;
+        server->handover_done = 0;
+        break;
+      }
+      
+    case WEATHER_SERVER_HANDOVER: {
+      next_state = WEATHER_SERVER_IDLE;
+      break;
+      }
+
+    case WEATHER_SERVER_ERROR:
+      printf("WEATHER_SERVER_ERROR\n");
+      next_state = WEATHER_SERVER_DISPOSE;
+      break;
+
+    case WEATHER_SERVER_DISPOSE:
+      /*CALL DISPOSE STUFF HERE*/
+      printf("WEATHER_SERVER_DISPOSE\n");
+      break;
+  }
+  
 }
 
 void weather_server_dispose(Weather_Server* _Server)

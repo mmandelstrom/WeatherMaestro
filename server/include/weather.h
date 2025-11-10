@@ -62,7 +62,7 @@ typedef struct
 	Scheduler_Task* task;
   Linked_List*    instances;
   WeatherServerState state;
-
+  int             handover_done;
 } Weather_Server;
 
 
