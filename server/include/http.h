@@ -7,13 +7,7 @@
 /* ******************************************************************* */
 
 #include <stdint.h>
-
-#include "tcp.h"
-
 #include "../../libs/include/HTTPStatusCodes.h"
-
-#define TCP_MESSAGE_BUFFER_MAX_SIZE 128 // Size of initial tcp_read buffer without reallocating more mem
-#define HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN 1024 // Maximum length of http request's first line
 
 typedef enum
 {
@@ -21,9 +15,7 @@ typedef enum
   HTTP_GET,
   HTTP_POST,
   HTTP_PUT,
-  HTTP_DELETE,
   HTTP_DOWNLOAD,
-  HTTP_INVALID,
 
   METHOD_COUNT
 
@@ -32,7 +24,6 @@ typedef enum
 typedef struct
 {
   enum HttpStatus_Code status_code;
-
   const char*          head;
   const char*          headers;
   const char*          body;  
@@ -41,11 +32,11 @@ typedef struct
 
 typedef struct
 {
-  HTTPMethod     method;
-
-  const char*    path; 
-  const char*    headers;
-  const char*    params;
+  HTTPMethod     method; // HTTP Method used
+  uint8_t        buf[1024]; // Raw request buffer
+  int            buf_len;
+  const char*    headers; // HTTP request headers
+  const char*    params; // HTTP request params
 
 } HTTP_Request;
 
@@ -62,6 +53,7 @@ int http_server_parse_request_string(const char* _request_str, HTTP_Request* _Re
 #include <stdbool.h>
 #include <string.h>
 
+#include "tcp.h"
 #include "scheduler.h"
 
 #include "../../utils/include/utils.h"
@@ -78,20 +70,16 @@ typedef enum
   HTTP_SERVER_CONNECTION_READING_BODY,
   HTTP_SERVER_CONNECTION_RESPONDING,
   HTTP_SERVER_CONNECTION_DISPOSING,
-  HTTP_SERVER_CONNECTION_ERROR,
 
 } HTTPServerConnectionState;
 
 typedef struct
 {
   HTTPServerConnectionState         state;
-
 	void*                             context;
 	http_server_connection_on_request on_request;
-
   Scheduler_Task*                   task;
   TCP_Client                        tcp_client;
-
   HTTP_Request                      request;
   HTTP_Response                     response;
 
@@ -118,7 +106,10 @@ typedef enum {
   HTTP_SERVER_ERROR_NONE = 0,
   HTTP_SERVER_ERROR_INVALID_ARGUMENT, /*Null pointers negative fd's*/
   HTTP_SERVER_ERROR_TCP_INIT_FAILED,
+  HTTP_SERVER_ERROR_CREATE_TASK_FAILED,
   HTTP_SERVER_ERROR_ACCEPT_FAILED,
+  HTTP_SERVER_ERROR_CONNECTION_INIT_FAILED,
+  HTTP_SERVER_ERROR_CALLBACK_FAILED,
 
 }HTTPServerErrorState;
 
@@ -139,12 +130,11 @@ typedef struct
 {
 	http_server_on_connection on_connection;
   void*                     context;
-  Scheduler_Task*           task;
+	Scheduler_Task*           task;
 	TCP_Server                tcp_server;
   HTTPServerState           state;
-  int                       client_fd; // Temp fd for handover to connection
-	TCP_Server                tcpServer;
   HTTPServerErrorState      error_state;
+  int                       client_fd;
   int                       error_retries;
   uint64_t                  next_retry_at;
   http_retry_function       retry_function;
