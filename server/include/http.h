@@ -115,6 +115,14 @@ void http_server_connection_dispose_ptr(HTTP_Server_Connection** _Connection_Ptr
  * It spawns the TCP Server and a scheduler task for every connection made */
 
 typedef enum {
+  HTTP_SERVER_ERROR_NONE = 0,
+  HTTP_SERVER_ERROR_INVALID_ARGUMENT, /*Null pointers negative fd's*/
+  HTTP_SERVER_ERROR_TCP_INIT_FAILED,
+  HTTP_SERVER_ERROR_ACCEPT_FAILED,
+
+}HTTPServerErrorState;
+
+typedef enum {
   HTTP_SERVER_INIT,
   HTTP_SERVER_LISTENING,
   HTTP_SERVER_CONNECTING,
@@ -125,20 +133,37 @@ typedef enum {
 } HTTPServerState;
 
 typedef int (*http_server_on_connection)(void* _Context, HTTP_Server_Connection* _Connection);
+typedef int (*http_retry_function)(void *);
 
 typedef struct
 {
 	http_server_on_connection on_connection;
   void*                     context;
-
   Scheduler_Task*           task;
 	TCP_Server                tcp_server;
-
   HTTPServerState           state;
-
   int                       client_fd; // Temp fd for handover to connection
+	TCP_Server                tcpServer;
+  HTTPServerErrorState      error_state;
+  int                       error_retries;
+  uint64_t                  next_retry_at;
+  http_retry_function       retry_function;
+  void*                     retry_args;
 
 } HTTP_Server;
+
+typedef struct {
+    TCP_Server *tcp_server;
+    const char *port;
+    tcp_server_on_accept on_accept;
+    void *context; /*HTTP_Server*/
+} HTTPTcpInitArgs;
+
+
+typedef struct {
+    int fd;
+    HTTP_Server *http_server;
+} HTTPHandoverArgs;
 
 
 int http_server_init(HTTP_Server* _Server, http_server_on_connection _on_connection, void* _context);

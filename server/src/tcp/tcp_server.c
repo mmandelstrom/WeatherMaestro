@@ -1,6 +1,4 @@
 #include "../../include/tcp.h"
-#include <asm-generic/errno-base.h>
-#include <asm-generic/errno.h>
 #include <stdio.h>
 
 /* -----------------Internal Functions----------------- */
@@ -19,6 +17,7 @@ int tcp_server_set_nonblocking(int fd) {
 
 int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept _on_accept, void* _context) {
   if (!_Server) {
+    errno = EINVAL; /*Invalid argument*/
     return -1;
   }
   _Server->context = _context;
@@ -37,6 +36,7 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
   int getAddressInfo = getaddrinfo(NULL, _Server->port, &addresses, &res);
   if (getAddressInfo != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(getAddressInfo));
+    errno = EIO; /*General I/O issue likely hostname or nameresolution failed*/
     return -1;
   }
 
@@ -84,23 +84,27 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
   
   /*No addresses found*/
   freeaddrinfo(res);
+  errno = EADDRNOTAVAIL; /*NO address available to bind*/
   return -1;
 }
 
 
 int tcp_server_init_ptr(TCP_Server** _Server_Ptr, const char* _port, tcp_server_on_accept _on_accept, void* _context) {
   if (!_Server_Ptr) {
+    errno = EINVAL;
     return -1;
   }
   TCP_Server* server = (TCP_Server*)malloc(sizeof(TCP_Server));
   if (!server) {
+    errno = ENOMEM; /*Out of memory*/
     perror("malloc");
-    return -2;
+    return -1;
   }
   int result = tcp_server_init(server, _port, _on_accept, _context);
   if (result != 0) {
+    /*tcp_server_init already set errno*/
     free(server);
-    return -3;
+    return -1;
   }
   
   *(_Server_Ptr) = server;
@@ -110,6 +114,7 @@ int tcp_server_init_ptr(TCP_Server** _Server_Ptr, const char* _port, tcp_server_
 
 int tcp_server_accept(TCP_Server *_Server) {
   if (!_Server) {
+    errno = EINVAL;
     return -1;
   }
 
@@ -133,6 +138,7 @@ int tcp_server_accept(TCP_Server *_Server) {
   {
     printf("Accept FD %i CLOSED\n", client_fd);
     close(client_fd);
+    errno = EIO; /*Generic I/O error*/
     return -1;
   }
 
