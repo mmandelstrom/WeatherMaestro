@@ -63,6 +63,10 @@ dkms.conf
 # No build folder
 build/
 
+# no vgcore
+vgcore*
+
 #Untracking these for now
 external/
 core/
+

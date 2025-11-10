@@ -43,6 +43,7 @@ typedef struct
 
 typedef struct
 {
+  char*           raw_request;
   HTTPMethod      method;
 
   char*           method_str;
@@ -56,9 +57,8 @@ typedef struct
 
 } HTTP_Request;
 
-/** Builds the request struct from input string */
-int http_server_parse_request_string(const char* _request_str, HTTP_Request* _Request);
 
+char* build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers);
 
 /* ******************************************************************* */
 /* ************************ HTTP CONNECTION ************************** */
@@ -92,6 +92,7 @@ typedef struct
   HTTPServerConnectionState         state;
   uint8_t line_buf[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
   int                               line_buf_len;
+  int                               retries; // counter for 
 
 	void*                             context;
 	http_server_connection_on_request on_request;
@@ -107,7 +108,6 @@ typedef struct
 
 int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd);
 int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connection_Ptr);
-
 /* To be called by the dependent module to define what to run when request is made */
 void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request);
 

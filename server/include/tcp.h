@@ -67,6 +67,7 @@ int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len);
 size_t tcp_client_read_buffer_to_data_struct(TCP_Data* _Data, void* _input, size_t _size, size_t _type_size);
 
 int tcp_client_write(TCP_Client* _Client, size_t _length);
+int tcp_client_write_simple(TCP_Client* _Client, const uint8_t* _buf, int _len);
 
 void tcp_client_dispose(TCP_Client* _Client);
 void tcp_client_dispose_ptr(TCP_Client** _ClientPtr);
