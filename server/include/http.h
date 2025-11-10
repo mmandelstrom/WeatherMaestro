@@ -11,6 +11,8 @@
 #include "tcp.h"
 
 #include "../../libs/include/HTTPStatusCodes.h"
+#include "../../utils/include/utils.h"
+#include "../../utils/include/linked_list.h"
 
 #define TCP_MESSAGE_BUFFER_MAX_SIZE 128 // Size of initial tcp_read buffer without reallocating more mem
 #define HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN 1024 // Maximum length of http request's first line
@@ -41,11 +43,16 @@ typedef struct
 
 typedef struct
 {
-  HTTPMethod     method;
+  HTTPMethod      method;
 
-  const char*    path; 
-  const char*    headers;
-  const char*    params;
+  char*           method_str;
+  char*           path; 
+  char*           params;
+  char*           version;
+
+  Linked_List*    headers;
+
+  char*           body;
 
 } HTTP_Request;
 
@@ -63,8 +70,6 @@ int http_server_parse_request_string(const char* _request_str, HTTP_Request* _Re
 #include <string.h>
 
 #include "scheduler.h"
-
-#include "../../utils/include/utils.h"
 
 
 /* The usecase of the function pointer is to let the connection instance point back to a server nstance's function without knowing exactly what it is or needs */
@@ -85,6 +90,8 @@ typedef enum
 typedef struct
 {
   HTTPServerConnectionState         state;
+  uint8_t line_buf[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
+  int                               line_buf_len;
 
 	void*                             context;
 	http_server_connection_on_request on_request;
@@ -136,8 +143,6 @@ typedef enum {
 } HTTPServerState;
 
 typedef int (*http_server_on_connection)(void* _Context, HTTP_Server_Connection* _Connection);
-
-
 
 
 typedef int (*http_retry_function)(void *);

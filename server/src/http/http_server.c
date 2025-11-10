@@ -170,7 +170,7 @@ void http_server_taskwork(void* _context, uint64_t _montime)
 
     case HTTP_SERVER_LISTENING: {
 
-      printf("HTTP_SERVER_LISTENING\n");
+      /* printf("HTTP_SERVER_LISTENING\n"); */
       int result = tcp_server_accept(&server->tcp_server);
       
       if (result >= 0) {
