@@ -7,7 +7,13 @@
 /* ******************************************************************* */
 
 #include <stdint.h>
+
+#include "tcp.h"
+
 #include "../../libs/include/HTTPStatusCodes.h"
+
+#define TCP_MESSAGE_BUFFER_MAX_SIZE 128 // Size of initial tcp_read buffer without reallocating more mem
+#define HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN 1024 // Maximum length of http request's first line
 
 typedef enum
 {
@@ -15,7 +21,9 @@ typedef enum
   HTTP_GET,
   HTTP_POST,
   HTTP_PUT,
+  HTTP_DELETE,
   HTTP_DOWNLOAD,
+  HTTP_INVALID,
 
   METHOD_COUNT
 
@@ -24,6 +32,7 @@ typedef enum
 typedef struct
 {
   enum HttpStatus_Code status_code;
+
   const char*          head;
   const char*          headers;
   const char*          body;  
@@ -32,11 +41,11 @@ typedef struct
 
 typedef struct
 {
-  HTTPMethod     method; // HTTP Method used
-  uint8_t        buf[1024]; // Raw request buffer
-  int            buf_len;
-  const char*    headers; // HTTP request headers
-  const char*    params; // HTTP request params
+  HTTPMethod     method;
+
+  const char*    path; 
+  const char*    headers;
+  const char*    params;
 
 } HTTP_Request;
 
@@ -53,7 +62,6 @@ int http_server_parse_request_string(const char* _request_str, HTTP_Request* _Re
 #include <stdbool.h>
 #include <string.h>
 
-#include "tcp.h"
 #include "scheduler.h"
 
 #include "../../utils/include/utils.h"
@@ -70,16 +78,20 @@ typedef enum
   HTTP_SERVER_CONNECTION_READING_BODY,
   HTTP_SERVER_CONNECTION_RESPONDING,
   HTTP_SERVER_CONNECTION_DISPOSING,
+  HTTP_SERVER_CONNECTION_ERROR,
 
 } HTTPServerConnectionState;
 
 typedef struct
 {
   HTTPServerConnectionState         state;
+
 	void*                             context;
 	http_server_connection_on_request on_request;
+
   Scheduler_Task*                   task;
   TCP_Client                        tcp_client;
+
   HTTP_Request                      request;
   HTTP_Response                     response;
 
@@ -124,6 +136,10 @@ typedef enum {
 } HTTPServerState;
 
 typedef int (*http_server_on_connection)(void* _Context, HTTP_Server_Connection* _Connection);
+
+
+
+
 typedef int (*http_retry_function)(void *);
 
 typedef struct
