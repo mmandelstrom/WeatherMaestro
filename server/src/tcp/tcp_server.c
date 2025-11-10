@@ -131,6 +131,7 @@ int tcp_server_accept(TCP_Server *_Server) {
   int result = _Server->on_accept(client_fd, _Server->context);
   if (result != 0)
   {
+    printf("Accept FD %i CLOSED\n", client_fd);
     close(client_fd);
     return -1;
   }
@@ -152,6 +153,7 @@ void tcp_server_dispose(TCP_Server *_Server) {
   memset(_Server, 0, sizeof(TCP_Server));
   _Server = NULL;
   if (_Server->fd >= 0) {
+    printf("Dispose FD %i CLOSED\n", _Server->fd);
     close(_Server->fd);
     _Server->fd = -1;
   }

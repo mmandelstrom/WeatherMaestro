@@ -8,7 +8,12 @@
 
 #include <stdint.h>
 
+#include "tcp.h"
+
 #include "../../libs/include/HTTPStatusCodes.h"
+
+#define TCP_MESSAGE_BUFFER_MAX_SIZE 128 // Size of initial tcp_read buffer without reallocating more mem
+#define HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN 1024 // Maximum length of http request's first line
 
 typedef enum
 {
@@ -16,7 +21,9 @@ typedef enum
   HTTP_GET,
   HTTP_POST,
   HTTP_PUT,
+  HTTP_DELETE,
   HTTP_DOWNLOAD,
+  HTTP_INVALID,
 
   METHOD_COUNT
 
@@ -34,13 +41,11 @@ typedef struct
 
 typedef struct
 {
-  HTTPMethod     method; // HTTP Method used
-  
-  uint8_t        buf[1024]; // Raw request buffer
-  int            buf_len;
+  HTTPMethod     method;
 
-  const char*    headers; // HTTP request headers
-  const char*    params; // HTTP request params
+  const char*    path; 
+  const char*    headers;
+  const char*    params;
 
 } HTTP_Request;
 
@@ -57,7 +62,6 @@ int http_server_parse_request_string(const char* _request_str, HTTP_Request* _Re
 #include <stdbool.h>
 #include <string.h>
 
-#include "tcp.h"
 #include "scheduler.h"
 
 #include "../../utils/include/utils.h"
@@ -74,6 +78,7 @@ typedef enum
   HTTP_SERVER_CONNECTION_READING_BODY,
   HTTP_SERVER_CONNECTION_RESPONDING,
   HTTP_SERVER_CONNECTION_DISPOSING,
+  HTTP_SERVER_CONNECTION_ERROR,
 
 } HTTPServerConnectionState;
 

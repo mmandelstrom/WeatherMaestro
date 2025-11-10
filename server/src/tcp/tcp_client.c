@@ -1,17 +1,10 @@
 #include "../../include/tcp.h"
 
 /*---------------------Internal functions------------------------------*/
+
 int tcp_client_set_nonblocking(int fd);
+
 /*---------------------------------------------------------------------*/
-
-int tcp_client_set_nonblocking(int fd) {
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) return -1;
-    if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) return -1;
-    return 0;
-}
-
-
 int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
   _Client->fd = -1;
   _Client->readData = NULL;
@@ -83,6 +76,34 @@ int tcp_client_init_ptr(TCP_Client** _ClientPtr, const char* _Host, const char* 
   *(_ClientPtr) = client;
 
   return 0;
+}
+
+int tcp_client_set_nonblocking(int fd) {
+  int flags = fcntl(fd, F_GETFL, 0);
+  if (flags == -1) return -1;
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) return -1;
+  return 0;
+}
+
+size_t tcp_client_read_buffer_to_data_struct(TCP_Data* _Data, void* _input, size_t _size, size_t _type_size) 
+{
+
+  TCP_Data* mem = (TCP_Data*)_Data;
+  size_t realsize = _size * _type_size;
+  void* ptr = realloc(mem->addr, mem->size + realsize + 1); // We reallocate memory for our chunk and make a pointer to the new addr
+  if (!ptr)
+  {
+    perror("calloc");
+    printf("Not enough memory for TCP buffer - realloc returned NULL\n");
+    return 0;
+  }
+
+  mem->addr = ptr; // We redefine our addr to the newly allocated memory (Should test if previous addr pointer should be freed aswell!) 
+  memcpy(&(mem->addr[mem->size]), _input, _size); // We copy realsize*bytes from contents to our chunk
+  mem->size += realsize; // we add realsize to our chunksize
+  mem->addr[mem->size] = 0; // null last byte for strings 
+
+  return realsize; // We return the size of the chunk
 }
 
 int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len) {
