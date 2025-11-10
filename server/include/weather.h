@@ -40,28 +40,28 @@ void weather_server_instance_dispose_ptr(Weather_Server_Instance** _Server_Ptr);
 
 typedef enum
 {
-  WEATHER_SERVER_INITING,
-  WEATHER_SERVER_RUNNING,
-  WEATHER_SERVER_HANDLING_REQUEST,
-  WEATHER_SERVER_DONE
-
-/*
-  WEATHER_SERVER_STATE_INITIALIZING
-  WEATHER_SERVER_STATE_LISTENING
-  WEATHER_SERVER_STATE_CONNECTING
-  WEATHER_SERVER_STATE_CONNECTED
-  WEATHER_SERVER_STATE_ERROR
-  WEATHER_SERVER_STATE_DISPOSING
-*/
+  WEATHER_SERVER_INIT,
+  WEATHER_SERVER_IDLE,
+  WEATHER_SERVER_HANDOVER,
+  WEATHER_SERVER_ERROR,
+  WEATHER_SERVER_DISPOSE
 
 
 } WeatherServerState;
+
+typedef enum
+{
+  WEATHER_SERVER_ERROR_NONE = 0,
+  WEATHER_SERVER_ERROR_INIT_FAILED,
+  
+} WeatherServerErrorState;
 
 typedef struct
 {
 	HTTP_Server     http_server;
 	Scheduler_Task* task;
   Linked_List*    instances;
+  WeatherServerState state;
 
 } Weather_Server;
 

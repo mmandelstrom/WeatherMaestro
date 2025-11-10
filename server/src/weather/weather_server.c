@@ -9,17 +9,30 @@ int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _C
 
 int weather_server_init(Weather_Server* _Server)
 {
+
+  if (!_Server)
+    return -1;
+  /*_Server->http_server = NULL;*/
+  _Server->instances = NULL;
+  _Server->task = NULL;
+  _Server->state = WEATHER_SERVER_INIT;
+
   int result;
 
   result = http_server_init(&_Server->http_server, weather_server_on_http_connection, _Server);
 
-  if (result != 0)
+  if (result != 0){
+
+    _Server->state = WEATHER_SERVER_ERROR;
+
     return -1;
+  }
 
   Linked_List* Instances = linked_list_create();
   _Server->instances = Instances;
 
   _Server->task = scheduler_create_task(_Server, weather_server_taskwork);
+  _Server->state = WEATHER_SERVER_IDLE;
 
   return 0;
 }
@@ -43,7 +56,7 @@ int weather_server_init_ptr(Weather_Server** _Server_Ptr)
 WeatherServerState weather_server_handle_request(Weather_Server* _Server)
 {
 
-  return WEATHER_SERVER_RUNNING; 
+  return WEATHER_SERVER_IDLE; 
 }
 /*
 WEATHER_SERVER_INITING 
@@ -70,8 +83,17 @@ int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _C
 
   linked_list_item_add(_Server->instances, &LI, Instance);
 
-
   return 0;
+}
+int weather_server_on_http_error(void* _context)
+{
+  if (!_context)
+  return -1;
+
+  Weather_Server* server = (Weather_Server*)_context;
+  server->state = WEATHER_SERVER_DISPOSE;
+  return 0;
+
 }
 
 void weather_server_taskwork(void* _Context, uint64_t _MonTime)

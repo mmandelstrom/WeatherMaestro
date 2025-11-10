@@ -62,7 +62,6 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
     fprintf(stderr, "scheduler_create_task failed\n");
     tcp_server_dispose(&_HTTPServer->tcp_server);
     _HTTPServer->state = HTTP_SERVER_ERROR;
-    _HTTPServer->error_state = HTTP_SERVER_ERROR_CREATE_TASK_FAILED;
     errno = EAGAIN;
     return -1;
   }
@@ -170,7 +169,7 @@ void http_server_taskwork(void* _context, uint64_t _montime)
 
     case HTTP_SERVER_LISTENING: {
 
-      printf("HTTP_SERVER_LISTENING\n");
+      /*printf("HTTP_SERVER_LISTENING\n");*/
       int result = tcp_server_accept(&server->tcp_server);
       
       if (result >= 0) {
@@ -214,7 +213,8 @@ void http_server_taskwork(void* _context, uint64_t _montime)
     {
       printf("HTTP_SERVER_CONNECTED\n");
       server->state = HTTP_SERVER_LISTENING;
-      /*Logic already handled in on_accept*/
+      /*Logic al
+      y handled in on_accept*/
       break;
     }
     case HTTP_SERVER_ERROR:
@@ -246,7 +246,6 @@ void http_server_error_work(HTTP_Server* _Server) {
       break;
 
     case HTTP_SERVER_ERROR_INVALID_ARGUMENT:
-    case HTTP_SERVER_ERROR_CREATE_TASK_FAILED:
     /*Errors not solved by retry*/
       _Server->state = HTTP_SERVER_DISPOSING;
       break;
