@@ -144,7 +144,7 @@ int http_server_on_accept(int _fd, void* _Context)
 	HTTP_Server* Server = (HTTP_Server*)_Context;
   Server->client_fd = _fd;
 	
-	return _fd;
+	return 0;
 }
 
 void http_server_taskwork(void* _context, uint64_t _montime)
@@ -310,6 +310,8 @@ HTTPServerState http_server_handle_listening(HTTP_Server* _Server, uint64_t _mon
 
     return HTTP_SERVER_ERROR;
   }
+
+  return HTTP_SERVER_ERROR;
 }
 
 

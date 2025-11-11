@@ -76,7 +76,6 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
     printf("Server listening on port: %s\n", _Server->port);
     freeaddrinfo(res);
 	  
-    _Server->task = scheduler_create_task(_Server, tcp_server_taskwork);
 
     return 0;
   }
@@ -147,9 +146,8 @@ int tcp_server_accept(TCP_Server *_Server) {
 
 void tcp_server_taskwork(void* _Context, uint64_t _MonTime)
 {
-	TCP_Server* _Server = (TCP_Server*)_Context;
-
-	tcp_server_accept(_Server);
+  (void)_Context;
+  (void)_MonTime;
 }
 
 void tcp_server_dispose(TCP_Server *_Server) {
