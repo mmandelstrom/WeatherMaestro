@@ -32,7 +32,7 @@ extern Scheduler Global_Scheduler;
 int scheduler_init();
 Scheduler_Task* scheduler_create_task(void* _context, void (*_callback)(void* _context, uint64_t _montime));
 void scheduler_destroy_task(Scheduler_Task* _Task);
-void scheduler_work(uint64_t _MonTime);
+void scheduler_work(uint64_t _montime);
 int scheduler_get_task_count();
 void scheduler_dispose();
 

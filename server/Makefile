@@ -10,15 +10,24 @@ else
 	CC := gcc
 endif
 
-# Directories
-SRC_DIR   := src
 BUILD_DIR := build
+
+# Source files directories
+SRC_DIR   := src
+
+# libs and utils source files to build
+UTILS_SRC := ../utils/src/utils.c ../utils/src/linked_list.c
+LIBS_SRC := ../libs/src/HTTPStatusCodes.c
+
+ALL_SRC := $(SRC) $(UTILS_SRC) $(LIBS_SRC)
+
+# Temp dirs to be deleted on clean
 CACHE_DIR := data/cache
 CITIES_DIR := data/cities
 
 # Compilation flags
 # CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Werror -Wfatal-errors -Wno-format-truncation -I../libs
-CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -g -I../libs -I../utils
+CFLAGS := -std=c99 -MMD -MP -g -I../libs -I../utils
 
 # Linker flags (auto-detect platform)
 ifeq ($(UNAME_S),Darwin)
@@ -33,8 +42,11 @@ endif
 # Find all .c source files recursively
 SRC := $(shell find -L $(SRC_DIR) -type f -name '*.c')
 
-# Map .c → .o in the build directory
-OBJ := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRC))
+# Map .c → .o in the build directory, combining module-specific, libs and utils files
+UTILS_OBJ := $(patsubst ../utils/src/%.c,$(BUILD_DIR)/utils/%.o,$(UTILS_SRC))
+LIBS_OBJ := $(patsubst ../libs/src/%.c,$(BUILD_DIR)/libs/%.o,$(LIBS_SRC))
+SRC_OBJ := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRC))
+OBJ := $(SRC_OBJ) $(UTILS_OBJ) $(LIBS_OBJ)
 
 # Dependency files (.d)
 DEP := $(OBJ:.o=.d)
@@ -51,13 +63,23 @@ $(BIN): $(OBJ)
 	@echo "Linking..."
 	@$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
 
+$(BUILD_DIR)/utils/%.o: ../utils/src/%.c
+	@echo "Compiling $<..."
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/libs/%.o: ../libs/src/%.c
+	@echo "Compiling $<..."
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 run: $(BIN)
-	@echo "Running Weatherio..."
+	@echo "Running $<..."
 	@./$(BIN)
 
 clean:
@@ -66,11 +88,11 @@ clean:
 	@echo "Clean complete."
 
 valgrind: $(BIN)
-	@echo "Debugging using valgrind..."
+	@echo "Debugging $< using valgrind..."
 	@valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes ./$(BIN)
 
 gdb: $(BIN)
-	@echo "Debugging using gdb..."
+	@echo "Debugging $< using gdb..."
 	@gdb ./$(BIN)
 
 print:

@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif /*_WIN32*/
 
 uint64_t SystemMonotonicMS() {
   long ms;
@@ -32,4 +35,26 @@ char* stringcat(const char* _a, const char* _b)
   strcat(ab, _b);
 
   return ab;
+}
+
+void ms_sleep(uint64_t ms) {
+#ifdef _WIN32
+    Sleep((DWORD)ms); 
+#else
+    struct timespec ts;
+    ts.tv_sec  = ms / 1000;
+    ts.tv_nsec = (ms % 1000) * 1000000L;
+    nanosleep(&ts, NULL);
+#endif
+}
+
+/* C89 approved strdup */
+char* strdup(const char* _str) {
+  size_t size = strlen(_str) + 1;
+  char* copy = (char*)malloc(size);
+
+  if (copy != NULL) 
+    memcpy(copy, _str, size);
+
+  return copy;
 }
