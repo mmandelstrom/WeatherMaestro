@@ -4,7 +4,8 @@
 /* -----------------Internal Functions----------------- */
 
 void tcp_server_taskwork(void* _Context, uint64_t _MonTime);
-
+TCPServerState tcp_server_handle_listening(TCP_Server* _Server, uint64_t _montime);
+TCPServerState tcp_server_connection_handover(TCP_Server* _Server);
 /* ---------------------------------------------------- */
 
 int tcp_server_set_nonblocking(int fd) {
@@ -25,6 +26,8 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
   _Server->context = _context;
   _Server->fd = -1;
   _Server->port = _port;
+  _Server->state = TCP_SERVER_INIT;
+  _Server->task = NULL;
 
   struct addrinfo addresses;
   memset(&addresses, 0, sizeof(addresses));
@@ -76,6 +79,8 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
     printf("Server listening on port: %s\n", _Server->port);
     freeaddrinfo(res);
 	  
+    _Server->state = TCP_SERVER_LISTENING;
+    _Server->task = scheduler_create_task(_Server, tcp_server_taskwork);
 
     return 0;
   }
@@ -135,19 +140,93 @@ int tcp_server_accept(TCP_Server *_Server) {
     return TCP_ACCEPT_FATAL_ERROR;
   }
 
-  int result = _Server->on_accept(client_fd, _Server->context);
-  if (result != 0) {
-    errno = EIO; /*Generic I/O error*/
-    return TCP_ACCEPT_NO_CONNECTION;
-  }
-
-  return client_fd;
+  _Server->client_fd = client_fd;
+  return 0;
 }
 
 void tcp_server_taskwork(void* _Context, uint64_t _MonTime)
 {
-  (void)_Context;
-  (void)_MonTime;
+  if (!_Context) 
+    return;
+  TCP_Server* server = (TCP_Server*)_Context;
+  
+  TCPServerState next_state = server->state;
+
+  switch(server->state) {
+    case TCP_SERVER_INIT:
+      break;
+    case TCP_SERVER_LISTENING:
+      next_state = tcp_server_handle_listening(server, _MonTime);
+      break;
+    case TCP_SERVER_CONNECTING:
+      next_state = tcp_server_connection_handover(server);
+      break;
+    case TCP_SERVER_CONNECTED:
+      next_state = TCP_SERVER_LISTENING;
+      break;
+    case TCP_SERVER_ERROR:
+      break;
+    case TCP_SERVER_DISPOSING:
+      tcp_server_dispose(server);
+      return;
+  }
+  server->state = next_state;
+}
+
+TCPServerState tcp_server_handle_listening(TCP_Server* _Server, uint64_t _montime) {
+  
+  if (!_Server) {
+    return TCP_SERVER_ERROR;
+  }
+
+  int result = tcp_server_accept(_Server);
+      
+  if (result >= 0) {
+    /*Connection accepted*/
+    return TCP_SERVER_CONNECTING;
+
+  } else if (result == TCP_ACCEPT_NO_CONNECTION) {
+    
+    return TCP_SERVER_LISTENING;
+
+  } else if (result == TCP_ACCEPT_FATAL_ERROR) {
+
+
+    TCP_Init_Args* args = (TCP_Init_Args*)malloc(sizeof(TCP_Init_Args));
+    if (!args) {
+      errno = ENOMEM;
+      return TCP_SERVER_ERROR;
+    }
+
+    /*    args->port = "58080";
+    args->on_accept = http_server_on_accept;
+    args->context = _Server;
+
+    _Server->error_retries = 0;
+    _Server->retry_function = http_retry_tcp_init;
+    _Server->retry_args = args;
+    _Server->next_retry_at = SystemMonotonicMS() + 30000;
+    _Server->error_state = TCP_SERVER_ERROR_ACCEPT_FAILED;
+
+      */
+    return TCP_SERVER_ERROR;
+  }
+  return TCP_SERVER_ERROR;
+}
+
+TCPServerState tcp_server_connection_handover(TCP_Server* _Server) {
+  if (!_Server) {
+    return TCP_SERVER_ERROR;
+  }
+  int result = _Server->on_accept(_Server->client_fd, _Server->context);
+  if (result != 0) {
+    errno = EIO; /*Generic I/O error*/
+    return TCP_SERVER_ERROR;
+  }
+
+  _Server->client_fd = -1;
+  return TCP_SERVER_CONNECTED;
+  
 }
 
 void tcp_server_dispose(TCP_Server *_Server) {

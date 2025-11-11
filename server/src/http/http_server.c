@@ -8,7 +8,6 @@ void http_server_taskwork(void* _context, uint64_t _montime);
 int http_server_on_accept(int _fd, void* _context);
 int http_retry_tcp_init(void *_args);
 HTTPServerState http_server_retry_work(HTTP_Server* _Server);
-HTTPServerState http_server_handle_listening(HTTP_Server* _Server, uint64_t _montime);
 HTTPServerState http_server_error_work(HTTP_Server* _Server);
 /* ---------------------------------------------------- */
 
@@ -67,7 +66,7 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
     return -1;
   }
 
-  _HTTPServer->state = HTTP_SERVER_LISTENING;
+  _HTTPServer->state = HTTP_SERVER_IDLE;
 	return 0;
 }
 
@@ -115,7 +114,7 @@ HTTPServerState http_server_connection_handover(int _fd, void* _Context)
     perror("http_server_connection_init_ptr");
     close(_fd);
     Server->client_fd = -1;
-    return HTTP_SERVER_LISTENING;
+    return HTTP_SERVER_IDLE;
   }
 
 
@@ -126,7 +125,7 @@ HTTPServerState http_server_connection_handover(int _fd, void* _Context)
     close(_fd);
 
     Server->client_fd = -1;
-    return HTTP_SERVER_LISTENING;
+    return HTTP_SERVER_IDLE;
   }
 
   /*IF httpserverconnection is initialized succesfully*/
@@ -143,7 +142,8 @@ int http_server_on_accept(int _fd, void* _Context)
   printf("on accept fd: %i\n", _fd);
 	HTTP_Server* Server = (HTTP_Server*)_Context;
   Server->client_fd = _fd;
-	
+  Server->state = HTTP_SERVER_CONNECTING;
+
 	return 0;
 }
 
@@ -162,8 +162,7 @@ void http_server_taskwork(void* _context, uint64_t _montime)
     case HTTP_SERVER_INIT:
       break;
 
-    case HTTP_SERVER_LISTENING: {
-      next_state = http_server_handle_listening(server, _montime);
+    case HTTP_SERVER_IDLE: {
       break;        
     }
       
@@ -175,7 +174,7 @@ void http_server_taskwork(void* _context, uint64_t _montime)
     case HTTP_SERVER_CONNECTED: 
     {
       printf("HTTP_SERVER_CONNECTED\n");
-      next_state = HTTP_SERVER_LISTENING;
+      next_state = HTTP_SERVER_IDLE;
       break;
     }
     case HTTP_SERVER_ERROR:
@@ -207,7 +206,7 @@ HTTPServerState http_server_error_work(HTTP_Server* _Server) {
   switch(_Server->error_state) {
 
     case HTTP_SERVER_ERROR_NONE:
-      return HTTP_SERVER_LISTENING;
+      return HTTP_SERVER_IDLE;
 
     case HTTP_SERVER_ERROR_INVALID_ARGUMENT:
     /*Errors not solved by retry*/
@@ -251,7 +250,7 @@ HTTPServerState http_server_retry_work(HTTP_Server* _Server) {
     _Server->retry_function = NULL;
     _Server->error_state = HTTP_SERVER_ERROR_NONE;
     _Server->error_retries = 0;
-    return HTTP_SERVER_LISTENING;
+    return HTTP_SERVER_IDLE;
 
   } else {
     _Server->error_retries++;
@@ -269,51 +268,6 @@ HTTPServerState http_server_retry_work(HTTP_Server* _Server) {
     }
   }
 }
-
-HTTPServerState http_server_handle_listening(HTTP_Server* _Server, uint64_t _montime) {
-  
-  if (!_Server) {
-    return HTTP_SERVER_ERROR;
-  }
-
-  int result = tcp_server_accept(&_Server->tcp_server);
-      
-  if (result >= 0) {
-    /*Connection accepted*/
-    return HTTP_SERVER_CONNECTING;
-
-  } else if (result == TCP_ACCEPT_NO_CONNECTION) {
-    
-    return HTTP_SERVER_LISTENING;
-
-  } else if (result == TCP_ACCEPT_FATAL_ERROR) {
-
-
-    HTTP_Tcp_Init_Args* args = (HTTP_Tcp_Init_Args*)malloc(sizeof(HTTP_Tcp_Init_Args));
-    if (!args) {
-      errno = ENOMEM;
-      return HTTP_SERVER_ERROR;
-    }
-
-    /*Pack the arguments needed for retrying tcp_init*/
-    args->tcp_server = &_Server->tcp_server;
-    args->port = "58080";
-    args->on_accept = http_server_on_accept;
-    args->context = _Server;
-
-    _Server->error_retries = 0;
-    _Server->retry_function = http_retry_tcp_init;
-    _Server->retry_args = args;
-    _Server->next_retry_at = SystemMonotonicMS() + 30000;
-    _Server->error_state = HTTP_SERVER_ERROR_ACCEPT_FAILED;
-
-
-    return HTTP_SERVER_ERROR;
-  }
-
-  return HTTP_SERVER_ERROR;
-}
-
 
 void http_server_dispose(HTTP_Server* _Server)
 {
