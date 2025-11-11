@@ -70,7 +70,7 @@ HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTT
 
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
 
-  int bytes_read = tcp_client_read_simple(&_Connection->tcp_client, tcp_buf, sizeof(tcp_buf));
+  int bytes_read = tcp_client_read_simple(&_Connection->tcp_client, tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
   printf("bytes_read: %i\n", bytes_read);
  
   if (bytes_read > 0)
@@ -85,11 +85,8 @@ HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTT
           
           printf("Found our newline!line buf: %s\n", _Connection->line_buf);
           
-
-          //TODO: Parse firstline into _Connection->requestuest struct members 
-          
           char buffer[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
-          memcpy(buffer, _Connection->line_buf, sizeof(_Connection->line_buf));
+          memcpy(buffer, _Connection->line_buf, strlen((char*)_Connection->line_buf));
           
           char* ptr; 
 
@@ -132,7 +129,7 @@ HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTT
             _Connection->tcp_client.data.addr = new_mem;
             memcpy(_Connection->tcp_client.data.addr + old_len, _Connection->line_buf, new_len);
             _Connection->tcp_client.data.addr[old_len + new_len] = '\0';
-            _Connection->tcp_client.data.size = sizeof(_Connection->tcp_client.data.addr);
+            _Connection->tcp_client.data.size = strlen((char*)_Connection->tcp_client.data.addr);
           }
 
           printf("TCP_Data: %s\n", (char*)_Connection->tcp_client.data.addr);
@@ -154,9 +151,6 @@ HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTT
 
   }
 
-  if (_Connection->tcp_client.data.addr == NULL)
-    _Connection->tcp_client.data.addr = (uint8_t*)malloc(sizeof(_Connection->line_buf) + 1);
-
   /* if (Conn_Data->size > HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN)
   {
     printf("Connection (fd: %i) had a too long first line, closing.", _Connection->tcp_client.fd);
@@ -172,11 +166,9 @@ HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTT
 HTTPServerConnectionState http_server_connection_work_request_read_headers(HTTP_Server_Connection* _Connection)
 {
 
-  TCP_Data Data = _Connection->tcp_client.data;
-
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
   int bytes_read;
-  bytes_read = tcp_client_read_simple(&_Connection->tcp_client, tcp_buf, sizeof(tcp_buf));
+  bytes_read = tcp_client_read_simple(&_Connection->tcp_client, tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
   printf("bytes_read: %i\n", bytes_read);
  
   if (bytes_read > 0)
@@ -290,11 +282,6 @@ HTTPServerConnectionState http_server_connection_work_request_read_body(HTTP_Ser
 HTTPServerConnectionState http_server_connection_work_respond(HTTP_Server_Connection* _Connection)
 {
   HTTP_Request Req = _Connection->request;
-
-  printf("Req.method_str != NULL: %i\n", Req.method_str != NULL);
-  printf("Req.path != NULL: %i\n", Req.path != NULL);
-  printf("Req.version != NULL: %i\n", Req.version != NULL);
-  printf("Req.headers != NULL: %i\n", Req.headers != NULL);
 
   if (strcmp(Req.method_str, "GET") == 0 &&
       Req.path != NULL &&
