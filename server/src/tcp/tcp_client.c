@@ -93,7 +93,7 @@ size_t tcp_client_read_buffer_to_data_struct(TCP_Data* _Data, void* _input, size
   void* ptr = realloc(mem->addr, mem->size + realsize + 1); // We reallocate memory for our chunk and make a pointer to the new addr
   if (!ptr)
   {
-    perror("calloc");
+    perror("realloc");
     printf("Not enough memory for TCP buffer - realloc returned NULL\n");
     return 0;
   }
@@ -216,6 +216,11 @@ int tcp_client_write(TCP_Client* _Client, size_t _Length) {
       message += bytesSent;
   }
     return (int)totalSent;
+}
+
+int tcp_client_write_simple(TCP_Client* _Client, const uint8_t* _buf, int _len)
+{
+  return send(_Client->fd, _buf, _len, MSG_NOSIGNAL);
 }
 
 void tcp_client_dispose(TCP_Client* _Client) {

@@ -36,8 +36,6 @@ int linked_list_item_add(Linked_List* _List, Linked_Item** _Item_Ptr, void* _ite
 
   if (_Item_Ptr != NULL)
     *_Item_Ptr = New_Item;
-  else
-    return -2;
 
   return 0;
 }

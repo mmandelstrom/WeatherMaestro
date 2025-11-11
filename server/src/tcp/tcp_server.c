@@ -138,7 +138,6 @@ int tcp_server_accept(TCP_Server *_Server) {
 
   int result = _Server->on_accept(client_fd, _Server->context);
   if (result != 0) {
-    /*close(client_fd);*/
     errno = EIO; /*Generic I/O error*/
     return TCP_ACCEPT_NO_CONNECTION;
   }

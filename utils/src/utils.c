@@ -47,3 +47,14 @@ void ms_sleep(uint64_t ms) {
     nanosleep(&ts, NULL);
 #endif
 }
+
+/* C89 approved strdup */
+char* strdup(const char* _str) {
+  size_t size = strlen(_str) + 1;
+  char* copy = (char*)malloc(size);
+
+  if (copy != NULL) 
+    memcpy(copy, _str, size);
+
+  return copy;
+}
