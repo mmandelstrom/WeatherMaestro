@@ -60,6 +60,8 @@ typedef struct
 
 char* build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers);
 
+HTTPMethod validate_http_method(const char* _method_str);
+
 /* ******************************************************************* */
 /* ************************ HTTP CONNECTION ************************** */
 /* ******************************************************************* */
@@ -81,6 +83,8 @@ typedef enum
   HTTP_SERVER_CONNECTION_READING_FIRSTLINE,
   HTTP_SERVER_CONNECTION_READING_HEADERS,
   HTTP_SERVER_CONNECTION_READING_BODY,
+  HTTP_SERVER_CONNECTION_VALIDATING,
+  HTTP_SERVER_CONNECTION_WEATHER_HANDOVER,
   HTTP_SERVER_CONNECTION_RESPONDING,
   HTTP_SERVER_CONNECTION_DISPOSING,
   HTTP_SERVER_CONNECTION_ERROR,
@@ -90,9 +94,9 @@ typedef enum
 typedef struct
 {
   HTTPServerConnectionState         state;
-  uint8_t line_buf[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
+  uint8_t                           line_buf[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
   int                               line_buf_len;
-  int                               retries; // counter for 
+  int                               retries; // counter for parsing to avoid infinite loop on lost tcp connection
 
 	void*                             context;
 	http_server_connection_on_request on_request;
@@ -102,6 +106,8 @@ typedef struct
 
   HTTP_Request                      request;
   HTTP_Response                     response;
+
+  int                               weather_done;
 
 } HTTP_Server_Connection;
 

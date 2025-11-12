@@ -6,8 +6,13 @@
 
 //-----------------Internal Functions-----------------
 
-/* This defines the functions to be called depending on what state the connection is in */
 void http_server_connection_taskwork(void* _Context, uint64_t _montime);
+HTTPServerConnectionState worktask_init(HTTP_Server_Connection* _Connection);
+HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection* _Connection);
+HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* _Connection);
+HTTPServerConnectionState worktask_request_read_body(HTTP_Server_Connection* _Connection);
+HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Connection);
+HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection);
 
 //----------------------------------------------------
 
@@ -59,11 +64,11 @@ void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, vo
 
 
 /* --------------TASKWORK STATE FUNCTIONS-------------- */
-HTTPServerConnectionState http_server_connection_work_init(HTTP_Server_Connection* _Connection)
+HTTPServerConnectionState worktask_init(HTTP_Server_Connection* _Connection)
 {
   return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
 }
-HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTTP_Server_Connection* _Connection)
+HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection* _Connection)
 {
   if (_Connection->tcp_client.data.addr == NULL)
     _Connection->tcp_client.data.addr = malloc(0);
@@ -163,7 +168,7 @@ HTTPServerConnectionState http_server_connection_work_request_read_firstline(HTT
   //
   return HTTP_SERVER_CONNECTION_READING_FIRSTLINE; // bytes_read exceeded buffer max, we go again
 }
-HTTPServerConnectionState http_server_connection_work_request_read_headers(HTTP_Server_Connection* _Connection)
+HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* _Connection)
 {
 
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
@@ -268,7 +273,7 @@ HTTPServerConnectionState http_server_connection_work_request_read_headers(HTTP_
 
   return HTTP_SERVER_CONNECTION_READING_HEADERS; // bytes_read exceeded buffer max, we go again
 }
-HTTPServerConnectionState http_server_connection_work_request_read_body(HTTP_Server_Connection* _Connection)
+HTTPServerConnectionState worktask_request_read_body(HTTP_Server_Connection* _Connection)
 {
 
   // Depending on the method we read TCP until 
@@ -276,10 +281,35 @@ HTTPServerConnectionState http_server_connection_work_request_read_body(HTTP_Ser
 
   /* _Connection->request.body = http_parse_body();  */
 
-  return HTTP_SERVER_CONNECTION_RESPONDING;
+  return HTTP_SERVER_CONNECTION_VALIDATING;
 
 }
-HTTPServerConnectionState http_server_connection_work_respond(HTTP_Server_Connection* _Connection)
+HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Connection)
+{
+  _Connection->request.method = validate_http_method(_Connection->request.method_str);
+
+  HTTP_Request Req = _Connection->request;
+
+  if (Req.method != HTTP_INVALID &&
+      Req.path != NULL &&
+      Req.version != NULL &&
+      Req.headers != NULL)
+  {
+    _Connection->response.status_code = HttpStatus_OK;
+
+    _Connection->on_request(_Connection->context);
+
+    return HTTP_SERVER_CONNECTION_WEATHER_HANDOVER;
+
+  } 
+  else 
+  {
+    _Connection->response.status_code = HttpStatus_Invalid;
+    return HTTP_SERVER_CONNECTION_DISPOSING;
+  }
+
+}
+HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 {
   HTTP_Request Req = _Connection->request;
 
@@ -368,31 +398,44 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
   {
     case HTTP_SERVER_CONNECTION_INITIALIZING:
     {
-      _Connection->state = http_server_connection_work_init(_Connection);
+      _Connection->state = worktask_init(_Connection);
     } break;
 
     case HTTP_SERVER_CONNECTION_READING_FIRSTLINE:
     {
       printf("HTTP_SERVER_CONNECTION_READING_FIRSTLINE\n");
-      _Connection->state = http_server_connection_work_request_read_firstline(_Connection);
+      _Connection->state = worktask_request_read_firstline(_Connection);
     } break;
+    
 
     case HTTP_SERVER_CONNECTION_READING_HEADERS:
     {
       printf("HTTP_SERVER_CONNECTION_READING_HEADERS\n");
-      _Connection->state = http_server_connection_work_request_read_headers(_Connection);
+      _Connection->state = worktask_request_read_headers(_Connection);
     } break;
 
     case HTTP_SERVER_CONNECTION_READING_BODY:
     {
       printf("HTTP_SERVER_CONNECTION_READING_BODY\n");
-      _Connection->state = http_server_connection_work_request_read_body(_Connection);
+      _Connection->state = worktask_request_read_body(_Connection);
     } break;
 
+    case HTTP_SERVER_CONNECTION_VALIDATING:
+    {
+      printf("HTTP_SERVER_CONNECTION_VALIDATING\n");
+      _Connection->state = worktask_request_validate(_Connection);
+    }
+
+    case HTTP_SERVER_CONNECTION_WEATHER_HANDOVER:
+    {
+      if (_Connection->weather_done != 0)
+        _Connection->state = HTTP_SERVER_CONNECTION_RESPONDING;
+    } break;
+      
     case HTTP_SERVER_CONNECTION_RESPONDING:
     {
       printf("HTTP_SERVER_CONNECTION_RESPONDING\n");
-      _Connection->state = http_server_connection_work_respond(_Connection);
+      _Connection->state = worktask_respond(_Connection);
     } break;
 
     case HTTP_SERVER_CONNECTION_DISPOSING:

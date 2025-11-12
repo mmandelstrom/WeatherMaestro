@@ -2,8 +2,10 @@
 
 //-----------------Internal Functions-----------------
 //
-int weather_server_instance_on_http_connection(void* _Context, HTTP_Server_Connection* _Connection);
-int weather_server_instance_on_request(void* _Context);
+int weather_server_instance_on_http_connection(void* _context, HTTP_Server_Connection* _Connection);
+int weather_server_instance_on_request(void* _context);
+
+void weather_server_instance_taskwork(Weather_Server_Instance* _Instance, uint64_t _montime);
 
 //----------------------------------------------------
 
@@ -35,19 +37,62 @@ int weather_server_instance_init_ptr(HTTP_Server_Connection* _Connection, Weathe
 	*(_Instance_Ptr) = _Instance;
 
 	return 0;
-  return 0;
 }
 
+WeatherServerInstanceState validate_request(Weather_Server_Instance* _Instance)
+{
+  int valid = 0;
+
+  if (valid > 0) 
+    return WEATHER_SERVER_INSTANCE_REQUEST_PARSING;
+  else 
+    return WEATHER_SERVER_INSTANCE_RESPONSE_SEND;
+}
 
 void weather_server_instance_taskwork(Weather_Server_Instance* _Instance, uint64_t _montime)
 {
-  
+  /* switch (_Instance->state)
+  {
+    case WEATHER_SERVER_INSTANCE_INITIALIZING:
+    {
+      printf("WEATHER_SERVER_INSTANCE_INITIALIZING\n");
+    } break;
+
+    case WEATHER_SERVER_INSTANCE_REQUEST_VALIDATING:
+    {
+      printf("WEATHER_SERVER_INSTANCE_REQUEST_VALIDATING\n");
+    } break;
+
+    case WEATHER_SERVER_INSTANCE_REQUEST_PARSING:
+    {
+      printf("WEATHER_SERVER_INSTANCE_REQUEST_PARSING\n");
+    } break;
+
+    case WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING:
+    {
+      printf("WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING\n");
+    } break;
+
+    case WEATHER_SERVER_INSTANCE_RESPONSE_SEND:
+    {
+      printf("WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING\n");
+    } break;
+
+    case WEATHER_SERVER_INSTANCE_DISPOSING:
+    {
+      printf("WEATHER_SERVER_INSTANCE_DISPOSING\n");
+    } break;
+  } */
 }
 
 int weather_server_instance_on_request(void* _Context)
 {
 	Weather_Server_Instance* _Server = (Weather_Server_Instance*)_Context;
+  HTTP_Request Req = _Server->http_connection->request;
+
 	printf("Method: %i\r\n", _Server->http_connection->request.method);
+
+  _Server->http_connection->weather_done = 1;
 
 	return 0;
 }

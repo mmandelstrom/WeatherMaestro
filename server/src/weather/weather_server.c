@@ -71,20 +71,26 @@ int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _C
 {
 
   Weather_Server* _Server = (Weather_Server*)_context;
-/*
+
   Weather_Server_Instance* Instance = NULL;
   int result = weather_server_instance_init_ptr(_Connection, &Instance);
   if(result != 0)
   {
-    printf("WeatherServer_OnHTTPConnection: Failed to initiate instance\n");
+    perror("weather_server_instance_init_ptr");
     return -1;
   }
 
   Linked_Item* LI;
 
   linked_list_item_add(_Server->instances, &LI, Instance);
-  */
+ 
   _Server->handover_done = 1;
+
+  return 0;
+}
+
+int weather_server_on_http_request(void* _context, HTTP_Server_Connection* _Connection)
+{
 
   return 0;
 }

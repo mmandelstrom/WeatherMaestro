@@ -108,3 +108,23 @@ char* build_full_response(int _status_code, const char* _reason_phrase, const ch
 
     return response;
 }
+
+HTTPMethod validate_http_method(const char* _method_str)
+{
+
+  if (strcmp(_method_str, "GET") == 0)
+    return HTTP_GET;
+  if (strcmp(_method_str, "OPTIONS") == 0)
+    return HTTP_OPTIONS;
+  if (strcmp(_method_str, "POST") == 0)
+    return HTTP_POST;
+  if (strcmp(_method_str, "PUT") == 0)
+    return HTTP_PUT;
+  if (strcmp(_method_str, "DELETE") == 0)
+    return HTTP_DELETE;
+  if (strcmp(_method_str, "DOWNLOAD") == 0)
+    return HTTP_DOWNLOAD;
+
+  return HTTP_INVALID;
+
+}
