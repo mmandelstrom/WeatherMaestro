@@ -2,10 +2,22 @@
 #define __WEATHER_H__
 
 /* ******************************************************************* */
-/* **************************** WEATHER ****************************** */
+/* ************************** WEATHER API **************************** */
 /* ******************************************************************* */
 
 #include <time.h>
+
+typedef enum
+{
+  CITIES_LIST,
+  CITY_GET,
+  CITY_ADD,
+  CITY_REMOVE,
+
+  WEATHER_GET,
+  FORECAST_GET
+
+} WeatherServerRequestType;
 
 typedef struct
 {
@@ -39,15 +51,14 @@ typedef struct
 
 #include "http.h"
 
-/* typedef int (*weather_server_instance_on_finish)(void* _context); */
+typedef int (*weather_server_instance_on_finish)(void* _context, void* _instance);
 
 typedef enum
 {
   WEATHER_SERVER_INSTANCE_INITIALIZING,
-  WEATHER_SERVER_INSTANCE_REQUEST_VALIDATING,
   WEATHER_SERVER_INSTANCE_REQUEST_PARSING,
   WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING,
-  WEATHER_SERVER_INSTANCE_RESPONSE_SEND,
+  WEATHER_SERVER_INSTANCE_RESPONSE_SENDING,
   WEATHER_SERVER_INSTANCE_DISPOSING
 
 } WeatherServerInstanceState;
@@ -55,22 +66,24 @@ typedef enum
 typedef struct
 {
   WeatherServerInstanceState          state;
-
-  /* void*                               context;
-  weather_server_instance_callback    on_request; */
-
   Scheduler_Task*                     task;
+
+  Linked_Item*                        item;
+
   HTTP_Server_Connection*             http_connection;
+
+  void*                               context; // Weather_Server
+  weather_server_instance_on_finish   on_finish;
 
 } Weather_Server_Instance;
 
 
-int weather_server_instance_init(Weather_Server_Instance* _Server, HTTP_Server_Connection* _Connection);
-int weather_server_instance_init_ptr(HTTP_Server_Connection* _Connection, Weather_Server_Instance** _Server_Ptr);
+int weather_server_instance_init(void* _context, Weather_Server_Instance* _Instance, HTTP_Server_Connection* _Connection);
+int weather_server_instance_init_ptr(void* _context, HTTP_Server_Connection* _Connection, Weather_Server_Instance** _Instance_Ptr);
 
 
-void weather_server_instance_dispose(Weather_Server_Instance* _Server);
-void weather_server_instance_dispose_ptr(Weather_Server_Instance** _Server_Ptr);
+void weather_server_instance_dispose(Weather_Server_Instance* _Instance);
+void weather_server_instance_dispose_ptr(Weather_Server_Instance** _Instance_Ptr);
 
 /* ******************************************************************* */
 /* ************************* WEATHER SERVER ************************** */
@@ -86,7 +99,6 @@ typedef enum
   WEATHER_SERVER_HANDOVER,
   WEATHER_SERVER_ERROR,
   WEATHER_SERVER_DISPOSE
-
 
 } WeatherServerState;
 

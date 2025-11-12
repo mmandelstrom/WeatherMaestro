@@ -100,14 +100,43 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
           int y;
           for (y = 0; y < 3; y++)
           {
-            if (y == 0)
+            if (y == 0) // Method
               _Connection->request.method_str = strdup(ptr);
-            if (y == 1)
-              _Connection->request.path = strdup(ptr);
-            if (y == 2)
+            if (y == 1) // Path+Query
+            {
+              char* tmp = ptr; // local copy to not ruin ongoing strtok
+              char* query = strchr(tmp, '?');
+              if (query)
+              {
+                size_t path_len = (size_t)(query - tmp);
+                _Connection->request.path = (char*)malloc(path_len + 1);
+                if (_Connection->request.path) 
+                {
+                  memcpy(_Connection->request.path, tmp, path_len);
+                  _Connection->request.path[path_len] = '\0';
+                }
+                _Connection->request.query = query;
+
+              } else {
+                _Connection->request.path = strdup(ptr);
+                _Connection->request.query = NULL;
+              }
+            }
+            if (y == 2) // HTTP Version
+            {
               _Connection->request.version = strdup(ptr);
+            }
 
             ptr = strtok(NULL, " ");
+          }
+          if (!_Connection->request.method_str ||
+              !_Connection->request.path       ||
+              !_Connection->request.version)
+          {
+            // We either failed to allocate or there wasn't three parts in firstline
+            // Ideally it should distinguish and set httpstatus either 400 or 500
+            // Either way we should not continue
+            return HTTP_SERVER_CONNECTION_RESPONDING;
           }
           printf("Method: %s\nPath: %s\nVersion: %s\n", _Connection->request.method_str, _Connection->request.path, _Connection->request.version);
 
@@ -286,7 +315,7 @@ HTTPServerConnectionState worktask_request_read_body(HTTP_Server_Connection* _Co
 }
 HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Connection)
 {
-  _Connection->request.method = validate_http_method(_Connection->request.method_str);
+  _Connection->request.method = http_method_string_to_enum(_Connection->request.method_str);
 
   HTTP_Request Req = _Connection->request;
 
@@ -296,15 +325,14 @@ HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Con
       Req.headers != NULL)
   {
     _Connection->response.status_code = HttpStatus_OK;
-
     _Connection->on_request(_Connection->context);
 
     return HTTP_SERVER_CONNECTION_WEATHER_HANDOVER;
-
   } 
   else 
   {
     _Connection->response.status_code = HttpStatus_Invalid;
+
     return HTTP_SERVER_CONNECTION_DISPOSING;
   }
 
@@ -324,7 +352,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     Linked_List* headers = Req.headers;
     size_t headers_size = 0;
 
-    char* full_response = build_full_response(_Connection->response.status_code, reason_phrase, Req.method_str, Req.path, Req.headers);
+    char* full_response = http_build_full_response(_Connection->response.status_code, reason_phrase, Req.method_str, Req.path, Req.headers);
     printf("FULL RESPONSE: \n\n%s\n\n", full_response);
 
     _Connection->tcp_client.writeData = (char*)malloc(strlen(full_response) + 1);
@@ -380,10 +408,6 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     printf("WRITE DATA: \n\n%s\n\n", _Connection->tcp_client.writeData);
     tcp_client_write(&_Connection->tcp_client, res_len); 
   }
-
-
-
-
 
   return HTTP_SERVER_CONNECTION_DISPOSING;
 }
@@ -441,11 +465,7 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
     case HTTP_SERVER_CONNECTION_DISPOSING:
     {
       printf("HTTP_SERVER_CONNECTION_DISPOSING\n");
-      http_server_connection_dispose(_Connection);
-    } break;
-    default:
-    {
-      http_server_connection_dispose(_Connection);
+      // dispose called by weather_server_instance
     } break;
 
   }
@@ -463,6 +483,8 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
     free(_Connection->request.method_str);
   if (_Connection->request.path != NULL)
     free(_Connection->request.path);
+  if (_Connection->request.query != NULL)
+    free(_Connection->request.query);
   if (_Connection->request.version != NULL)
     free(_Connection->request.version);
 

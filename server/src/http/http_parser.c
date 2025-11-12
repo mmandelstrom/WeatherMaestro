@@ -86,7 +86,7 @@ char* build_response_body(const char* _method, const char* _path, Linked_List* _
   return response_body;
 }
 
-char* build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers) {
+char* http_build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers) {
     char* body = build_response_body(_method, _path, _Headers);
     if (!body) return NULL;
 
@@ -109,7 +109,7 @@ char* build_full_response(int _status_code, const char* _reason_phrase, const ch
     return response;
 }
 
-HTTPMethod validate_http_method(const char* _method_str)
+HTTPMethod http_method_string_to_enum(const char* _method_str)
 {
 
   if (strcmp(_method_str, "GET") == 0)
@@ -127,4 +127,24 @@ HTTPMethod validate_http_method(const char* _method_str)
 
   return HTTP_INVALID;
 
+}
+const char* http_method_enum_to_string(HTTPMethod _method)
+{
+
+  if (_method == HTTP_OPTIONS)
+    return "OPTIONS";
+  if (_method == HTTP_GET)
+    return "GET";
+  if (_method == HTTP_POST)
+    return "POST";
+  if (_method == HTTP_PUT)
+    return "PUT";
+  if (_method == HTTP_DELETE)
+    return "DELETE";
+  if (_method == HTTP_DOWNLOAD)
+    return "DOWNLOAD";
+  if (_method == HTTP_INVALID)
+    return "INVALID";
+
+  return NULL;
 }

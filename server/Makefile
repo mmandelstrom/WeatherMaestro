@@ -17,7 +17,7 @@ SRC_DIR   := src
 
 # libs and utils source files to build
 UTILS_SRC := ../utils/src/utils.c ../utils/src/linked_list.c
-LIBS_SRC := ../libs/src/HTTPStatusCodes.c
+LIBS_SRC := ../libs/src/HTTPStatusCodes.c ../libs/src/yuarel.c
 
 ALL_SRC := $(SRC) $(UTILS_SRC) $(LIBS_SRC)
 

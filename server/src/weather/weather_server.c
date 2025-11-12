@@ -5,6 +5,7 @@
 
 void weather_server_taskwork(void* _context, uint64_t _montime);
 int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _Connection);
+int weather_server_on_instance_finish(void* _context, void* _instance);
 
 /* ---------------------------------------------------- */
 
@@ -18,10 +19,8 @@ int weather_server_init(Weather_Server* _Server)
   _Server->task = NULL;
   _Server->state = WEATHER_SERVER_INIT;
   _Server->handover_done = 0;
-  int result;
 
-  result = http_server_init(&_Server->http_server, weather_server_on_http_connection, _Server);
-
+  int result = http_server_init(&_Server->http_server, weather_server_on_http_connection, _Server);
   if (result != 0){
 
     _Server->state = WEATHER_SERVER_ERROR;
@@ -30,10 +29,9 @@ int weather_server_init(Weather_Server* _Server)
   }
 
   Linked_List* Instances = linked_list_create();
+
   _Server->instances = Instances;
-
   _Server->task = scheduler_create_task(_Server, weather_server_taskwork);
-
   _Server->state = WEATHER_SERVER_IDLE;
 
   return 0;
@@ -60,20 +58,15 @@ WeatherServerState weather_server_handle_request(Weather_Server* _Server)
 
   return WEATHER_SERVER_IDLE; 
 }
-/*
-WEATHER_SERVER_INITING 
-WEATHER_SERVER_RUNNING,
-WEATHER_SERVER_HANDLING_REQUEST,
-WEATHER_SERVER_DONE
-*/
 /* ---------------------------------------------------- */
+
 int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _Connection)
 {
 
   Weather_Server* _Server = (Weather_Server*)_context;
 
   Weather_Server_Instance* Instance = NULL;
-  int result = weather_server_instance_init_ptr(_Connection, &Instance);
+  int result = weather_server_instance_init_ptr(_context, _Connection, &Instance);
   if(result != 0)
   {
     perror("weather_server_instance_init_ptr");
@@ -81,16 +74,22 @@ int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _C
   }
 
   Linked_Item* LI;
-
   linked_list_item_add(_Server->instances, &LI, Instance);
+  Instance->item = LI;
+
+  Instance->on_finish = weather_server_on_instance_finish;
  
   _Server->handover_done = 1;
 
   return 0;
 }
 
-int weather_server_on_http_request(void* _context, HTTP_Server_Connection* _Connection)
+int weather_server_on_instance_finish(void* _context, void* _instance)
 {
+  Weather_Server* Server = (Weather_Server*)_context;
+  Weather_Server_Instance* Instance = (Weather_Server_Instance*)_instance;
+  linked_list_item_remove(Server->instances, Instance->item);
+  weather_server_instance_dispose_ptr(&Instance);
 
   return 0;
 }

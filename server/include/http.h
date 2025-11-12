@@ -11,6 +11,7 @@
 #include "tcp.h"
 
 #include "../../libs/include/HTTPStatusCodes.h"
+#include "../../libs/include/yuarel.h"
 #include "../../utils/include/utils.h"
 #include "../../utils/include/linked_list.h"
 
@@ -25,9 +26,8 @@ typedef enum
   HTTP_PUT,
   HTTP_DELETE,
   HTTP_DOWNLOAD,
-  HTTP_INVALID,
 
-  METHOD_COUNT
+  HTTP_INVALID
 
 } HTTPMethod;
 
@@ -43,12 +43,11 @@ typedef struct
 
 typedef struct
 {
-  char*           raw_request;
   HTTPMethod      method;
 
   char*           method_str;
   char*           path; 
-  char*           params;
+  char*           query;
   char*           version;
 
   Linked_List*    headers;
@@ -58,9 +57,11 @@ typedef struct
 } HTTP_Request;
 
 
-char* build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers);
+char* http_build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers);
 
-HTTPMethod validate_http_method(const char* _method_str);
+HTTPMethod http_method_string_to_enum(const char* _method_str);
+const char* http_method_enum_to_string(HTTPMethod _method);
+
 
 /* ******************************************************************* */
 /* ************************ HTTP CONNECTION ************************** */
@@ -147,8 +148,6 @@ typedef enum {
 } HTTPServerState;
 
 typedef int (*http_server_on_connection)(void* _Context, HTTP_Server_Connection* _Connection);
-
-
 typedef int (*http_retry_function)(void *);
 
 typedef struct
