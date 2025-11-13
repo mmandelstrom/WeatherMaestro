@@ -23,6 +23,8 @@ int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
   _Connection->tcp_client = TCPC;
   _Connection->tcp_client.fd = _fd;
 
+  _Connection->tcp_client.readData = NULL;
+  _Connection->tcp_client.writeData = NULL;
   _Connection->tcp_client.data.addr = NULL;
   _Connection->tcp_client.data.size = 0;
 	/* tcp_client_init(&_Connection->tcp_client, _fd); */
@@ -30,6 +32,8 @@ int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
 
 	_Connection->task = scheduler_create_task(_Connection, http_server_connection_taskwork);
   _Connection->state = 0;
+
+  _Connection->retries = 0;
   /* _Connection->status_code = HttpStatus_Continue; */
 
 	return 0;
@@ -56,10 +60,11 @@ int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connectio
 	return 0;
 }
 
-void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request)
+void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request, http_server_connection_on_response _on_response)
 {
   _Connection->context = _Context;
   _Connection->on_request = _on_request;
+  _Connection->on_response = _on_response;
 }
 
 
@@ -70,6 +75,11 @@ HTTPServerConnectionState worktask_init(HTTP_Server_Connection* _Connection)
 }
 HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection* _Connection)
 {
+  if (_Connection->retries > HTTP_SERVER_CONNECTION_MAX_RETRIES)
+    return HTTP_SERVER_CONNECTION_ERROR;
+
+  _Connection->retries++;
+
   if (_Connection->tcp_client.data.addr == NULL)
     _Connection->tcp_client.data.addr = malloc(0);
 
@@ -115,7 +125,7 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
                   memcpy(_Connection->request.path, tmp, path_len);
                   _Connection->request.path[path_len] = '\0';
                 }
-                _Connection->request.query = query;
+                _Connection->request.query = strdup(query);
 
               } else {
                 _Connection->request.path = strdup(ptr);
@@ -199,6 +209,10 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
 }
 HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* _Connection)
 {
+  if (_Connection->retries > HTTP_SERVER_CONNECTION_MAX_RETRIES)
+    return HTTP_SERVER_CONNECTION_ERROR;
+
+  _Connection->retries++;
 
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
   int bytes_read;
@@ -304,6 +318,10 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
 }
 HTTPServerConnectionState worktask_request_read_body(HTTP_Server_Connection* _Connection)
 {
+  if (_Connection->retries > HTTP_SERVER_CONNECTION_MAX_RETRIES)
+    return HTTP_SERVER_CONNECTION_ERROR;
+
+  _Connection->retries++;
 
   // Depending on the method we read TCP until 
   // Should have some blockage for too many bytes then it's prob some bullshit
@@ -465,7 +483,16 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
     case HTTP_SERVER_CONNECTION_DISPOSING:
     {
       printf("HTTP_SERVER_CONNECTION_DISPOSING\n");
-      // dispose called by weather_server_instance
+      _Connection->on_response(_Connection->context);
+
+    } break;
+
+    case HTTP_SERVER_CONNECTION_ERROR:
+    {
+      printf("HTTP_SERVER_CONNECTION_ERROR\n");
+      _Connection->response.status_code = 500;
+      _Connection->state = HTTP_SERVER_CONNECTION_RESPONDING;
+      
     } break;
 
   }
@@ -474,19 +501,37 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
 void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
 {
 
-  /* tcp_client_dispose(&_Connection->tcp_client); */
+  tcp_client_dispose(&_Connection->tcp_client);
+
   /* Free TCP_Data */
   if (_Connection->tcp_client.data.addr != NULL)
+  {
     free(_Connection->tcp_client.data.addr);
+    _Connection->tcp_client.data.addr = NULL;
+  }
+
   /* Free HTTP_Request */
   if (_Connection->request.method_str != NULL)
+  {
     free(_Connection->request.method_str);
+    _Connection->request.method_str = NULL;
+  }
   if (_Connection->request.path != NULL)
+  {
     free(_Connection->request.path);
+    _Connection->request.path = NULL;
+  }
   if (_Connection->request.query != NULL)
+  {
     free(_Connection->request.query);
+    _Connection->request.query = NULL;
+  }
   if (_Connection->request.version != NULL)
+  {
     free(_Connection->request.version);
+    _Connection->request.version = NULL;
+  }
+
 
 	scheduler_destroy_task(_Connection->task);
 }

@@ -9,6 +9,7 @@ int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
   _Client->fd = -1;
   _Client->readData = NULL;
   _Client->writeData = NULL;
+  _Client->data.addr = NULL;
 
   struct addrinfo addresses;
   memset(&addresses, 0, sizeof(addresses));
@@ -238,6 +239,10 @@ void tcp_client_dispose(TCP_Client* _Client) {
   if (_Client->writeData != NULL) {
     free(_Client->writeData);
     _Client->writeData = NULL;
+  }
+  if (_Client->data.addr != NULL) {
+    free(_Client->data.addr);
+    _Client->data.addr = NULL;
   }
 }
 

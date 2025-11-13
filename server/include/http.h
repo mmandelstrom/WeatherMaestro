@@ -74,9 +74,13 @@ const char* http_method_enum_to_string(HTTPMethod _method);
 
 #include "scheduler.h"
 
+#define HTTP_SERVER_CONNECTION_MAX_RETRIES 20 // max amount of times to loop parse functions before erroring
+
 
 /* The usecase of the function pointer is to let the connection instance point back to a server nstance's function without knowing exactly what it is or needs */
 typedef int (*http_server_connection_on_request)(void* _context);
+/* The usecase of the function pointer is to let the instance know the response has been sent and the connection+instance should dispose */
+typedef int (*http_server_connection_on_response)(void* _context);
 
 typedef enum
 {
@@ -94,29 +98,31 @@ typedef enum
 
 typedef struct
 {
-  HTTPServerConnectionState         state;
-  uint8_t                           line_buf[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
-  int                               line_buf_len;
-  int                               retries; // counter for parsing to avoid infinite loop on lost tcp connection
+  HTTPServerConnectionState           state;
+  uint8_t                             line_buf[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
+  int                                 line_buf_len;
+  int                                 retries; // counter for parsing to avoid infinite loop on lost tcp connection
 
-	void*                             context;
-	http_server_connection_on_request on_request;
+	void*                               context;
+	http_server_connection_on_request   on_request;
+	http_server_connection_on_response  on_response;
 
-  Scheduler_Task*                   task;
-  TCP_Client                        tcp_client;
+  Scheduler_Task*                     task;
+  TCP_Client                          tcp_client;
 
-  HTTP_Request                      request;
-  HTTP_Response                     response;
+  HTTP_Request                        request;
+  HTTP_Response                       response;
 
-  int                               weather_done;
+  int                                 weather_done;
 
 } HTTP_Server_Connection;
 
 
 int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd);
 int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connection_Ptr);
-/* To be called by the dependent module to define what to run when request is made */
-void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request);
+
+/* To be called by the dependent module to define what to run when request is succesfully validated and parsed, and what when response has been sent */
+void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request, http_server_connection_on_response _on_response);
 
 void http_server_connection_dispose(HTTP_Server_Connection* _Connection);
 void http_server_connection_dispose_ptr(HTTP_Server_Connection** _Connection_Ptr);
