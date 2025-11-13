@@ -1,7 +1,4 @@
 #include "../../include/http.h"
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 /* -----------------Internal Functions----------------- */
 void http_server_taskwork(void* _context, uint64_t _montime);
