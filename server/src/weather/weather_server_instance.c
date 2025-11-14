@@ -68,7 +68,12 @@ WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Inst
    * Should populate necessery data structs so that an appropriate response can be built*/
   HTTP_Request* Request = &_Instance->http_connection->request;
 
-  printf("Method: %i\r\n", Request->method);
+  printf ("\n -- Request params -- \n");
+  int i;
+  for (i = 0; i < Request->params_count; i++)
+  {
+    printf ("Key: %s, Val: %s\r\n", Request->params[i].key, Request->params[i].val);
+  }
 
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING;

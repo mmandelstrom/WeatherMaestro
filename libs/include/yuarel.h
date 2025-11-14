@@ -27,10 +27,10 @@ extern "C" {
 #endif
 
 /* A struct to hold the query string parameter values. */
-struct yuarel_param {
+typedef struct {
 	char *key;
 	char *val;
-};
+} yuarel_param;
 
 
 /**
@@ -52,7 +52,7 @@ struct yuarel_param {
  *
  * Returns the number of parsed items. -1 on error.
  */
-extern int yuarel_parse_query(char *query, char delimiter, struct yuarel_param *params, int max_params);
+extern int yuarel_parse_query(char *query, char delimiter, yuarel_param *params, int max_params);
 
 #ifdef __cplusplus
 }

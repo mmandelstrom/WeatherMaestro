@@ -24,7 +24,7 @@
 
 
 int
-yuarel_parse_query(char *query, char delimiter, struct yuarel_param *params, int max_params)
+yuarel_parse_query(char *query, char delimiter, yuarel_param *params, int max_params)
 {
 	int i = 0;
 

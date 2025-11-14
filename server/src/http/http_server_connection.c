@@ -29,6 +29,8 @@ int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
   _Connection->tcp_client.data.size = 0;
 	/* tcp_client_init(&_Connection->tcp_client, _fd); */
 
+  memset(&_Connection->request, 0, sizeof(HTTP_Request));
+  memset(&_Connection->response, 0, sizeof(HTTP_Response));
 
 	_Connection->task = scheduler_create_task(_Connection, http_server_connection_taskwork);
   _Connection->state = 0;
@@ -107,12 +109,12 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
 
           ptr = strtok((char*)buffer, " ");
 
-          int y;
-          for (y = 0; y < 3; y++)
+          int j;
+          for (j = 0; j < 3; j++)
           {
-            if (y == 0) // Method
+            if (j == 0) // Method
               _Connection->request.method_str = strdup(ptr);
-            if (y == 1) // Path+Query
+            if (j == 1) // Path+Query
             {
               char* tmp = ptr; // local copy to not ruin ongoing strtok
               char* query = strchr(tmp, '?');
@@ -125,14 +127,14 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
                   memcpy(_Connection->request.path, tmp, path_len);
                   _Connection->request.path[path_len] = '\0';
                 }
-                _Connection->request.query = strdup(query);
+                _Connection->request.query = strdup(query + 1); // + 1 to strip '?'
 
               } else {
                 _Connection->request.path = strdup(ptr);
                 _Connection->request.query = NULL;
               }
             }
-            if (y == 2) // HTTP Version
+            if (j == 2) // HTTP Version
             {
               _Connection->request.version = strdup(ptr);
             }
@@ -150,10 +152,75 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
           }
           printf("Method: %s\nPath: %s\nVersion: %s\n", _Connection->request.method_str, _Connection->request.path, _Connection->request.version);
 
-          /* Read the last remaining tcp bytes into line buffer */
-          for (y = i; y < bytes_read; y++)
+          /* Query parsing using yuarel */
+          if (_Connection->request.query != NULL)
           {
-            _Connection->line_buf[_Connection->line_buf_len++] = tcp_buf[y];
+            printf("Query: %s\n", _Connection->request.query);
+
+            yuarel_param Params_Buf[HTTP_REQUEST_MAX_PARAMS + 1];
+            _Connection->request.params_count = yuarel_parse_query(_Connection->request.query, '&', Params_Buf, HTTP_REQUEST_MAX_PARAMS + 1);
+            printf("Params count: %i\n", _Connection->request.params_count);
+
+            if (_Connection->request.params_count < 0)
+            {
+              printf("yuarel failed to parse request query\r\n");
+              //server error
+              return HTTP_SERVER_CONNECTION_ERROR;
+            } 
+            else if (_Connection->request.params_count > HTTP_REQUEST_MAX_PARAMS)
+            {
+              printf("request had too many query params\r\n");
+              //invalid request
+              return HTTP_SERVER_CONNECTION_RESPONDING;
+            }
+            else
+            {
+              _Connection->request.params = malloc(_Connection->request.params_count * sizeof(yuarel_param));
+              if (_Connection->request.params == NULL)
+              {
+                perror("malloc");
+                return HTTP_SERVER_CONNECTION_ERROR;
+              }
+
+              for (j = 0; j < _Connection->request.params_count; j++)
+              {
+                size_t key_len = strlen(Params_Buf[j].key);
+                _Connection->request.params[j].key = (char*)malloc(key_len + 1);
+                if (_Connection->request.params[j].key == NULL)
+                {
+                  perror("malloc");
+                  for (int k = 0; k < j; k++) // gracefully dispose of allocated mem so far
+                  {
+                    free(_Connection->request.params[k].key);
+                    free(_Connection->request.params[k].val);
+                  }
+                  free(_Connection->request.params);
+                  return HTTP_SERVER_CONNECTION_ERROR;
+                }
+                memcpy(_Connection->request.params[j].key, Params_Buf[j].key, key_len + 1);
+
+                size_t val_len = strlen(Params_Buf[j].val);
+                _Connection->request.params[j].val = (char*)malloc(val_len + 1);
+                if (_Connection->request.params[j].val == NULL)
+                {
+                  perror("malloc");
+                  for (int k = 0; k <= j; k++) // gracefully dispose of allocated mem so far
+                  {
+                    free(_Connection->request.params[k].key); // remove one extra key
+                    if (k < j) free(_Connection->request.params[k].val);
+                  }
+                  free(_Connection->request.params);
+                  return HTTP_SERVER_CONNECTION_ERROR;
+                }
+                memcpy(_Connection->request.params[j].val, Params_Buf[j].val, val_len + 1);
+              }
+            }
+          }
+
+          /* Read the last remaining tcp bytes into line buffer */
+          for (j = i; j < bytes_read; j++)
+          {
+            _Connection->line_buf[_Connection->line_buf_len++] = tcp_buf[j];
             /* _Connection->line_buf_len++; */
             printf("Buf read: %c\n", _Connection->line_buf[_Connection->line_buf_len - 1]);
           }
@@ -530,6 +597,17 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
   {
     free(_Connection->request.version);
     _Connection->request.version = NULL;
+  }
+
+  if (_Connection->request.params != NULL)
+  {
+    int i;
+    for (i = 0; i < _Connection->request.params_count; i++)
+    {
+      free(_Connection->request.params[i].key);
+      free(_Connection->request.params[i].val);
+    }
+    free(_Connection->request.params);
   }
 
 

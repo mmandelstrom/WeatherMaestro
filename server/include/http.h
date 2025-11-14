@@ -17,6 +17,7 @@
 
 #define TCP_MESSAGE_BUFFER_MAX_SIZE 128 // Size of initial tcp_read buffer without reallocating more mem
 #define HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN 1024 // Maximum length of http request's first line
+#define HTTP_REQUEST_MAX_PARAMS 10
 
 typedef enum
 {
@@ -51,6 +52,8 @@ typedef struct
   char*           version;
 
   Linked_List*    headers;
+  yuarel_param*   params;
+  int             params_count;
 
   char*           body;
 

@@ -120,11 +120,11 @@ typedef enum
 
 typedef struct
 {
-	HTTP_Server     http_server;
-	HTTP_Server_Connection* http_connection;
-  Scheduler_Task* task;
-  Linked_List*    instances;
-  WeatherServerState state;
+	HTTP_Server             http_server;
+	HTTP_Server_Connection* http_connection; // temporary, hands over to instance
+  Scheduler_Task*         task;
+  Linked_List*            instances;
+  WeatherServerState      state;
 
 } Weather_Server;
 
