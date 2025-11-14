@@ -1,5 +1,5 @@
 #include "../../include/weather.h"
-#include <stdio.h>
+#include <asm-generic/errno-base.h>
 
 /* -----------------Internal Functions----------------- */
 
@@ -7,6 +7,7 @@ void weather_server_taskwork(void* _context, uint64_t _montime);
 int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _Connection);
 int weather_server_on_instance_finish(void* _context, void* _instance);
 
+WeatherServerState weather_server_connection_handover(Weather_Server* _Server);
 /* ---------------------------------------------------- */
 
 int weather_server_init(Weather_Server* _Server)
@@ -18,7 +19,7 @@ int weather_server_init(Weather_Server* _Server)
   _Server->instances = NULL;
   _Server->task = NULL;
   _Server->state = WEATHER_SERVER_INIT;
-  _Server->handover_done = 0;
+  _Server->http_connection = NULL;
 
   int result = http_server_init(&_Server->http_server, weather_server_on_http_connection, _Server);
   if (result != 0){
@@ -53,20 +54,33 @@ int weather_server_init_ptr(Weather_Server** _Server_Ptr)
 }
 
 /* --------------TASKWORK STATE FUNCTIONS-------------- */
-WeatherServerState weather_server_handle_request(Weather_Server* _Server)
-{
 
-  return WEATHER_SERVER_IDLE; 
-}
 /* ---------------------------------------------------- */
 
 int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _Connection)
 {
+  if (!_context) {
+    errno = EINVAL;
+    return -1;
+  }  
 
-  Weather_Server* _Server = (Weather_Server*)_context;
+  Weather_Server* Server = (Weather_Server*)_context;
+  Server->http_connection = _Connection;
+
+  Server->state = WEATHER_SERVER_CONNECTING;
+  return 0;
+
+}
+
+WeatherServerState weather_server_connection_handover(Weather_Server* _Server)
+{
+  if (!_Server) {
+    errno = EINVAL;
+    return WEATHER_SERVER_ERROR;
+  }
 
   Weather_Server_Instance* Instance = NULL;
-  int result = weather_server_instance_init_ptr(_context, _Connection, &Instance);
+  int result = weather_server_instance_init_ptr(_Server, _Server->http_connection, &Instance);
   if(result != 0)
   {
     perror("weather_server_instance_init_ptr");
@@ -78,10 +92,9 @@ int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _C
   Instance->item = LI;
 
   Instance->on_finish = weather_server_on_instance_finish;
- 
-  _Server->handover_done = 1;
 
-  return 0;
+  _Server->http_connection = NULL;
+  return WEATHER_SERVER_CONNECTED;
 }
 
 int weather_server_on_instance_finish(void* _context, void* _instance)
@@ -100,7 +113,7 @@ int weather_server_on_http_error(void* _context)
     return -1;
 
   Weather_Server* server = (Weather_Server*)_context;
-  server->state = WEATHER_SERVER_DISPOSE;
+  server->state = WEATHER_SERVER_DISPOSING;
   return 0;
 
 }
@@ -119,24 +132,27 @@ void weather_server_taskwork(void* _context, uint64_t _MonTime)
       printf("WEATHER_SERVER_INIT\n");
       next_state = WEATHER_SERVER_IDLE;
       break;
-    case WEATHER_SERVER_IDLE:
-      if (server->handover_done == 1) {
-        next_state = WEATHER_SERVER_HANDOVER;
-        server->handover_done = 0;
+
+    case WEATHER_SERVER_IDLE: {
         break;
       }
       
-    case WEATHER_SERVER_HANDOVER: {
-      next_state = WEATHER_SERVER_IDLE;
+    case WEATHER_SERVER_CONNECTING: {
+      next_state = weather_server_connection_handover(server);
       break;
       }
 
-    case WEATHER_SERVER_ERROR:
-      printf("WEATHER_SERVER_ERROR\n");
-      next_state = WEATHER_SERVER_DISPOSE;
+    case WEATHER_SERVER_CONNECTED:
+      printf("WEATHER_SERVER_CONNECTED\n");
+      next_state = WEATHER_SERVER_IDLE;
       break;
 
-    case WEATHER_SERVER_DISPOSE:
+    case WEATHER_SERVER_ERROR:
+      printf("WEATHER_SERVER_ERROR\n");
+      next_state = WEATHER_SERVER_DISPOSING;
+      break;
+
+    case WEATHER_SERVER_DISPOSING:
       /*CALL DISPOSE STUFF HERE*/
       printf("WEATHER_SERVER_DISPOSE\n");
       break;

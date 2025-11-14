@@ -78,27 +78,33 @@ void tcp_client_dispose_ptr(TCP_Client** _ClientPtr);
 /* ******************************************************************* */
 
 typedef enum {
-  SERVER_STATE_INIT,
-  SERVER_STATE_CONNECTING,
-  SERVER_STATE_READING,
-  SERVER_STATE_WRITING,
-  SERVER_STATE_DISPOSING,
-  SERVER_STATE_ERROR
-} ServerState;
+  TCP_SERVER_INIT,
+  TCP_SERVER_LISTENING,
+  TCP_SERVER_CONNECTING,
+  TCP_SERVER_CONNECTED,
+  TCP_SERVER_DISPOSING,
+  TCP_SERVER_ERROR
+} TCPServerState;
+
+
 
 typedef int (*tcp_server_on_accept)(int _fd, void* _context);
 
 typedef struct {
   tcp_server_on_accept on_accept;
   void* context;
-
   int fd;
   const char* port;
-
-  ServerState state;
+  TCPServerState state;
   Scheduler_Task* task;
-
+  int        client_fd;
 } TCP_Server;
+
+typedef struct {
+    const char *port;
+    tcp_server_on_accept on_accept;
+    void *context; /*HTTP_Server*/
+} TCP_Init_Args;
 
 
 int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept _on_accept, void* _context);
