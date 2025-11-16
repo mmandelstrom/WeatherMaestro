@@ -1,4 +1,4 @@
-#include "../../include/tcp.h"
+#include "../../include/tcp/tcp_client.h"
 
 /*---------------------Internal functions------------------------------*/
 
@@ -86,7 +86,7 @@ int tcp_client_set_nonblocking(int fd) {
   return 0;
 }
 
-size_t tcp_client_read_buffer_to_data_struct(TCP_Data* _Data, void* _input, size_t _size, size_t _type_size) 
+/* size_t tcp_client_read_buffer_to_data_struct(TCP_Data* _Data, void* _input, size_t _size, size_t _type_size) 
 {
 
   TCP_Data* mem = (TCP_Data*)_Data;
@@ -105,7 +105,7 @@ size_t tcp_client_read_buffer_to_data_struct(TCP_Data* _Data, void* _input, size
   mem->addr[mem->size] = 0; // null last byte for strings 
 
   return realsize; // We return the size of the chunk
-}
+}*/
 
 int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len) {
   return recv(_Client->fd, _buf, _buf_len, MSG_DONTWAIT);
@@ -222,6 +222,14 @@ int tcp_client_write(TCP_Client* _Client, size_t _Length) {
 int tcp_client_write_simple(TCP_Client* _Client, const uint8_t* _buf, int _len)
 {
   return send(_Client->fd, _buf, _len, MSG_NOSIGNAL);
+}
+
+void tcp_client_disconnect(TCP_Client* _Client)
+{
+  if (_Client->fd >= 0)
+    close(_Client->fd);
+
+  _Client->fd = -1;
 }
 
 void tcp_client_dispose(TCP_Client* _Client) {

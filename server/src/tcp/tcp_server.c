@@ -1,11 +1,11 @@
-#include "../../include/tcp.h"
-#include <stdio.h>
+#include "../../include/tcp/tcp_server.h"
 
 /* -----------------Internal Functions----------------- */
 
 void tcp_server_taskwork(void* _Context, uint64_t _MonTime);
 TCPServerState tcp_server_handle_listening(TCP_Server* _Server, uint64_t _montime);
 TCPServerState tcp_server_connection_handover(TCP_Server* _Server);
+
 /* ---------------------------------------------------- */
 
 int tcp_server_set_nonblocking(int fd) {

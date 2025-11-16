@@ -1,4 +1,4 @@
-#include "../../include/weather.h"
+#include "../../include/weather/weather_server.h"
 #include <asm-generic/errno-base.h>
 
 /* -----------------Internal Functions----------------- */

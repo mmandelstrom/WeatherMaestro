@@ -1,4 +1,4 @@
-#include "../../include/weather.h"
+#include "../../include/weather/weather_instance.h"
 
 //-----------------Internal Functions-----------------
 //
@@ -68,11 +68,11 @@ WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Inst
    * Should populate necessery data structs so that an appropriate response can be built*/
   HTTP_Request* Request = &_Instance->http_connection->request;
 
-  printf ("\n -- Request params -- \n");
+  printf ("\n -- Request params (%i) -- \n", Request->params_count);
   int i;
   for (i = 0; i < Request->params_count; i++)
   {
-    printf ("Key: %s, Val: %s\r\n", Request->params[i].key, Request->params[i].val);
+    printf ("%s: %s\r\n", Request->params[i].key, Request->params[i].val);
   }
 
 

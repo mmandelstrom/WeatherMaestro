@@ -1,4 +1,4 @@
-#include "../../include/http.h"
+#include "../../include/http/http_connection.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -22,7 +22,6 @@ int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
   TCP_Client TCPC;
   _Connection->tcp_client = TCPC;
   _Connection->tcp_client.fd = _fd;
-
   _Connection->tcp_client.readData = NULL;
   _Connection->tcp_client.writeData = NULL;
   _Connection->tcp_client.data.addr = NULL;
@@ -173,7 +172,7 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
               //invalid request
               return HTTP_SERVER_CONNECTION_RESPONDING;
             }
-            else
+            else // Allocate memory for our request params
             {
               _Connection->request.params = malloc(_Connection->request.params_count * sizeof(yuarel_param));
               if (_Connection->request.params == NULL)
@@ -184,6 +183,7 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
 
               for (j = 0; j < _Connection->request.params_count; j++)
               {
+                /* Param key */
                 size_t key_len = strlen(Params_Buf[j].key);
                 _Connection->request.params[j].key = (char*)malloc(key_len + 1);
                 if (_Connection->request.params[j].key == NULL)
@@ -199,20 +199,24 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
                 }
                 memcpy(_Connection->request.params[j].key, Params_Buf[j].key, key_len + 1);
 
-                size_t val_len = strlen(Params_Buf[j].val);
-                _Connection->request.params[j].val = (char*)malloc(val_len + 1);
-                if (_Connection->request.params[j].val == NULL)
+                /* Param value */
+                if (Params_Buf[j].val != NULL) // Handle empty params
                 {
-                  perror("malloc");
-                  for (int k = 0; k <= j; k++) // gracefully dispose of allocated mem so far
+                  size_t val_len = strlen(Params_Buf[j].val);
+                  _Connection->request.params[j].val = (char*)malloc(val_len + 1);
+                  if (_Connection->request.params[j].val == NULL)
                   {
-                    free(_Connection->request.params[k].key); // remove one extra key
-                    if (k < j) free(_Connection->request.params[k].val);
+                    perror("malloc");
+                    for (int k = 0; k <= j; k++) // gracefully dispose of allocated mem so far
+                    {
+                      free(_Connection->request.params[k].key); // remove one extra key
+                      if (k < j) free(_Connection->request.params[k].val);
+                    }
+                    free(_Connection->request.params);
+                    return HTTP_SERVER_CONNECTION_ERROR;
                   }
-                  free(_Connection->request.params);
-                  return HTTP_SERVER_CONNECTION_ERROR;
+                  memcpy(_Connection->request.params[j].val, Params_Buf[j].val, val_len + 1);
                 }
-                memcpy(_Connection->request.params[j].val, Params_Buf[j].val, val_len + 1);
               }
             }
           }
@@ -550,6 +554,7 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
     case HTTP_SERVER_CONNECTION_DISPOSING:
     {
       printf("HTTP_SERVER_CONNECTION_DISPOSING\n");
+      tcp_client_disconnect(&_Connection->tcp_client);
       _Connection->on_response(_Connection->context);
 
     } break;
@@ -604,8 +609,10 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
     int i;
     for (i = 0; i < _Connection->request.params_count; i++)
     {
-      free(_Connection->request.params[i].key);
-      free(_Connection->request.params[i].val);
+      if (_Connection->request.params[i].key != NULL)
+        free(_Connection->request.params[i].key);
+      if (_Connection->request.params[i].val != NULL)
+        free(_Connection->request.params[i].val);
     }
     free(_Connection->request.params);
   }
