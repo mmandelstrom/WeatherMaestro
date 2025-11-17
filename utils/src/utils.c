@@ -63,5 +63,7 @@ char* strdup(const char* _str) {
   if (copy != NULL) 
     memcpy(copy, _str, size);
 
+  copy[size] = '\0'; // null terminate string
+
   return copy;
 }

@@ -16,6 +16,7 @@
 #include "../../../utils/include/utils.h"
 #include "../../../utils/include/linked_list.h"
 
+#define HTTP_REQUEST_MAX_PARAMS 10
 
 typedef enum
 {
@@ -62,5 +63,6 @@ char* http_build_full_response(int _status_code, const char* _reason_phrase, con
 HTTPMethod http_method_string_to_enum(const char* _method_str);
 const char* http_method_enum_to_string(HTTPMethod _method);
 
+int http_parse_firstline(HTTP_Request* _Request, const char* _firstline, int _line_len);
 
 #endif //__HTTP_Server_h_

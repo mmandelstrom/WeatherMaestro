@@ -39,19 +39,19 @@ typedef enum
 typedef struct
 {
   HTTPServerConnectionState           state;
+  Scheduler_Task*                     task;
+  void*                               context;
+
   uint8_t                             line_buf[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
   int                                 line_buf_len;
   int                                 retries; // counter for parsing to avoid infinite loop on lost tcp connection
 
-	void*                               context;
+  TCP_Client*                         tcp_client;
+  HTTP_Request*                       request;
+  HTTP_Response*                      response;
+
 	http_server_connection_on_request   on_request;
 	http_server_connection_on_response  on_response;
-
-  Scheduler_Task*                     task;
-  TCP_Client                          *tcp_client;
-
-  HTTP_Request                        *request;
-  HTTP_Response                       *response;
 
   int                                 weather_done;
 

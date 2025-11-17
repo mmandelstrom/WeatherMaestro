@@ -101,7 +101,8 @@ int weather_server_on_instance_finish(void* _context, void* _instance)
 {
   Weather_Server* Server = (Weather_Server*)_context;
   Weather_Server_Instance* Instance = (Weather_Server_Instance*)_instance;
-  linked_list_item_remove(Server->instances, Instance->item);
+  if (Instance->item != NULL)
+    linked_list_item_remove(Server->instances, Instance->item);
   weather_server_instance_dispose_ptr(&Instance);
 
   return 0;

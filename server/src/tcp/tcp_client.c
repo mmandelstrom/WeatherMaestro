@@ -86,26 +86,24 @@ int tcp_client_set_nonblocking(int fd) {
   return 0;
 }
 
-/* size_t tcp_client_read_buffer_to_data_struct(TCP_Data* _Data, void* _input, size_t _size, size_t _type_size) 
+size_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size, size_t _type_size) 
 {
-
-  TCP_Data* mem = (TCP_Data*)_Data;
   size_t realsize = _size * _type_size;
-  void* ptr = realloc(mem->addr, mem->size + realsize + 1); // We reallocate memory for our chunk and make a pointer to the new addr
+  void* ptr = realloc(_Data->addr, _Data->size + realsize + 1); // We reallocate memory for our chunk and make a pointer to the new addr
   if (!ptr)
   {
     perror("realloc");
     printf("Not enough memory for TCP buffer - realloc returned NULL\n");
-    return 0;
+    return -1;
   }
 
-  mem->addr = ptr; // We redefine our addr to the newly allocated memory (Should test if previous addr pointer should be freed aswell!) 
-  memcpy(&(mem->addr[mem->size]), _input, _size); // We copy realsize*bytes from contents to our chunk
-  mem->size += realsize; // we add realsize to our chunksize
-  mem->addr[mem->size] = 0; // null last byte for strings 
+  _Data->addr = ptr; // We redefine our addr to the newly allocated memory (Should test if previous addr pointer should be freed aswell?) 
+  memcpy(&(_Data->addr[_Data->size]), _input, _size); // We copy realsize*bytes from contents to our chunk
+  _Data->size += realsize; // we add realsize to our chunksize
+  _Data->addr[_Data->size] = 0; // null last byte for strings 
 
   return realsize; // We return the size of the chunk
-}*/
+}
 
 int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len) {
   return recv(_Client->fd, _buf, _buf_len, MSG_DONTWAIT);
@@ -248,9 +246,10 @@ void tcp_client_dispose(TCP_Client* _Client) {
     free(_Client->writeData);
     _Client->writeData = NULL;
   }
-  if (_Client->data.addr != NULL) {
+  if (_Client->data.size > 0) {
     free(_Client->data.addr);
     _Client->data.addr = NULL;
+    _Client->data.size = 0;
   }
 }
 
