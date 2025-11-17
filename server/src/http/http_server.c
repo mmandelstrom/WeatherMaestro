@@ -175,7 +175,7 @@ void http_server_taskwork(void* _context, uint64_t _montime)
       break;
     }
     case HTTP_SERVER_ERROR:
-      printf("HTTP_SERVER_ERROR\n");
+      //printf("HTTP_SERVER_ERROR\n");
       next_state = http_server_error_work(server);
       break;
 

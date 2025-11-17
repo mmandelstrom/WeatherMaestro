@@ -48,10 +48,10 @@ typedef struct
 	http_server_connection_on_response  on_response;
 
   Scheduler_Task*                     task;
-  TCP_Client                          tcp_client;
+  TCP_Client                          *tcp_client;
 
-  HTTP_Request                        request;
-  HTTP_Response                       response;
+  HTTP_Request                        *request;
+  HTTP_Response                       *response;
 
   int                                 weather_done;
 

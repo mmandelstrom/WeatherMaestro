@@ -87,26 +87,30 @@ char* build_response_body(const char* _method, const char* _path, Linked_List* _
 }
 
 char* http_build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers) {
-    char* body = build_response_body(_method, _path, _Headers);
-    if (!body) return NULL;
+    // char* body = build_response_body(_method, _path, _Headers);
+    // if (!body) return NULL;
+    //
+    // size_t body_len = strlen(body);
+    // size_t resp_buf_size = strlen(RESPONSE_TEMPLATE) + body_len + 64;
+    // char* response = malloc(resp_buf_size);
+    // if (!response) {
+    //   free(body);
+    //   return NULL;
+    // }
+    //
+    // int ret = snprintf(response, resp_buf_size, RESPONSE_TEMPLATE, _status_code, _reason_phrase, (int)body_len, body);
+    // free(body);
+    //
+    // if (ret < 0 || ret >= (int)resp_buf_size) {
+    //   free(response);
+    //   return NULL;
+    // }
 
-    size_t body_len = strlen(body);
-    size_t resp_buf_size = strlen(RESPONSE_TEMPLATE) + body_len + 64;
-    char* response = malloc(resp_buf_size);
-    if (!response) {
-      free(body);
-      return NULL;
-    }
+     
+     // args: response_code, reason_phrase, response_content_len, response_body
 
-    int ret = snprintf(response, resp_buf_size, RESPONSE_TEMPLATE, _status_code, _reason_phrase, (int)body_len, body);
-    free(body);
+  return "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" "";
 
-    if (ret < 0 || ret >= (int)resp_buf_size) {
-      free(response);
-      return NULL;
-    }
-
-    return response;
 }
 
 HTTPMethod http_method_string_to_enum(const char* _method_str)

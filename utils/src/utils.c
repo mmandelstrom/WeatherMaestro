@@ -50,8 +50,15 @@ void ms_sleep(uint64_t ms) {
 
 /* C89 approved strdup */
 char* strdup(const char* _str) {
+  if (_str == NULL) {
+    return NULL;
+  }
+
   size_t size = strlen(_str) + 1;
-  char* copy = (char*)malloc(size);
+  char* copy = (char*)calloc(size, sizeof(char));
+  if (!copy) {
+    return NULL;
+  }
 
   if (copy != NULL) 
     memcpy(copy, _str, size);
