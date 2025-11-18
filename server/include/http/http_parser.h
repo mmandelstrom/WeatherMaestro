@@ -50,6 +50,7 @@ typedef struct
   yuarel_param*   params;
   int             params_count;
   char*           version;
+  int             firstline_len; // To set pointer for headers parsing
   
   Linked_List*    headers;
 
@@ -64,5 +65,6 @@ HTTPMethod http_method_string_to_enum(const char* _method_str);
 const char* http_method_enum_to_string(HTTPMethod _method);
 
 int http_parse_firstline(HTTP_Request* _Request, const char* _firstline, int _line_len);
+int http_parse_headers(const char* _headers_str, int _headers_str_len, Linked_List** _Headers_List_Ptr);
 
 #endif //__HTTP_Server_h_

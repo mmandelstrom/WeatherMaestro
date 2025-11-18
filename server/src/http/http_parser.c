@@ -137,105 +137,45 @@ int http_parse_firstline(HTTP_Request* _Request, const char* _firstline, int _li
   return 0;
 }
 
-// Example function to build the response body JSON string:
-char* build_response_body(const char* _method, const char* _path, Linked_List* _headers) {
-  // First compute headers_json size
-  size_t headers_size = 0;
-  int header_count = 0;
+int http_parse_headers(const char* _headers_str, int _headers_str_len, Linked_List** _Headers_List_Ptr)
+{
+  *_Headers_List_Ptr = linked_list_create();
+  if (*_Headers_List_Ptr == NULL)
+  {
+    printf("Failed to create linked list for headers!\n");
+    return -1;
+  }
 
-  linked_list_foreach(_headers, node) {
-    char* header_str = (char*)node->item;
-    // Escape quotes in header string with worst case doubling of quotes plus padding
-    size_t len = strlen(header_str);
-    size_t esc_len = len;
-    for (size_t i = 0; i < len; i++) {
-      if (header_str[i] == '"') {
-        esc_len++; // one extra for backslash
-      }
+  char headers_copy[_headers_str_len];
+  memcpy(headers_copy, _headers_str, _headers_str_len);
+
+  char* ptr; 
+  ptr = strtok(headers_copy, "\r\n");
+
+  int y = 0;
+  while (ptr != NULL)
+  {
+    char* header = strdup(ptr); // NEED TO DISPOSE EACH
+    if (header == NULL)
+    {
+      perror("strdup");
+      return -2;
     }
-    // Add length for indentation (4 spaces), quotes (2), comma and newline (2), total 8 extra per header
-    headers_size += esc_len + 8;
-    header_count++;
-  }
-  if (header_count == 0) headers_size = 0;
-
-  char* headers_json = malloc(headers_size + 1);
-  if (!headers_json) return NULL;
-  headers_json[0] = '\0';
-
-  int i = 0;
-  linked_list_foreach(_headers, node) {
-    char* header_str = (char*)node->item;
-    // escape quotes
-    char header_escaped[2048]; // large buffer to safely store escaped string
-    int j = 0;
-    for (size_t k = 0; header_str[k] && j + 2 < sizeof(header_escaped); k++) {
-      if (header_str[k] == '"') {
-        header_escaped[j++] = '\\';
-      }
-      header_escaped[j++] = header_str[k];
-    }
-    header_escaped[j] = '\0';
-
-    strcat(headers_json, "    \"");
-    strcat(headers_json, header_escaped);
-    strcat(headers_json, "\"");
-
-    if (i != header_count - 1) {
-      strcat(headers_json, ",\n");
-    } else {
-      strcat(headers_json, "\n");
-    }
-    i++;
+    else linked_list_item_add(*_Headers_List_Ptr, NULL, header);
+  
+    ptr = strtok(NULL, "\r\n");
+    y++;
   }
 
-  // Calculate required buffer size for full response body JSON string
-  int needed = snprintf(NULL, 0, RESPONSE_BODY_TEMPLATE, _method, _path, headers_json);
-  if (needed < 0) {
-    free(headers_json);
-    return NULL;
+  linked_list_foreach(*_Headers_List_Ptr, node)
+  {
+    printf("Header: %s\n", (char*)node->item);
   }
 
-  size_t buf_size = (size_t)needed + 1;
-  char* response_body = malloc(buf_size);
-  if (!response_body) {
-    free(headers_json);
-    return NULL;
-  }
-
-  int written = snprintf(response_body, buf_size, RESPONSE_BODY_TEMPLATE, _method, _path, headers_json);
-  free(headers_json);
-
-  if (written < 0 || written >= (int)buf_size) {
-    free(response_body);
-    return NULL;
-  }
-
-  return response_body;
+  return 0;
 }
 
 char* http_build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers) {
-    // char* body = build_response_body(_method, _path, _Headers);
-    // if (!body) return NULL;
-    //
-    // size_t body_len = strlen(body);
-    // size_t resp_buf_size = strlen(RESPONSE_TEMPLATE) + body_len + 64;
-    // char* response = malloc(resp_buf_size);
-    // if (!response) {
-    //   free(body);
-    //   return NULL;
-    // }
-    //
-    // int ret = snprintf(response, resp_buf_size, RESPONSE_TEMPLATE, _status_code, _reason_phrase, (int)body_len, body);
-    // free(body);
-    //
-    // if (ret < 0 || ret >= (int)resp_buf_size) {
-    //   free(response);
-    //   return NULL;
-    // }
-
-     
-     // args: response_code, reason_phrase, response_content_len, response_body
 
   return "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" "";
 

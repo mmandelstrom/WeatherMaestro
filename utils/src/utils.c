@@ -48,22 +48,31 @@ void ms_sleep(uint64_t ms) {
 #endif
 }
 
+/* char* strdup(const char* _str)
+{
+  char *cpy = NULL;
+  if (_str)
+  {
+    cpy = malloc(strlen(_str) + 1);
+    if (cpy)
+      strcpy(cpy, _str);
+    else
+      return NULL;
+  }
+  return cpy;
+} */
+
 /* C89 approved strdup */
 char* strdup(const char* _str) {
-  if (_str == NULL) {
+  if (_str == NULL)
     return NULL;
-  }
 
   size_t size = strlen(_str) + 1;
-  char* copy = (char*)calloc(size, sizeof(char));
-  if (!copy) {
+  char* copy = malloc(size);
+  if (copy)
+    strcpy(copy, _str);
+  else
     return NULL;
-  }
-
-  if (copy != NULL) 
-    memcpy(copy, _str, size);
-
-  copy[size] = '\0'; // null terminate string
 
   return copy;
 }

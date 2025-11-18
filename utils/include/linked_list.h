@@ -35,8 +35,8 @@ int linked_list_item_add(Linked_List* _Linked_List, Linked_Item** _Linked_Item_P
 void linked_list_item_remove(Linked_List* _Linked_List, Linked_Item* _Linked_Item);
 
 /** Disposes of all items in the list */
-void linked_list_item_dispose(Linked_List* _Linked_List);
+void linked_list_items_dispose(Linked_List* _Linked_List);
 
 /** Destroys the calloced Linked_List */
-void linked_list_destroy(Linked_List** List_Ptr);
+void linked_list_destroy(Linked_List** _List_Ptr);
 #endif

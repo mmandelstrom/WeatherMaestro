@@ -103,6 +103,10 @@ int weather_server_on_instance_finish(void* _context, void* _instance)
   Weather_Server_Instance* Instance = (Weather_Server_Instance*)_instance;
   if (Instance->item != NULL)
     linked_list_item_remove(Server->instances, Instance->item);
+
+  linked_list_foreach(Server->instances, node)
+    printf("Instance: %p\n", node);
+
   weather_server_instance_dispose_ptr(&Instance);
 
   return 0;

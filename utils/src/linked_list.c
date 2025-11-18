@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "../include/linked_list.h"
 
+#include <stdio.h>
 Linked_List* linked_list_create() 
 {
   Linked_List* New = calloc(1, sizeof(Linked_List)); /* zeroed allocation, just what we need */
@@ -69,7 +70,7 @@ void linked_list_item_remove(Linked_List* _List, Linked_Item* _Item)
 
 }
 
-void linked_list_item_dispose(Linked_List* _List)
+void linked_list_items_dispose(Linked_List* _List)
 {
   /* Call linked_list_remove on each Item until List no longer has a head */
   while (_List->head != NULL)
@@ -80,11 +81,17 @@ void linked_list_item_dispose(Linked_List* _List)
   }
 }
 
-void linked_list_destroy(Linked_List** List_Ptr)
+void linked_list_destroy(Linked_List** _List_Ptr)
 {
-  if (*List_Ptr != NULL)
-    free(*List_Ptr);
-  if (List_Ptr != NULL)
-    List_Ptr = NULL;
+  linked_list_foreach(*_List_Ptr, node)
+  {
+    printf("linked_list_item: %p", node->item);
+  }
+  linked_list_items_dispose(*_List_Ptr);
+
+  if (*_List_Ptr != NULL)
+    free(*_List_Ptr);
+  if (_List_Ptr != NULL)
+    _List_Ptr = NULL;
 }
 
