@@ -13,8 +13,8 @@ WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Ins
 
 int weather_server_instance_init(void* _context, Weather_Server_Instance* _Instance, HTTP_Server_Connection* _Connection)
 {
-  _Instance->context = _context; // Weather_Server
-  _Instance->task = NULL; // Weather_Server
+  _Instance->context = _context;
+  _Instance->task = NULL;
   _Instance->http_connection = _Connection;
   http_server_connection_set_callback(_Instance->http_connection, _Instance, weather_server_instance_on_request, weather_server_instance_on_response);
 
@@ -46,6 +46,7 @@ int weather_server_instance_on_request(void* _context)
 {
   printf("WEATHER ON REQUEST\n");
   Weather_Server_Instance* _Instance = (Weather_Server_Instance*)_context;
+  _Instance->state = WEATHER_SERVER_INSTANCE_INITIALIZING;
   _Instance->task = scheduler_create_task(_Instance, weather_server_instance_taskwork);
 
   return 0;

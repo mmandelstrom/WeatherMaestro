@@ -5,6 +5,8 @@
 
 int main(void) {
 
+  scheduler_init();
+
   Weather_Server _Server;
   weather_server_init(&_Server);
 

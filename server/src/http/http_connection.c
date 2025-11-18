@@ -179,247 +179,21 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
   
   return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
 }
-HTTPServerConnectionState worktask_request_read_firstline_old(HTTP_Server_Connection* _Connection)
+HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* _Connection)
 {
+  /* Force stop loop */
   if (_Connection->retries > HTTP_SERVER_CONNECTION_MAX_RETRIES)
     return HTTP_SERVER_CONNECTION_ERROR;
-
   _Connection->retries++;
 
-  if (_Connection->tcp_client->data.addr == NULL) {
-    _Connection->tcp_client->data.addr = calloc(1, sizeof(uint8_t));
-  } else {
-    printf("inne i blcoetk\n");
-    memcpy(_Connection->line_buf, _Connection->tcp_client->data.addr, _Connection->tcp_client->data.size);
-    _Connection->line_buf_len += _Connection->tcp_client->data.size;
-  }
-
-  printf("After malloc datadadr: %s\n", _Connection->tcp_client->data.addr);
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
-
-  int bytes_read = tcp_client_read_simple(_Connection->tcp_client,tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
+  int bytes_read = 0;
+  bytes_read = tcp_client_read_simple(_Connection->tcp_client, tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
   printf("bytes_read: %i\n", bytes_read);
-  int bytes_to_read = _Connection->line_buf_len + bytes_read;
-  if (bytes_read > 0)
-  {
-    int i;
-    for (i = 1; i < bytes_to_read; i++) // Will this create bug with \n on last buffer index?
-    {
-      printf("tcp_buf: %c\n", tcp_buf[i]);
-      if (tcp_buf[i] == '\n')
-      {
-        if (tcp_buf[i - 1] == '\r')
-        {
-          
-          printf("Found our newline!line buf: %s\n", _Connection->line_buf);
-          
-          char buffer[HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN];
-          memset(&buffer, 0, HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN);
-          memcpy(buffer, _Connection->line_buf, strlen((char*)_Connection->line_buf));
-          printf("Buffer: %s\n", buffer); 
-          char* ptr; 
-          
-          ptr = strtok((char*)buffer, " ");
 
-          int j;
-          for (j = 0; j < 3; j++)
-          {
-            if (j == 0 && ptr != NULL) // Method
-              _Connection->request->method_str = strdup(ptr);
-            if (j == 1 && ptr != NULL) // Path+Query
-            {
-              char* tmp = ptr; // local copy to not ruin ongoing strtok
-              char* query = strchr(tmp, '?');
-              if (query != NULL)
-              {
-                size_t path_len = (size_t)(query - tmp);
-                _Connection->request->path = (char*)malloc(path_len + 1);
-                if (_Connection->request->path) 
-                {
-                  memcpy(_Connection->request->path, tmp, path_len);
-                  _Connection->request->path[path_len] = '\0';
-                }
-                _Connection->request->query = strdup(query + 1); // + 1 to strip '?'
-
-              } else {
-                _Connection->request->path = strdup(ptr);
-                _Connection->request->query = NULL;
-              }
-            }
-            if (j == 2 && ptr != NULL) // HTTP Version
-            {
-              printf("Request version: %s\n", ptr);
-              _Connection->request->version = strdup(ptr);
-            }
-
-            ptr = strtok(NULL, " ");
-          }
-          if (!_Connection->request->method_str ||
-              !_Connection->request->path       ||
-              !_Connection->request->version)
-          {
-            // We either failed to allocate or there wasn't three parts in firstline
-            // Ideally it should distinguish and set httpstatus either 400 or 500
-            // Either way we should not continue
-            return HTTP_SERVER_CONNECTION_RESPONDING;
-          }
-          printf("Method: %s\nPath: %s\nVersion: %s\n", _Connection->request->method_str, _Connection->request->path, _Connection->request->version);
-
-          /* Query parsing using yuarel */
-          if (_Connection->request->query != NULL)
-          {
-            printf("Query: %s\n", _Connection->request->query);
-
-            yuarel_param Params_Buf[HTTP_REQUEST_MAX_PARAMS + 1];
-            _Connection->request->params_count = yuarel_parse_query(_Connection->request->query, '&', Params_Buf, HTTP_REQUEST_MAX_PARAMS + 1);
-            printf("Params count: %i\n", _Connection->request->params_count);
-
-            if (_Connection->request->params_count < 0)
-            {
-              printf("yuarel failed to parse request query\r\n");
-              //server error
-              return HTTP_SERVER_CONNECTION_ERROR;
-            } 
-            else if (_Connection->request->params_count > HTTP_REQUEST_MAX_PARAMS)
-            {
-              printf("request had too many query params\r\n");
-              //invalid request
-              return HTTP_SERVER_CONNECTION_RESPONDING;
-            }
-            else // Allocate memory for our request params
-            {
-              _Connection->request->params = malloc(_Connection->request->params_count * sizeof(yuarel_param));
-              if (_Connection->request->params == NULL)
-              {
-                perror("malloc");
-                return HTTP_SERVER_CONNECTION_ERROR;
-              }
-
-              for (j = 0; j < _Connection->request->params_count; j++)
-              {
-                /* Param key */
-                size_t key_len = strlen(Params_Buf[j].key);
-                _Connection->request->params[j].key = (char*)malloc(key_len + 1);
-                if (_Connection->request->params[j].key == NULL)
-                {
-                  perror("malloc");
-                  for (int k = 0; k < j; k++) // gracefully dispose of allocated mem so far
-                  {
-                    free(_Connection->request->params[k].key);
-                    free(_Connection->request->params[k].val);
-                  }
-                  free(_Connection->request->params);
-                  return HTTP_SERVER_CONNECTION_ERROR;
-                }
-                memcpy(_Connection->request->params[j].key, Params_Buf[j].key, key_len + 1);
-
-                /* Param value */
-                if (Params_Buf[j].val != NULL) // Handle empty params
-                {
-                  size_t val_len = strlen(Params_Buf[j].val);
-                  _Connection->request->params[j].val = (char*)malloc(val_len + 1);
-                  if (_Connection->request->params[j].val == NULL)
-                  {
-                    perror("malloc");
-                    for (int k = 0; k <= j; k++) // gracefully dispose of allocated mem so far
-                    {
-                      free(_Connection->request->params[k].key); // remove one extra key
-                      if (k < j) free(_Connection->request->params[k].val);
-                    }
-                    free(_Connection->request->params);
-                    return HTTP_SERVER_CONNECTION_ERROR;
-                  }
-                  memcpy(_Connection->request->params[j].val, Params_Buf[j].val, val_len + 1);
-                }
-              }
-            }
-          }
-
-          /* Read the last remaining tcp bytes into line buffer */
-          for (j = i; j < bytes_read; j++)
-          {
-            _Connection->line_buf[_Connection->line_buf_len++] = tcp_buf[j];
-            /* _Connection->line_buf_len++; */
-            printf("Buf read: %c\n", _Connection->line_buf[_Connection->line_buf_len - 1]);
-          }
-
-          size_t old_len = 0;
-          if (_Connection->tcp_client->data.addr != NULL){
-            old_len = strlen((char*)_Connection->tcp_client->data.addr);
-          }
-          size_t new_len = _Connection->line_buf_len;
-          printf("new_len = %zu | Tcp_client.dada len = %zu\n", new_len, sizeof(_Connection->tcp_client->data.addr));
-
-
-          uint8_t* new_mem = realloc(_Connection->tcp_client->data.addr, old_len + new_len + 1);
-          if (new_mem == NULL) {
-            perror("realloc");
-            return HTTP_SERVER_CONNECTION_ERROR;
-          } else {
-            _Connection->tcp_client->data.addr = new_mem;
-            printf("Linebuf: %s\n", _Connection->line_buf);
-            //Already fucked
-            printf("data.addr: %s\n", _Connection->tcp_client->data.addr);
-            memcpy(_Connection->tcp_client->data.addr + old_len, _Connection->line_buf, new_len);
-            _Connection->tcp_client->data.addr[old_len + new_len] = '\0';
-            _Connection->tcp_client->data.size = strlen((char*)_Connection->tcp_client->data.addr);
-          }
-
-          printf("Readline: TCP_Data: %s\n", (char*)_Connection->tcp_client->data.addr);
-          return HTTP_SERVER_CONNECTION_READING_HEADERS;
-        }
-        else
-        {
-          _Connection->request->method = HTTP_INVALID;
-          return HTTP_SERVER_CONNECTION_RESPONDING;
-        }
-      }
-      else
-      {	//Continue inserting each byte into buffer 
-        _Connection->line_buf[_Connection->line_buf_len] = tcp_buf[i-1];
-        _Connection->line_buf_len++;
-        //printf("Buf read: %c | tcp_buf: %c\n", _Connection->line_buf[i-1], tcp_buf[i-1]);
-      }
-    }
-
-     size_t old_len = 0;
-    if (_Connection->tcp_client->data.addr != NULL){
-      old_len = strlen((char*)_Connection->tcp_client->data.addr);
-    }
-    size_t new_len = _Connection->line_buf_len;
-    printf("new_len = %zu | Tcp_client.dada len = %zu\n", new_len, sizeof(_Connection->tcp_client->data.addr));
-
-
-    uint8_t* new_mem = realloc(_Connection->tcp_client->data.addr, old_len + new_len + 1);
-    if (new_mem == NULL) {
-      perror("realloc");
-      return HTTP_SERVER_CONNECTION_ERROR;
-    } else {
-      _Connection->tcp_client->data.addr = new_mem;
-      printf("Linebuf: %s\n", _Connection->line_buf);
-      //Already fucked
-      printf("data.addr: %s\n", _Connection->tcp_client->data.addr);
-      memcpy(_Connection->tcp_client->data.addr + old_len, _Connection->line_buf, new_len);
-      _Connection->tcp_client->data.addr[old_len + new_len] = '\0';
-      _Connection->tcp_client->data.size = strlen((char*)_Connection->tcp_client->data.addr);
-    }   
-  }
-
-  /* if (Conn_Data->size > HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN)
-  {
-    printf("Connection (fd: %i) had a too long first line, closing.", _Connection->tcp_client->fd);
-        return HTTP_SERVER_CONNECTION_RESPONDING;
-  } */
-
-  //if firstline parsed
-  /* return HTTP_SERVER_CONNECTION_READING_HEADERS; */
-  //else
-  //
-  
-
-  return HTTP_SERVER_CONNECTION_READING_FIRSTLINE; // bytes_read exceeded buffer max, we go again
+  return HTTP_SERVER_CONNECTION_READING_HEADERS; // bytes_read exceeded buffer max, we go again
 }
-HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* _Connection)
+HTTPServerConnectionState worktask_request_read_headers_old(HTTP_Server_Connection* _Connection)
 {
   if (_Connection->retries > HTTP_SERVER_CONNECTION_MAX_RETRIES)
     return HTTP_SERVER_CONNECTION_ERROR;
@@ -667,7 +441,7 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
     case HTTP_SERVER_CONNECTION_READING_HEADERS:
     {
       printf("HTTP_SERVER_CONNECTION_READING_HEADERS\n");
-      _Connection->state = worktask_request_read_headers(_Connection);
+      _Connection->state = worktask_request_read_headers_old(_Connection);
     } break;
 
     case HTTP_SERVER_CONNECTION_READING_BODY:
@@ -761,15 +535,21 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       for (i = 0; i < _Connection->request->params_count; i++)
       {
         if (_Connection->request->params[i].key != NULL) {
+          printf("Freeing %s\n", _Connection->request->params[i].key);
           free(_Connection->request->params[i].key);
           _Connection->request->params[i].key = NULL;
         }
         if (_Connection->request->params[i].val != NULL)
+        {
+          printf("Freeing %s\n", _Connection->request->params[i].val);
           free(_Connection->request->params[i].val);
+          _Connection->request->params[i].val = NULL;
+        }
       }
       free(_Connection->request->params);
       _Connection->request->params_count = 0;
     }
+    linked_list_destroy(&_Connection->request->headers);
     free(_Connection->request);
     _Connection->request = NULL;
   }

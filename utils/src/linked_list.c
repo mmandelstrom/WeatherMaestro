@@ -12,8 +12,7 @@ Linked_List* linked_list_create()
 
 int linked_list_item_add(Linked_List* _List, Linked_Item** _Item_Ptr, void* _item)
 {
-  /* Allocate memory in the heap for a new Linked_Item
-   * Is this potentially unsafe? */
+  /* Allocate memory in the heap for a new Linked_Item */
   Linked_Item* New_Item = malloc(sizeof(Linked_Item));
   if (New_Item == NULL)
     return -1;
