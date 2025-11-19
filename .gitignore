@@ -70,3 +70,4 @@ vgcore*
 external/
 core/
 
+.env

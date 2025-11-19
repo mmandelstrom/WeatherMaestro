@@ -306,7 +306,13 @@ HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Con
 }
 HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 {
-  HTTP_Request *Req = _Connection->request;
+  HTTP_Request* Req = _Connection->request;
+  HTTP_Response* Res = _Connection->response;
+
+  if (Res->status_code == 400)
+    
+
+
 
   if (_Connection->response->status_code != 400)
   {
@@ -448,7 +454,6 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
 
 void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
 {
-  printf("Disposing....\n");
   tcp_client_dispose(_Connection->tcp_client);
   if (_Connection->tcp_client != NULL)
   {
