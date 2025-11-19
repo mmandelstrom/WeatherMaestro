@@ -83,10 +83,11 @@ void linked_list_items_dispose(Linked_List* _List)
 
 void linked_list_destroy(Linked_List** _List_Ptr)
 {
-  linked_list_foreach(*_List_Ptr, node)
-  {
-    printf("linked_list_item: %p", node->item);
-  }
+  if ((*_List_Ptr)->head != NULL)
+    linked_list_foreach(*_List_Ptr, node)
+    {
+      printf("linked_list_item: %p", node->item);
+    }
   linked_list_items_dispose(*_List_Ptr);
 
   if (*_List_Ptr != NULL)
