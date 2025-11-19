@@ -73,7 +73,7 @@ void linked_list_item_remove(Linked_List* _List, Linked_Item* _Item)
 void linked_list_items_dispose(Linked_List* _List)
 {
   /* Call linked_list_remove on each Item until List no longer has a head */
-  while (_List->head != NULL)
+  while (_List != NULL && _List->head != NULL)
   {
     Linked_Item* Item = _List->head;
     linked_list_item_remove(_List, Item);
