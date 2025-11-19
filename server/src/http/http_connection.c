@@ -309,10 +309,6 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
   HTTP_Request* Req = _Connection->request;
   HTTP_Response* Res = _Connection->response;
 
-  if (Res->status_code == 400)
-    
-
-
 
   if (_Connection->response->status_code != 400)
   {
@@ -509,6 +505,11 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       }
       free(_Connection->request->params);
       _Connection->request->params_count = 0;
+    }
+    linked_list_foreach(_Connection->request->headers, node)
+    {
+      if (node->item != NULL)
+        free(node->item);
     }
     linked_list_items_dispose(_Connection->request->headers);
     linked_list_destroy(&_Connection->request->headers);

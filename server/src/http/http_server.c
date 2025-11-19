@@ -270,11 +270,16 @@ void http_server_dispose(HTTP_Server* _Server)
 {
   if (!_Server) return;
 
-	tcp_server_dispose(&_Server->tcp_server);
   if (_Server->task) {
     scheduler_destroy_task(_Server->task);
     _Server->task = NULL;
   }
+
+	tcp_server_dispose(&_Server->tcp_server);
+
+  memset(_Server, 0, sizeof(TCP_Server));
+
+  _Server = NULL;
 }
 
 void http_server_dispose_ptr(HTTP_Server** _ServerPtr)

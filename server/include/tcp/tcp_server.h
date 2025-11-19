@@ -39,20 +39,23 @@ typedef enum {
 typedef int (*tcp_server_on_accept)(int _fd, void* _context);
 
 typedef struct {
-  tcp_server_on_accept on_accept;
-  void* context;
-  int fd;
-  const char* port;
-  TCPServerState state;
-  Scheduler_Task* task;
-  int        client_fd;
-} TCP_Server;
+  const char*           port;
+  tcp_server_on_accept  on_accept;
+  void*                 context; /*HTTP_Server*/
+
+} TCP_Init_Args;
 
 typedef struct {
-    const char *port;
-    tcp_server_on_accept on_accept;
-    void *context; /*HTTP_Server*/
-} TCP_Init_Args;
+  tcp_server_on_accept  on_accept;
+  void*                 context;
+  int                   fd;
+  const char*           port;
+  TCPServerState        state;
+  Scheduler_Task*       task;
+  int                   client_fd;
+  TCP_Init_Args*        args;
+
+} TCP_Server;
 
 
 int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept _on_accept, void* _context);

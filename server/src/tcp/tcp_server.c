@@ -191,13 +191,14 @@ TCPServerState tcp_server_handle_listening(TCP_Server* _Server, uint64_t _montim
 
   } else if (result == TCP_ACCEPT_FATAL_ERROR) {
 
+    /* _Server->args = (TCP_Init_Args*)malloc(sizeof(TCP_Init_Args)); */
 
-    TCP_Init_Args* args = (TCP_Init_Args*)malloc(sizeof(TCP_Init_Args));
-    if (!args) {
+    /* if (!_Server->args) {
       errno = ENOMEM;
       return TCP_SERVER_ERROR;
-    }
-
+    } */
+    // Why do we malloc at fatal error? I commented it out because it runs AFTER dispose because of taskwork so no chance of freeing
+    
     /*    args->port = "58080";
     args->on_accept = http_server_on_accept;
     args->context = _Server;
@@ -214,7 +215,8 @@ TCPServerState tcp_server_handle_listening(TCP_Server* _Server, uint64_t _montim
   return TCP_SERVER_ERROR;
 }
 
-TCPServerState tcp_server_connection_handover(TCP_Server* _Server) {
+TCPServerState tcp_server_connection_handover(TCP_Server* _Server) 
+{
   if (!_Server) {
     return TCP_SERVER_ERROR;
   }
@@ -226,26 +228,37 @@ TCPServerState tcp_server_connection_handover(TCP_Server* _Server) {
 
   _Server->client_fd = -1;
   return TCP_SERVER_CONNECTED;
-  
 }
 
-void tcp_server_dispose(TCP_Server *_Server) {
-  if (_Server == NULL) {
-    return;
+void tcp_server_dispose(TCP_Server *_Server) 
+{
+  if (!_Server) return;
+
+  if (_Server->task) {
+    scheduler_destroy_task(_Server->task);
+    _Server->task = NULL;
   }
-  memset(_Server, 0, sizeof(TCP_Server));
-  _Server = NULL;
+
+  printf("Args freed!\n");
+  if (_Server->args != NULL)
+  {
+    free(_Server->args);
+    _Server->args = NULL;
+  }
+
   if (_Server->fd >= 0) {
     printf("Dispose FD %i CLOSED\n", _Server->fd);
     close(_Server->fd);
     _Server->fd = -1;
   }
 
-  _Server->port = NULL;
-  _Server->on_accept = NULL;
+  memset(_Server, 0, sizeof(TCP_Server));
+
+  _Server = NULL;
 }
 
-void tcp_server_dispose_ptr(TCP_Server** _ServerPtr) {
+void tcp_server_dispose_ptr(TCP_Server** _ServerPtr) 
+{
   if (_ServerPtr == NULL || *(_ServerPtr) == NULL) {
     return;
   }
