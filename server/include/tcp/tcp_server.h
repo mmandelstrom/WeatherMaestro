@@ -20,8 +20,8 @@
 
 #include "../scheduler.h"
 
-#define BACKLOG 15
-#define MAX_CLIENTS 15
+#define BACKLOG 10000
+#define MAX_CLIENTS 10000
 #define TCP_ACCEPT_NO_CONNECTION -1
 #define TCP_ACCEPT_FATAL_ERROR -2
 

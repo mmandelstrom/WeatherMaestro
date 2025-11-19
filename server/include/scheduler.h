@@ -8,7 +8,7 @@
 #include <string.h>
 
 #ifndef SCHEDULER_MAX_TASKS
-    #define SCHEDULER_MAX_TASKS 16
+    #define SCHEDULER_MAX_TASKS 10000
 #endif
 
 
