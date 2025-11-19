@@ -289,10 +289,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 {
   HTTP_Request *Req = _Connection->request;
 
-  if (strcmp(Req->method_str, "GET") == 0 &&
-      Req->path != NULL &&
-      Req->version != NULL &&
-      Req->headers != NULL)
+  if (_Connection->response->status_code != 400)
   {
     _Connection->response->status_code = HttpStatus_OK;
     const char* reason_phrase = HttpStatus_reasonPhrase(_Connection->response->status_code);
