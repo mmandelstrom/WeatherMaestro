@@ -177,8 +177,9 @@ int http_parse_headers(const char* _headers_str, int _headers_str_len, Linked_Li
 
 char* http_build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers) {
 
-  return "HTTP/1.1 200 OK\r\n"
+   return "HTTP/1.1 200 OK\r\n"
        "Content-Type: application/json\r\n"
+       "Content-Length: 455\r\n"
        "Connection: close\r\n"
        "\r\n"
        "{\n"
@@ -195,7 +196,6 @@ char* http_build_full_response(int _status_code, const char* _reason_phrase, con
        "    { \"day\": \"Thursday\", \"high_c\": 13, \"low_c\": 6, \"summary\": \"Cloudy with mild winds.\" }\n"
        "  ]\n"
        "}\n";
-
 }
 
 HTTPMethod http_method_string_to_enum(const char* _method_str)
