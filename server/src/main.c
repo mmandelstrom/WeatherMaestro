@@ -1,7 +1,5 @@
 #include "../include/weather/weather_server.h"
-#include <unistd.h>
 
-#define BACKLOG 15
 
 int main(void) {
 

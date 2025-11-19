@@ -190,7 +190,9 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
         _Connection->tcp_client->data.addr[i - 2] == '\n' &&
         _Connection->tcp_client->data.addr[i - 3] == '\r')
     {
-      int headers_len = i - _Connection->request->firstline_len - 1; // stripping \r\n, hence -1 instead of +1
+      int headers_len = i - _Connection->request->firstline_len;
+      _Connection->request->headers_len = headers_len;
+      headers_len -=  1; // stripping \r\n, hence -1 instead of +1
       char headers_buf[headers_len];
       memcpy(headers_buf, (_Connection->tcp_client->data.addr + _Connection->request->firstline_len + 2), headers_len); // Copy headers_len amount of data from tcp_data where firstline ends (+2 for stripped starting newline)
       headers_buf[headers_len] = '\0';
@@ -253,10 +255,27 @@ HTTPServerConnectionState worktask_request_read_body(HTTP_Server_Connection* _Co
 
   _Connection->retries++;
 
-  // Depending on the method we read TCP until 
-  // Should have some blockage for too many bytes then it's prob some bullshit
+  uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
+  int bytes_read = 0;
+  bytes_read = tcp_client_read_simple(_Connection->tcp_client, 
+      tcp_buf, 
+      TCP_MESSAGE_BUFFER_MAX_SIZE);
+  int tcp_err = errno;
+  printf("bytes_read: %i\n", bytes_read);
 
-  /* _Connection->request->body = http_parse_body();  */
+  if (bytes_read > 0)
+  {
+    /* Write the data we gathered to TCP_Data */
+    size_t bytes_written = tcp_client_realloc_data(&_Connection->tcp_client->data, 
+        tcp_buf, 
+        bytes_read, 
+        sizeof(uint8_t));
+    if (bytes_written < 0)
+      return HTTP_SERVER_CONNECTION_ERROR;
+
+  }
+
+  
 
   return HTTP_SERVER_CONNECTION_VALIDATING;
 

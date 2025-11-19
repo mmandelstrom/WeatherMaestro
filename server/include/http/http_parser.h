@@ -51,7 +51,8 @@ typedef struct
   int             params_count;
   char*           version;
   int             firstline_len; // To set pointer for headers parsing
-  
+  int             headers_len;
+  int             bode_len;
   Linked_List*    headers;
 
   char*           body;

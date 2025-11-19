@@ -177,7 +177,24 @@ int http_parse_headers(const char* _headers_str, int _headers_str_len, Linked_Li
 
 char* http_build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers) {
 
-  return "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n" "";
+  return "HTTP/1.1 200 OK\r\n"
+       "Content-Type: application/json\r\n"
+       "Connection: close\r\n"
+       "\r\n"
+       "{\n"
+       "  \"location\": \"Springfield\",\n"
+       "  \"temperature_c\": 12.4,\n"
+       "  \"temperature_f\": 54.3,\n"
+       "  \"condition\": \"Partly cloudy\",\n"
+       "  \"humidity\": 73,\n"
+       "  \"wind_kph\": 14.2,\n"
+       "  \"wind_dir\": \"NW\",\n"
+       "  \"forecast\": [\n"
+       "    { \"day\": \"Tuesday\", \"high_c\": 15, \"low_c\": 7, \"summary\": \"Light showers expected.\" },\n"
+       "    { \"day\": \"Wednesday\", \"high_c\": 17, \"low_c\": 8, \"summary\": \"Mostly sunny.\" },\n"
+       "    { \"day\": \"Thursday\", \"high_c\": 13, \"low_c\": 6, \"summary\": \"Cloudy with mild winds.\" }\n"
+       "  ]\n"
+       "}\n";
 
 }
 
