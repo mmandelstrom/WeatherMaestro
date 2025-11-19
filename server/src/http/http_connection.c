@@ -486,7 +486,7 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       free(_Connection->request->params);
       _Connection->request->params_count = 0;
     }
-
+    linked_list_items_dispose(_Connection->request->headers);
     linked_list_destroy(&_Connection->request->headers);
     _Connection->request->headers = NULL;
 
