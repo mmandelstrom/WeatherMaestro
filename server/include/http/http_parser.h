@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <errno.h>
 #include "../../../libs/include/HTTPStatusCodes.h"
 #include "../../../libs/include/yuarel.h"
 #include "../../../utils/include/utils.h"
@@ -59,13 +59,9 @@ typedef struct
 
 } HTTP_Request;
 
-
-char* http_build_full_response(int _status_code, const char* _reason_phrase, const char* _method, const char* _path, Linked_List* _Headers);
-
-HTTPMethod http_method_string_to_enum(const char* _method_str);
-const char* http_method_enum_to_string(HTTPMethod _method);
-
-int http_parse_firstline(HTTP_Request* _Request, const char* _firstline, int _line_len);
-int http_parse_headers(const char* _headers_str, int _headers_str_len, Linked_List** _Headers_List_Ptr);
+int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req);
+int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len, size_t _start_offset);
+int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len, size_t _start_offset);
+int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_headers_out);
 
 #endif //__HTTP_Server_h_
