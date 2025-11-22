@@ -1,7 +1,6 @@
 #include "../../include/http/http_connection.h"
 #include <stdint.h>
-#include <string.h>
-#include <stdio.h>
+#include <sys/types.h>
 
 #define RESPONSE_TEMPLATE "HTTP/1.1 %i %s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" // args: response_code, reason_phrase, response_content_len, response_body
 
@@ -20,39 +19,30 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection);
 int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
 {
 
-  TCP_Client *TCPC = (TCP_Client*)malloc(sizeof(TCP_Client));
-  HTTP_Request *req = (HTTP_Request*)malloc(sizeof(HTTP_Request));
-  HTTP_Response *resp = (HTTP_Response*)malloc(sizeof(HTTP_Response));
+  TCP_Client *TCPC = (TCP_Client*)calloc(1, sizeof(TCP_Client));
+  HTTP_Request *req = (HTTP_Request*)calloc(1, sizeof(HTTP_Request));
+  HTTP_Response *resp = (HTTP_Response*)calloc(1, sizeof(HTTP_Response));
   if (!TCPC || !req || !resp) {
+    perror("calloc");
     return -1;
   }
-
+  
   _Connection->tcp_client = TCPC;
+  _Connection->tcp_client->fd = _fd;
+  _Connection->tcp_client->data.addr = calloc(1, sizeof(uint8_t));
+  if (!_Connection->tcp_client->data.addr) {
+    perror("calloc");
+    free(TCPC);
+    free(req);
+    free(resp);
+    return -1;
+  }
   _Connection->request = req;
   _Connection->response = resp;
-  _Connection->tcp_client->fd = _fd;
-  _Connection->tcp_client->readData = NULL;
-  _Connection->tcp_client->writeData = NULL;
-  _Connection->tcp_client->data.addr = calloc(1, sizeof(uint8_t));
-  _Connection->tcp_client->data.size = 0;
-
-	/* tcp_client_init(&_Connection->tcp_client-> _fd); */
-
-   memset(_Connection->request, 0, sizeof(HTTP_Request));
-   memset(_Connection->response, 0, sizeof(HTTP_Response));
-   _Connection->request->body       = NULL; 
-   _Connection->request->headers    = NULL;
-   _Connection->request->method_str = NULL;
-   _Connection->request->params     = NULL;
-   _Connection->request->path       = NULL;
-   _Connection->request->query      = NULL; 
-
 	_Connection->task = scheduler_create_task(_Connection, http_server_connection_taskwork);
-  _Connection->state = 0;
 
+  _Connection->state = HTTP_SERVER_CONNECTION_INITIALIZING;
   _Connection->retries = 0;
-  /* _Connection->status_code = HttpStatus_Continue; */
-
   _Connection->weather_done = 0;
 
 	return 0;
@@ -93,288 +83,324 @@ HTTPServerConnectionState worktask_init(HTTP_Server_Connection* _Connection)
 {
   return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
 }
+
 HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection* _Connection)
 {
-  /* Force stop loop */
-  if (_Connection->retries++ > HTTP_SERVER_CONNECTION_MAX_RETRIES)
+  if (_Connection->retries++ > HTTP_SERVER_CONNECTION_MAX_RETRIES) {
+    /*Create internal error enum and set here*/
     return HTTP_SERVER_CONNECTION_ERROR;
+  }
 
-  /* Reset line buffer */
+  TCP_Client *tcpc = _Connection->tcp_client;
+
+  uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
+  int bytes_read = tcp_client_read_simple(tcpc, tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
+  printf("Bytes read: %d\n", bytes_read);
+
+  if (bytes_read > 0) {
+
+    size_t bytes_stored = tcp_client_realloc_data(&tcpc->data, tcp_buf, (size_t)bytes_read, sizeof(uint8_t));
+    if ((ssize_t)bytes_stored < 0) {
+      /*Add internal error*/
+      return HTTP_SERVER_CONNECTION_ERROR;
+    }
+
+  }
+
+  if (tcpc->data.size == 0) {
+    /*No data yet, try again on next work call*/
+    return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
+  }
+
+  int line_end = http_parser_find_line_end(tcpc->data.addr, tcpc->data.size, 0);
+  if (line_end < 0) {
+    /*No \r\n found yet*/
+    if (tcpc->data.size >= HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN) {
+      /*Invalid request*/
+      printf("Request too large..\n");
+      _Connection->response->status_code = 400;
+      return HTTP_SERVER_CONNECTION_RESPONDING;
+    }
+    /*Keep looking for line end on next work call*/
+    return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
+  }
+
+  /*line_end is the index of the first \r*/
+  size_t line_len = (size_t)line_end;
+
+  if (line_len == 0 || line_len > HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN) {
+    printf("Request too large..\n");
+    _Connection->response->status_code = 400;
+    return HTTP_SERVER_CONNECTION_RESPONDING;
+  }
+
+  /*line_buf for debugging*/
   memset(_Connection->line_buf, 0, sizeof(_Connection->line_buf));
-  _Connection->line_buf_len = 0;
+  memcpy(_Connection->line_buf, tcpc->data.addr, line_len);
+  _Connection->line_buf[line_len] = '\0';
+  _Connection->line_buf_len = (int)line_len;
+  _Connection->request->firstline_len = line_len;
 
-  /* If there is saved data from last run, copy that data into line buf */
-  if (_Connection->tcp_client->data.size > 0) {
-    memcpy(_Connection->line_buf, 
-           _Connection->tcp_client->data.addr, 
-           _Connection->tcp_client->data.size);
-    _Connection->line_buf_len = _Connection->tcp_client->data.size;
-  }
+  printf("First line found\r\nline_buf_len: %d\r\nline_buf: %s\n", _Connection->line_buf_len, (char*)_Connection->line_buf);
 
-  /* Read data from tcp client into tcp_buffer */
-  uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
-  int bytes_read = tcp_client_read_simple(_Connection->tcp_client, tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
-  printf("bytes_read: %i\n", bytes_read);
 
-  if (bytes_read > 0)
-  {
-    int i;
-    for (i = 0; i < bytes_read; i++)
-    {
-      /* Make sure we don't exceed firstline max chars */
-      if (_Connection->line_buf_len >= HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN)
-      {
-        _Connection->response->status_code = 400;
-        // Should add response body "Request firstline exceeded max characters"
-        return HTTP_SERVER_CONNECTION_RESPONDING;
-      }
-
-      _Connection->line_buf[_Connection->line_buf_len++] = tcp_buf[i];
-
-      if (_Connection->line_buf[_Connection->line_buf_len - 1] == '\n') 
-      {
-        if (_Connection->line_buf_len > 1)
-        {
-          if (_Connection->line_buf[_Connection->line_buf_len - 2] == '\r')
-          {
-            _Connection->line_buf_len = _Connection->line_buf_len - 2;
-            _Connection->line_buf[_Connection->line_buf_len] = '\0';
-            _Connection->request->firstline_len = _Connection->line_buf_len;
-
-            printf("Found our firstline! line_buf_len: %i line_buf: %s\n", _Connection->line_buf_len, (char*)_Connection->line_buf);
-            if (http_parse_firstline(_Connection->request, (char*)_Connection->line_buf, _Connection->line_buf_len) != 0)
-            {
-              return HTTP_SERVER_CONNECTION_ERROR;
-            }
-
-            /* Read the last remaining tcp bytes into TCP_Data */
-            size_t bytes_written = tcp_client_realloc_data(&_Connection->tcp_client->data, tcp_buf, bytes_read, sizeof(uint8_t));
-            if (bytes_written < 0)
-              return HTTP_SERVER_CONNECTION_ERROR;
-
-            return HTTP_SERVER_CONNECTION_READING_HEADERS; 
-
-          }
-          else // \n but no \r means faulty request
-          {
-            _Connection->response->status_code = 400;
-            return HTTP_SERVER_CONNECTION_RESPONDING;
-          }
-        }
-        else // \n on first byte
-        {
-          _Connection->response->status_code = 400;
-          return HTTP_SERVER_CONNECTION_RESPONDING;
-        }
-      }
-    }
-
-    /* Write the data we gathered to TCP_Data */
-    size_t bytes_written = tcp_client_realloc_data(&_Connection->tcp_client->data, tcp_buf, bytes_read, sizeof(uint8_t));
-    if (bytes_written < 0)
-      return HTTP_SERVER_CONNECTION_ERROR;
-  }
-  
-  return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
-}
-HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* _Connection)
-{
-  /* Force stop loop */
-  if (_Connection->retries++ > HTTP_SERVER_CONNECTION_MAX_RETRIES)
+  if (http_parser_first_line((const char*)_Connection->line_buf, line_len, _Connection->request) != 0) {
+    /*Add internal error*/
     return HTTP_SERVER_CONNECTION_ERROR;
-
-  for (int i = _Connection->request->firstline_len; i < _Connection->tcp_client->data.size; i++) // Loop through read data so far starting from firstline ending
-  {
-    if (_Connection->tcp_client->data.addr[i] == '\n' &&
-        _Connection->tcp_client->data.addr[i - 1] == '\r' &&
-        _Connection->tcp_client->data.addr[i - 2] == '\n' &&
-        _Connection->tcp_client->data.addr[i - 3] == '\r')
-    {
-      int headers_len = i - _Connection->request->firstline_len;
-      _Connection->request->headers_len = headers_len;
-      headers_len -=  1; // stripping \r\n, hence -1 instead of +1
-      char headers_buf[headers_len];
-      memcpy(headers_buf, (_Connection->tcp_client->data.addr + _Connection->request->firstline_len + 2), headers_len); // Copy headers_len amount of data from tcp_data where firstline ends (+2 for stripped starting newline)
-      headers_buf[headers_len] = '\0';
-
-      printf("Headers buf:\n");
-      for (int j = 0; j <= headers_len; j++)
-        printf("%i\n", (int)headers_buf[j]);
-
-      printf("Found our headers! buf: %s\n", headers_buf);
-
-      if (http_parse_headers(headers_buf, headers_len, &_Connection->request->headers) == 0)
-        return HTTP_SERVER_CONNECTION_READING_BODY;
-      else
-        return HTTP_SERVER_CONNECTION_ERROR;
-
-    }
-    else if (_Connection->tcp_client->data.addr[i] == '\0')
-    {
-      // Didn't find empty line, wrongly formatted request
-      _Connection->response->status_code = 400;
-      return HTTP_SERVER_CONNECTION_RESPONDING;
-    }
-    // else keep reading
   }
 
-  /* Read data from tcp client into tcp_buffer */
-  uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
-  int bytes_read = 0;
-  bytes_read = tcp_client_read_simple(_Connection->tcp_client, 
-      tcp_buf, 
-      TCP_MESSAGE_BUFFER_MAX_SIZE);
-  int tcp_err = errno;
-  printf("bytes_read: %i\n", bytes_read);
+  printf("Method: %d\n", _Connection->request->method);
+  printf("Method_str: %s\n", _Connection->request->method_str);
+  printf("Version: %s\n", _Connection->request->version);
 
-  if (bytes_read > 0)
-  {
-    /* Write the data we gathered to TCP_Data */
-    size_t bytes_written = tcp_client_realloc_data(&_Connection->tcp_client->data, 
-        tcp_buf, 
-        bytes_read, 
-        sizeof(uint8_t));
-    if (bytes_written < 0)
-      return HTTP_SERVER_CONNECTION_ERROR;
+  /*We have handled first line + 2 for \r\n*/
+  size_t parsed = line_len + 2;
 
-    /* Make sure we don't exceed headers max chars (headers and firstline lengths combined, headers could be more than headers max length in practice..) */
-    if (_Connection->tcp_client->data.size >= HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN + HTTP_SERVER_CONNECTION_HEADERS_MAXLEN)
-    {
-      _Connection->response->status_code = 400;
-      // Should add response body "Request firstline exceeded max characters"
-      return HTTP_SERVER_CONNECTION_RESPONDING;
-    }
+  /*If there is data remaining after first line shift it to beggining of buffer*/
+  if (tcpc->data.size > parsed) {
+
+    memmove(tcpc->data.addr,
+            tcpc->data.addr + parsed,
+            tcpc->data.size - parsed);
   }
+
+  /*Remove first line by shrinking the buffer*/
+  tcpc->data.size -= parsed;
 
   return HTTP_SERVER_CONNECTION_READING_HEADERS;
-}
-HTTPServerConnectionState worktask_request_read_body(HTTP_Server_Connection* _Connection)
-{
-  if (_Connection->retries > HTTP_SERVER_CONNECTION_MAX_RETRIES)
-    return HTTP_SERVER_CONNECTION_ERROR;
 
-  _Connection->retries++;
+}
+
+HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* _Connection)
+{
+  if (_Connection->retries++ > HTTP_SERVER_CONNECTION_MAX_RETRIES) {
+    /*Add internal error*/
+    return HTTP_SERVER_CONNECTION_ERROR; 
+  }
+  
+  TCP_Client *tcpc = _Connection->tcp_client;
 
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
-  int bytes_read = 0;
-  bytes_read = tcp_client_read_simple(_Connection->tcp_client, 
-      tcp_buf, 
-      TCP_MESSAGE_BUFFER_MAX_SIZE);
-  int tcp_err = errno;
-  printf("bytes_read: %i\n", bytes_read);
+  int bytes_read = tcp_client_read_simple(tcpc, tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
+  
+  if (bytes_read > 0) {
+    size_t bytes_stored = tcp_client_realloc_data(&tcpc->data,
+                                                  tcp_buf,
+                                                  (size_t)bytes_read,
+                                                  sizeof(uint8_t));
 
-  if (bytes_read > 0)
-  {
-    /* Write the data we gathered to TCP_Data */
-    size_t bytes_written = tcp_client_realloc_data(&_Connection->tcp_client->data, 
-        tcp_buf, 
-        bytes_read, 
-        sizeof(uint8_t));
-    if (bytes_written < 0)
+    if ((ssize_t)bytes_stored < 0) {
+      /*add internal error*/
       return HTTP_SERVER_CONNECTION_ERROR;
-
+    }
   }
 
+  if (tcpc->data.size == 0) {
+    /*No data, try again on next work call*/
+    return HTTP_SERVER_CONNECTION_READING_HEADERS;
+  }
+
+  /*Edgecase no headers*/
+  if (tcpc->data.size >= 2 &&
+      tcpc->data.addr[0] == '\r' &&
+      tcpc->data.addr[1] == '\n') {
+    if (tcpc->data.size > 2) {
+      memmove(tcpc->data.addr, tcpc->data.addr + 2, tcpc->data.size -2);
+    }
+    tcpc->data.size -= 2;
+
+    /*Create empty header so we can dispose without crash*/
+    _Connection->request->headers = linked_list_create();
+    if (!_Connection->request->headers) {
+      /*add internal error*/
+      return HTTP_SERVER_CONNECTION_ERROR;
+    }
+
+    _Connection->retries = 0;
+    return HTTP_SERVER_CONNECTION_VALIDATING;
+  }
+
+  int headers_end = http_parser_find_headers_end(tcpc->data.addr,
+                                                 tcpc->data.size,
+                                                 0);
+
+  if (headers_end < 0) {
+    /*Continue reading on next work call*/
+    return HTTP_SERVER_CONNECTION_READING_HEADERS;
+  }
+
+  /*headers_end is the index of the first \r parser will ignore last line*/
+  size_t header_len = (size_t)headers_end + 2;
   
+  /*We have still parsed the full line including \r\n\r\n*/
+  size_t parsed = (size_t)headers_end + 4;
+
+  if (http_parser_headers((const char*)tcpc->data.addr,
+                          header_len,
+                          &_Connection->request->headers) !=0) {
+    _Connection->response->status_code = 400;
+    return HTTP_SERVER_CONNECTION_RESPONDING;
+  }
+
+  /*If there is data remaining its the body move it to start of buffer*/
+  if (tcpc->data.size > parsed) {
+    memmove(tcpc->data.addr,
+            tcpc->data.addr + parsed,
+            tcpc->data.size - parsed);
+  }
+
+  tcpc->data.size -= parsed;
+  _Connection->retries = 0;
+
+  /*Check if there is a content-length (body) to read*/
+  const char* content_length_string = NULL;
+  int result = http_parser_get_header_value(_Connection->request->headers,
+                                            "Content-Length", &content_length_string);
+  if (result < 0) {
+    printf("Content-Length header not found\n");
+    return HTTP_SERVER_CONNECTION_VALIDATING;
+  }
+
+  int content_length = atoi(content_length_string);
+  _Connection->content_length = content_length;
+
+  if (content_length > 0) {
+    /*There is a body to read*/
+    return HTTP_SERVER_CONNECTION_READING_BODY;
+  }
 
   return HTTP_SERVER_CONNECTION_VALIDATING;
-
 }
+
+HTTPServerConnectionState worktask_request_read_body(HTTP_Server_Connection* _Connection)
+{
+  if (_Connection->retries++ > HTTP_SERVER_CONNECTION_MAX_RETRIES)
+    return HTTP_SERVER_CONNECTION_ERROR;
+  
+  TCP_Client *tcpc = _Connection->tcp_client;
+
+  uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
+  int bytes_read = tcp_client_read_simple(tcpc,
+                                          tcp_buf,
+                                          TCP_MESSAGE_BUFFER_MAX_SIZE);
+
+  if (bytes_read > 0) {
+    size_t bytes_stored = tcp_client_realloc_data(&tcpc->data,
+                                                  tcp_buf,
+                                                  (size_t)bytes_read,
+                                                  sizeof(uint8_t));
+
+    if ((size_t)bytes_stored < 0) {
+      /*Add internal error*/
+      return HTTP_SERVER_CONNECTION_ERROR;
+    }
+  }
+
+  if (tcpc->data.size < (size_t)_Connection->content_length) {
+    /*Keep reading body on next work call*/
+    return HTTP_SERVER_CONNECTION_READING_BODY;
+  }
+  printf("EXPECTED: %d, HAVE: %zu\n", _Connection->content_length, tcpc->data.size);
+  _Connection->retries = 0;
+  return HTTP_SERVER_CONNECTION_VALIDATING;
+}
+
 HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Connection)
 {
-  _Connection->request->method = http_method_string_to_enum(_Connection->request->method_str);
-
-  HTTP_Request *Req = _Connection->request;
-
-  if (Req->method != HTTP_INVALID &&
-      Req->path != NULL &&
-      Req->version != NULL &&
-      Req->headers != NULL)
-  {
-    _Connection->response->status_code = HttpStatus_OK;
-    _Connection->on_request(_Connection->context);
-
-    return HTTP_SERVER_CONNECTION_WEATHER_HANDOVER;
-  } 
-  else 
-  {
-    _Connection->response->status_code = HttpStatus_Invalid;
-
-    return HTTP_SERVER_CONNECTION_DISPOSING;
+  HTTP_Request *req = _Connection->request;
+  if (!req->method_str || !req->path || !req->version) {
+    _Connection->response->status_code = 400;
+    return HTTP_SERVER_CONNECTION_RESPONDING;
   }
 
-}
+  if (req->method == HTTP_INVALID) {
+    _Connection->response->status_code = 400;
+    return HTTP_SERVER_CONNECTION_RESPONDING;
+  }
+
+  _Connection->response->status_code = 200;
+  return HTTP_SERVER_CONNECTION_RESPONDING;
+ }
+
 HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 {
-  HTTP_Request* Req = _Connection->request;
-  HTTP_Response* Res = _Connection->response;
+  TCP_Client *tcpc = _Connection->tcp_client;
+  HTTP_Request *req = _Connection->request;
 
+  char *body_ptr = NULL;
+  int body_len = 0;
 
-  if (_Connection->response->status_code != 400)
-  {
-    _Connection->response->status_code = HttpStatus_OK;
-    const char* reason_phrase = HttpStatus_reasonPhrase(_Connection->response->status_code);
-
-    Linked_List* headers = Req->headers;
-    size_t headers_size = 0;
-
-    char* full_response = http_build_full_response(_Connection->response->status_code, reason_phrase, Req->method_str, Req->path, Req->headers);
-    printf("FULL RESPONSE: \n\n%s\n\n", full_response);
-
-    _Connection->tcp_client->writeData = (char*)malloc(strlen(full_response) + 1);
-    if (!_Connection->tcp_client->writeData) {
-      free(full_response);
-      return HTTP_SERVER_CONNECTION_DISPOSING;
-    }
-
-    memcpy(_Connection->tcp_client->writeData, full_response, strlen(full_response));
-    _Connection->tcp_client->writeData[strlen(_Connection->tcp_client->writeData)] = '\0';
-    // free(full_response);
-    printf("WRITE DATA: \n\n%s\n\n", _Connection->tcp_client->writeData);
-
-    /* tcp_client_write_simple(&_Connection->tcp_client-> (uint8_t*)full_response, strlen(full_response)); */
-    tcp_client_write(_Connection->tcp_client, strlen(_Connection->tcp_client->writeData));
-  } 
-  else 
-  {
-    int status_code = 400;
-    const char* reason_phrase = "Bad Request";
-    const char* response_body = "400 Bad Request";
-    int body_len = (int)strlen(response_body);
-
-    int res_len = snprintf(NULL, 0, RESPONSE_TEMPLATE,
-                           status_code,
-                           reason_phrase,
-                           body_len,
-                           response_body + 1); 
-
-    char* full_response = (char*)malloc(res_len);
-    if (!full_response) 
-    {
-      perror("malloc");
-      return HTTP_SERVER_CONNECTION_DISPOSING;
-    }
-    printf("reason_phrase: %s\n", reason_phrase);
-    printf("status_code: %i\n", _Connection->response->status_code);
-
-    snprintf(full_response, res_len, RESPONSE_TEMPLATE,
-             status_code,
-             reason_phrase,
-             body_len,
-             response_body);
-
-    // Allocate writeData buffer for sending
-    _Connection->tcp_client->writeData = (char*)malloc(strlen(full_response) + 1);
-    if (!_Connection->tcp_client->writeData) {
-      free(full_response);
-      return HTTP_SERVER_CONNECTION_DISPOSING;
-    }
-    memcpy(_Connection->tcp_client->writeData, full_response, strlen(full_response));
-    _Connection->tcp_client->writeData[strlen(_Connection->tcp_client->writeData)] = '\0';
-    free(full_response);
-    printf("WRITE DATA: \n\n%s\n\n", _Connection->tcp_client->writeData);
-    tcp_client_write(_Connection->tcp_client, res_len); 
+  /*Get body if there is one*/
+  if (_Connection->content_length > 0 &&
+      tcpc->data.size >= (size_t)_Connection->content_length) {
+    body_ptr = (char*)tcpc->data.addr;
+    body_len = _Connection->content_length;
   }
+
+  /*Write headers*/
+  char headers_json[1024];
+  headers_json[0] = '\0';
+
+  linked_list_foreach(req->headers, node) {
+    HTTP_Header *h = (HTTP_Header*)node->item;
+    char temp[128];
+    snprintf(temp, sizeof(temp),
+             "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
+             h->key, h->value);
+    strncat(headers_json, temp, sizeof(headers_json) - strlen(headers_json) -1);
+  }
+
+  /*Remove trailing ,*/
+  size_t headers_len = strlen(headers_json);
+  if (headers_len > 2 && headers_json[headers_len -2] == ',') {
+    headers_json[headers_len - 2] = '\n';
+    headers_json[headers_len - 1] = '\0';
+  }
+
+  /*Build response*/
+
+  char response_body[2048];
+  snprintf(response_body, sizeof(response_body),
+             "{\n"
+             "  \"method\": \"%s\",\n"
+             "  \"path\": \"%s\",\n"
+             "  \"query\": \"%s\",\n"
+             "  \"headers\": [\n%s  ],\n"
+             "  \"body\": \"%.*s\"\n"
+             "}\n",
+             req->method_str,
+             req->path,
+             req->query ? req->query : "",
+             headers_json,
+             body_len,
+             body_ptr ? body_ptr : "");
+
+  int response_body_len = strlen(response_body);
+
+  char http_response[4096];
+  int written = snprintf(
+      http_response, sizeof(http_response),
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: application/json\r\n"
+      "Content-Length: %d\r\n"
+      "Connection: close\r\n"
+      "\r\n"
+      "%s",
+      response_body_len,
+      response_body
+  );
+
+  tcpc->writeData = malloc(written + 1);
+  if (!tcpc->writeData) {
+    perror("malloc");
+    /*Add internal error*/
+    return HTTP_SERVER_CONNECTION_ERROR;
+  }
+
+  memcpy(tcpc->writeData, http_response, written);
+  tcpc->writeData[written] = '\0';
+
+  tcp_client_write(tcpc, written);
 
   return HTTP_SERVER_CONNECTION_DISPOSING;
 }

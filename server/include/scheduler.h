@@ -6,10 +6,13 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "../../utils/include/utils.h"
 
 #ifndef SCHEDULER_MAX_TASKS
     #define SCHEDULER_MAX_TASKS 10000
 #endif
+
+#define MIN_LOOP_MS 1 // Defines how many ms a scheduler task-loop needs to take at a minimum
 
 
 typedef struct

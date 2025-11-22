@@ -1,6 +1,11 @@
 #include "../include/scheduler.h"
 
+/* ----------------------- Global vars ----------------------- */
+
 Scheduler Global_Scheduler;
+const uint64_t min_loop_ms = MIN_LOOP_MS; // Defines how many ms a scheduler task-loop needs to take at a minimum
+
+/* ----------------------------------------------------------- */
 
 int scheduler_init()
 {
@@ -51,6 +56,9 @@ void scheduler_destroy_task(Scheduler_Task* _Task)
 
 void scheduler_work(uint64_t _montime)
 {
+
+  uint64_t start = _montime;
+
 	int i;
 	for(i = 0; i < SCHEDULER_MAX_TASKS; i++)
 	{
@@ -58,6 +66,14 @@ void scheduler_work(uint64_t _montime)
 			Global_Scheduler.tasks[i].callback(Global_Scheduler.tasks[i].context, _montime);
 
 	}
+
+  uint64_t end = SystemMonotonicMS();
+  uint64_t elapsed = end - start;
+
+  if (elapsed < min_loop_ms) {
+    ms_sleep(min_loop_ms - elapsed);
+  }
+
 }
 
 int scheduler_get_task_count()
