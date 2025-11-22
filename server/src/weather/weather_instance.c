@@ -13,6 +13,8 @@ WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Ins
 
 int weather_server_instance_init(void* _context, Weather_Server_Instance* _Instance, HTTP_Server_Connection* _Connection)
 {
+  memset(_Instance, 0, sizeof(Weather_Server_Instance));
+
   _Instance->context = _context;
   _Instance->task = NULL;
   _Instance->http_connection = _Connection;
@@ -67,21 +69,28 @@ WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Inst
 {
   /* This will take the http parsed Request and find out what the user wants 
    * Should populate necessery data structs so that an appropriate response can be built*/
-  HTTP_Request* Request = _Instance->http_connection->request;
+  if (weather_api_init_ptr(&_Instance->weather_request, _Instance->http_connection->request) != 0)
+  {
 
+    return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
+  }
+
+  weather_api_handle_endpoint(_Instance->weather_request);
+
+/*
   printf ("\n -- Request params (%i) -- \n", Request->params_count);
   int i;
   for (i = 0; i < Request->params_count; i++)
   {
     printf ("%s: %s\r\n", Request->params[i].key, Request->params[i].val);
   }
-
+*/
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING;
 }
 WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Instance)
 {
-  HTTP_Response* Response = _Instance->http_connection->response;
+  
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
 }
@@ -131,12 +140,14 @@ void weather_server_instance_taskwork(void* _context, uint64_t _montime)
 
 void weather_server_instance_dispose(Weather_Server_Instance* _Instance)
 {
-  if (_Instance->http_connection != NULL) // Should http_server take responsibility for this instead?
-  {
+  if (_Instance->http_connection != NULL) 
     http_server_connection_dispose_ptr(&_Instance->http_connection);
-  }
-
   _Instance->http_connection = NULL;
+
+  if (_Instance->weather_request != NULL)
+    weather_api_dispose_ptr(&_Instance->weather_request);
+  _Instance->weather_request = NULL;
+
 }
 void weather_server_instance_dispose_ptr(Weather_Server_Instance** _Instance_Ptr)
 {

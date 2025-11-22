@@ -6,6 +6,7 @@
 /* ******************************************************************* */
 
 #include "../http/http_connection.h"
+#include "../api/weather_api.h"
 
 typedef int (*weather_server_instance_on_finish)(void* _context, void* _instance);
 
@@ -30,6 +31,8 @@ typedef struct
 
   void*                               context; // Weather_Server
   weather_server_instance_on_finish   on_finish;
+
+  Weather_Request*                    weather_request;
 
 } Weather_Server_Instance;
 

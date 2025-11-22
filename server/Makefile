@@ -27,7 +27,8 @@ CITIES_DIR := data/cities
 
 # Compilation flags
 # CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Werror -Wfatal-errors -Wno-format-truncation -I../libs
-CFLAGS := -std=c99 -MMD -MP -g -I../libs -I../utils
+# CFLAGS := -std=c99 -MMD -MP -g -I../libs -I../utils
+CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Wfatal-errors -g -I../libs -I../utils
 
 # Linker flags (auto-detect platform)
 ifeq ($(UNAME_S),Darwin)
