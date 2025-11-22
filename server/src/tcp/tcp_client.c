@@ -98,7 +98,7 @@ size_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size, size
   }
 
   _Data->addr = ptr; // We redefine our addr to the newly allocated memory (Should test if previous addr pointer should be freed aswell?) 
-  memcpy(&(_Data->addr[_Data->size]), _input, _size); // We copy realsize*bytes from contents to our chunk
+  memcpy(&(_Data->addr[_Data->size]), _input, realsize); // We copy realsize*bytes from contents to our chunk
   _Data->size += realsize; // we add realsize to our chunksize
   _Data->addr[_Data->size] = 0; // null last byte for strings 
 

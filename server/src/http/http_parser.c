@@ -72,7 +72,7 @@ int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len, size_t _star
 }
 
 
-int http_find_headers_end(const uint8_t *_buf, size_t _buf_len, size_t _start_offset) {
+int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len, size_t _start_offset) {
   if (_buf_len < 4) {
     return -1;
   }
@@ -111,6 +111,7 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
         break;
       }
     }
+
     if (line_end < 0) 
       break;
 
@@ -118,7 +119,7 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
     
     if (line_len == 0) {
       start = line_end + 2;
-      continue;
+      break;
     }
     
     char *line = (char*)malloc(line_len + 1);
@@ -145,7 +146,48 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
       value++;
     }
 
-    /*ADD TO LINKED LIST HERE!!!!!!*/
+    /*Remove trailing whitespace from key*/
+    /*end is '\0' so we want to look for the char before it*/
+    char *end = key +(strlen(key));
+    while (end > key &&
+      (end[-1] == ' ' ||
+        end[-1] == '\t' ||
+        end[-1] == '\r' ||
+        end[-1] == '\n')) {
+
+      *--end = '\0';
+    }
+
+    /*Same thing for value, remove whitespace or unwanted chars*/
+    end = value + strlen(value);
+    while (end > value &&
+      (end[-1] == ' ' ||
+        end[-1] == '\t' ||
+        end[-1] == '\r' ||
+        end[-1] == '\n')) {
+      *--end = '\0';
+    }
+
+    HTTP_Header *header = (HTTP_Header*)malloc(sizeof(HTTP_Header));
+    if (!header) {
+      perror("malloc");
+      free(line);
+      return -1;
+    }
+
+    header->key = strdup(key);
+    header->value = strdup(value);
+
+    if(!header->key || !header->value) {
+      perror("strdup");
+      free(header->key);
+      free(header->value);
+      free(header);
+      free(line);
+      return -1;
+    }
+
+    linked_list_item_add(*(_headers_out), NULL, header);
 
     free(line);
     start = line_end + 2;
@@ -153,3 +195,80 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
   
   return 0;
 }
+
+HTTPMethod http_method_string_to_enum(const char* _method_str)
+{
+  if (strcmp(_method_str, "GET") == 0)
+    return HTTP_GET;
+  if (strcmp(_method_str, "OPTIONS") == 0)
+    return HTTP_OPTIONS;
+  if (strcmp(_method_str, "POST") == 0)
+    return HTTP_POST;
+  if (strcmp(_method_str, "PUT") == 0)
+    return HTTP_PUT;
+  if (strcmp(_method_str, "DELETE") == 0)
+    return HTTP_DELETE;
+  if (strcmp(_method_str, "DOWNLOAD") == 0)
+    return HTTP_DOWNLOAD;
+
+  return HTTP_INVALID;
+
+}
+
+const char* http_method_enum_to_string(HTTPMethod _method)
+{
+  if (_method == HTTP_OPTIONS)
+    return "OPTIONS";
+  if (_method == HTTP_GET)
+    return "GET";
+  if (_method == HTTP_POST)
+    return "POST";
+  if (_method == HTTP_PUT)
+    return "PUT";
+  if (_method == HTTP_DELETE)
+    return "DELETE";
+  if (_method == HTTP_DOWNLOAD)
+    return "DOWNLOAD";
+  if (_method == HTTP_INVALID)
+    return "INVALID";
+
+  return NULL;
+}
+
+int http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value) {
+  
+  if (!_headers || !_name || !_out_value) {
+    return -1;
+  }
+
+  linked_list_foreach(_headers, node) {
+    HTTP_Header *h = (HTTP_Header*)node->item;
+    if (!h || !h->key || !h->value) {
+      continue;
+    }
+    
+    if (strcmp(h->key, _name) == 0) {
+      *(_out_value) = h->value;
+      return 0;
+    }
+  }
+
+  return -1;
+}
+
+void http_parser_dispose_headers(Linked_List *_headers) {
+  if (!_headers) return;
+
+  linked_list_foreach(_headers, node) {
+    HTTP_Header *header = (HTTP_Header*)node->item;
+    if (header) {
+      free(header->key);
+      free(header->value);
+      free(header);
+    }
+  }
+
+  linked_list_items_dispose(_headers);
+  linked_list_destroy(&_headers);      
+}
+

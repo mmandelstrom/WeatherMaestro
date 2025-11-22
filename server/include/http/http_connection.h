@@ -53,7 +53,7 @@ typedef struct
 
 	http_server_connection_on_request   on_request;
 	http_server_connection_on_response  on_response;
-
+  int                                 content_length;
   int                                 weather_done;
 
 } HTTP_Server_Connection;

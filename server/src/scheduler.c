@@ -51,6 +51,9 @@ void scheduler_destroy_task(Scheduler_Task* _Task)
 
 void scheduler_work(uint64_t _montime)
 {
+
+  uint64_t start = _montime;
+
 	int i;
 	for(i = 0; i < SCHEDULER_MAX_TASKS; i++)
 	{
@@ -58,6 +61,15 @@ void scheduler_work(uint64_t _montime)
 			Global_Scheduler.tasks[i].callback(Global_Scheduler.tasks[i].context, _montime);
 
 	}
+
+  const uint64_t MIN_LOOP_MS = 1;
+  uint64_t end = SystemMonotonicMS();
+  uint64_t elapsed = end - start;
+
+  if (elapsed < MIN_LOOP_MS) {
+    ms_sleep(MIN_LOOP_MS - elapsed);
+  }
+
 }
 
 int scheduler_get_task_count()

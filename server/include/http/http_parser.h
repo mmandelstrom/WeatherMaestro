@@ -26,7 +26,6 @@ typedef enum
   HTTP_PUT,
   HTTP_DELETE,
   HTTP_DOWNLOAD,
-
   HTTP_INVALID
 
 } HTTPMethod;
@@ -34,7 +33,6 @@ typedef enum
 typedef struct
 {
   enum HttpStatus_Code status_code;
-
   char*                head;
   char*                headers;
   char*                body;  
@@ -54,14 +52,24 @@ typedef struct
   int             headers_len;
   int             bode_len;
   Linked_List*    headers;
-
   char*           body;
 
 } HTTP_Request;
 
+typedef struct {
+  char* key;
+  char* value;
+
+} HTTP_Header;
+
+
+HTTPMethod http_method_string_to_enum(const char* _method_str);
+const char* http_method_enum_to_string(HTTPMethod _method);
 int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req);
 int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len, size_t _start_offset);
 int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len, size_t _start_offset);
 int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_headers_out);
+void http_parser_dispose_headers(Linked_List *_headers);
+int http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value);
 
 #endif //__HTTP_Server_h_
