@@ -1,6 +1,11 @@
 #include "../include/scheduler.h"
 
+/* ----------------------- Global vars ----------------------- */
+
 Scheduler Global_Scheduler;
+const uint64_t min_loop_ms = MIN_LOOP_MS; // Defines how many ms a scheduler task-loop needs to take at a minimum
+
+/* ----------------------------------------------------------- */
 
 int scheduler_init()
 {
@@ -62,12 +67,11 @@ void scheduler_work(uint64_t _montime)
 
 	}
 
-  const uint64_t MIN_LOOP_MS = 1;
   uint64_t end = SystemMonotonicMS();
   uint64_t elapsed = end - start;
 
-  if (elapsed < MIN_LOOP_MS) {
-    ms_sleep(MIN_LOOP_MS - elapsed);
+  if (elapsed < min_loop_ms) {
+    ms_sleep(min_loop_ms - elapsed);
   }
 
 }
