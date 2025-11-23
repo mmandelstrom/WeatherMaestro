@@ -1,6 +1,5 @@
 #include "../../include/http/http_connection.h"
 #include <stdint.h>
-#include <sys/types.h>
 
 #define RESPONSE_TEMPLATE "HTTP/1.1 %i %s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" // args: response_code, reason_phrase, response_content_len, response_body
 
@@ -99,8 +98,8 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
 
   if (bytes_read > 0) {
 
-    size_t bytes_stored = tcp_client_realloc_data(&tcpc->data, tcp_buf, (size_t)bytes_read, sizeof(uint8_t));
-    if ((ssize_t)bytes_stored < 0) {
+    ssize_t bytes_stored = tcp_client_realloc_data(&tcpc->data, tcp_buf, (size_t)bytes_read);
+    if (bytes_stored < 0) {
       /*Add internal error*/
       return HTTP_SERVER_CONNECTION_ERROR;
     }
@@ -128,7 +127,7 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
   /*line_end is the index of the first \r*/
   size_t line_len = (size_t)line_end;
 
-  if (line_len == 0 || line_len > HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN) {
+  if (line_len == 0 || line_len >= HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN) {
     printf("Request too large..\n");
     _Connection->response->status_code = 400;
     return HTTP_SERVER_CONNECTION_RESPONDING;
@@ -184,12 +183,11 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
   int bytes_read = tcp_client_read_simple(tcpc, tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
   
   if (bytes_read > 0) {
-    size_t bytes_stored = tcp_client_realloc_data(&tcpc->data,
+    ssize_t bytes_stored = tcp_client_realloc_data(&tcpc->data,
                                                   tcp_buf,
-                                                  (size_t)bytes_read,
-                                                  sizeof(uint8_t));
+                                                  (size_t)bytes_read);
 
-    if ((ssize_t)bytes_stored < 0) {
+    if (bytes_stored < 0) {
       /*add internal error*/
       return HTTP_SERVER_CONNECTION_ERROR;
     }
@@ -285,12 +283,12 @@ HTTPServerConnectionState worktask_request_read_body(HTTP_Server_Connection* _Co
                                           TCP_MESSAGE_BUFFER_MAX_SIZE);
 
   if (bytes_read > 0) {
-    size_t bytes_stored = tcp_client_realloc_data(&tcpc->data,
+    ssize_t bytes_stored = tcp_client_realloc_data(&tcpc->data,
                                                   tcp_buf,
-                                                  (size_t)bytes_read,
-                                                  sizeof(uint8_t));
+                                                  (size_t)bytes_read);
+                                                  
 
-    if ((size_t)bytes_stored < 0) {
+    if (bytes_stored < 0) {
       /*Add internal error*/
       return HTTP_SERVER_CONNECTION_ERROR;
     }
@@ -341,13 +339,15 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
   char headers_json[1024];
   headers_json[0] = '\0';
 
-  linked_list_foreach(req->headers, node) {
-    HTTP_Header *h = (HTTP_Header*)node->item;
-    char temp[128];
-    snprintf(temp, sizeof(temp),
-             "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
-             h->key, h->value);
-    strncat(headers_json, temp, sizeof(headers_json) - strlen(headers_json) -1);
+  if (req->headers) {
+    linked_list_foreach(req->headers, node) {
+      HTTP_Header *h = (HTTP_Header*)node->item;
+      char temp[128];
+      snprintf(temp, sizeof(temp),
+               "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
+               h->key, h->value);
+      strncat(headers_json, temp, sizeof(headers_json) - strlen(headers_json) -1);
+    }
   }
 
   /*Remove trailing ,*/
@@ -573,3 +573,103 @@ void http_server_connection_dispose_ptr(HTTP_Server_Connection** _Connection_Ptr
 	*(_Connection_Ptr) = NULL;
 
 }
+
+#ifdef HTTP_FUZZ_MODE
+
+void http_handle_request(const uint8_t *_data, size_t _len) {
+
+  HTTP_Server_Connection conn;
+  memset(&conn, 0, sizeof(HTTP_Server_Connection));
+
+  TCP_Client tcpc;
+  memset(&tcpc, 0, sizeof(TCP_Client));
+
+  HTTP_Request req;
+  memset(&req, 0, sizeof(HTTP_Request));
+
+  HTTP_Response resp;
+  memset(&resp, 0, sizeof(HTTP_Response));
+
+  conn.tcp_client = &tcpc;
+  conn.request = &req;
+  conn.response = &resp;
+
+  conn.state = HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
+  conn.retries = 0;
+  conn.weather_done = 1;
+  conn.context = NULL;
+  conn.on_request = NULL;
+  conn.on_response = NULL;
+  conn.task = NULL;
+
+  /*Fake tcp socket*/
+  tcpc.fd = -1;
+  tcpc.data.addr = malloc(_len);
+  if (!tcpc.data.addr) {
+    perror("malloc");
+    return;
+  }
+
+  memcpy(tcpc.data.addr, _data, _len);
+  tcpc.data.size = _len;
+
+  int guard = 0;
+  while (guard++ < 100 &&
+         conn.state != HTTP_SERVER_CONNECTION_DISPOSING &&
+         conn.state != HTTP_SERVER_CONNECTION_ERROR) {
+    http_server_connection_taskwork(&conn, 0);
+  }
+
+
+  /*Cleanup*/
+
+  if (tcpc.writeData) {
+    free(tcpc.writeData);
+    tcpc.writeData = NULL;
+  }
+
+  if (tcpc.data.addr){
+    free(tcpc.data.addr);
+    tcpc.data.addr = NULL;
+    tcpc.data.size = 0;
+  }
+
+  if (req.method_str) {
+    free(req.method_str);
+    req.method_str = NULL;
+  }
+
+  if (req.path) {
+    free(req.path);
+    req.path = NULL;
+  }
+  
+  if (req.query) {
+    free(req.query);
+    req.query = NULL;
+  }
+
+  if (req.version) {
+    free(req.version);
+    req.version = NULL;
+  }
+  
+  if (req.headers) {
+    linked_list_foreach(req.headers, node) {
+      if (node->item) {
+        free(node->item);
+        node->item = NULL;
+      }
+    }
+    linked_list_items_dispose(req.headers);
+    linked_list_destroy(&req.headers);
+    req.headers = NULL;
+  }
+
+  if (resp.body) {
+    free(resp.body);
+    resp.body = NULL;
+  }
+}
+
+#endif /*HTTP_FUZZ_MODE*/
