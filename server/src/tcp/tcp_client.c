@@ -251,7 +251,7 @@ void tcp_client_dispose(TCP_Client* _Client) {
     free(_Client->writeData);
     _Client->writeData = NULL;
   }
-  if (_Client->data.size > 0) {
+  if (_Client->data.addr != NULL) {
     free(_Client->data.addr);
     _Client->data.addr = NULL;
     _Client->data.size = 0;

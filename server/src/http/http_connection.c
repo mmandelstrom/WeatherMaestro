@@ -1,5 +1,4 @@
 #include "../../include/http/http_connection.h"
-#include <stdint.h>
 
 #define RESPONSE_TEMPLATE "HTTP/1.1 %i %s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" // args: response_code, reason_phrase, response_content_len, response_body
 
@@ -49,10 +48,11 @@ int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
 
 int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connection_Ptr)
 {
-	if(_Connection_Ptr == NULL)
-		return -1;
+	if(_Connection_Ptr == NULL) {
+    return -1;
+  }
 
-	HTTP_Server_Connection* _Connection = (HTTP_Server_Connection*)malloc(sizeof(HTTP_Server_Connection));
+  HTTP_Server_Connection* _Connection = calloc(1, sizeof(HTTP_Server_Connection));
 	if(_Connection == NULL)
 		return -2;
 
@@ -103,7 +103,6 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
       /*Add internal error*/
       return HTTP_SERVER_CONNECTION_ERROR;
     }
-
   }
 
   if (tcpc->data.size == 0) {
@@ -532,15 +531,10 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       free(_Connection->request->params);
       _Connection->request->params_count = 0;
     }
-    linked_list_foreach(_Connection->request->headers, node)
-    {
-      if (node->item != NULL)
-        free(node->item);
-    }
-    linked_list_items_dispose(_Connection->request->headers);
-    linked_list_destroy(&_Connection->request->headers);
-    _Connection->request->headers = NULL;
 
+    http_parser_dispose_headers(_Connection->request->headers);
+
+    _Connection->request->headers = NULL;
     free(_Connection->request);
     _Connection->request = NULL;
   }
