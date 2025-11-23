@@ -110,7 +110,7 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
     return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
   }
 
-  int line_end = http_parser_find_line_end(tcpc->data.addr, tcpc->data.size, 0);
+  int line_end = http_parser_find_line_end(tcpc->data.addr, tcpc->data.size);
   if (line_end < 0) {
     /*No \r\n found yet*/
     if (tcpc->data.size >= HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN) {
@@ -218,8 +218,7 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
   }
 
   int headers_end = http_parser_find_headers_end(tcpc->data.addr,
-                                                 tcpc->data.size,
-                                                 0);
+                                                 tcpc->data.size);
 
   if (headers_end < 0) {
     /*Continue reading on next work call*/
