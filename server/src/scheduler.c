@@ -3,7 +3,7 @@
 /* ----------------------- Global vars ----------------------- */
 
 Scheduler Global_Scheduler;
-const uint64_t min_loop_ms = MIN_LOOP_MS; // Defines how many ms a scheduler task-loop needs to take at a minimum
+/* const uint64_t min_loop_ms = MIN_LOOP_MS; // Defines how many ms a scheduler task-loop needs to take at a minimum */
 
 /* ----------------------------------------------------------- */
 
@@ -70,8 +70,8 @@ void scheduler_work(uint64_t _montime)
   uint64_t end = SystemMonotonicMS();
   uint64_t elapsed = end - start;
 
-  if (elapsed < min_loop_ms) {
-    ms_sleep(min_loop_ms - elapsed);
+  if (elapsed < MIN_LOOP_MS) {
+    ms_sleep(MIN_LOOP_MS - elapsed);
   }
 
 }
