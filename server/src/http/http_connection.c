@@ -618,6 +618,12 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       _Connection->response->body = NULL;
     }
 
+    if (_Connection->response->full_response != NULL)
+    {
+      free(_Connection->response->full_response);
+      _Connection->response->full_response = NULL;
+    }
+
     free(_Connection->response);
     _Connection->response = NULL;
   }
