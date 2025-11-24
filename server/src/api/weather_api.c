@@ -175,6 +175,8 @@ int weather_api_handle_endpoint(Weather_API* _API)
 
 int weather_api_handle_endpoint_weather_get(Weather_API* _API)
 {
+
+
   if (_API->http_request->params_count < 2)
   {
     _API->http_response->status_code = 400;
@@ -210,7 +212,19 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   }
   if (lat_found > 0 && lon_found > 0)
   {
-    /* int result = meteo_get_weather(_API->city->lat, _API->city->lon, ); */
+    const char* mock_json = meteo_get_weather_json(12.12452, 54.12345);
+    printf("mock_json: %s\n\n", mock_json);
+
+    meteo_parse_json(mock_json, _API->meteo_weather);
+
+    const char* filename = "mock_weather.json";
+    char filepath[128];
+    snprintf(filepath, 128, "%s%s", METEO_CACHE_DIR, filename);
+    int result;
+    result = create_directory_if_not_exists(METEO_CACHE_DIR);
+    printf("result: %i\n", result);
+    result = write_string_to_file(mock_json, filepath);
+    printf("result: %i\n", result);
 
     printf("lat: %f\n", _API->city->lat);
     printf("lon: %f\n", _API->city->lon);

@@ -7,7 +7,9 @@
 /* ******************************************************************* */
 
 #include "../../include/http/http_parser.h"
+
 #include "meteo.h"
+#include "../../../utils/include/file_utils.h"
 
 #include <time.h>
 #include <errno.h>
@@ -40,7 +42,7 @@ typedef struct
 typedef struct
 {
   time_t      timestamp;
-  int         weather_code;
+  /* int         weather_code; */
 
   double      temperature; 
   const char* temperature_unit; 
@@ -50,7 +52,7 @@ typedef struct
 
   int         winddirection;
   const char* winddirection_cardinal;
-  /* const char* winddirection_unit; */
+  const char* winddirection_unit;
 
   double      precipitation;
   const char* precipitation_unit;
@@ -80,6 +82,8 @@ typedef struct
   City*               city;
   Weather*            current_weather;
   Forecast*           forecast_weather;
+
+  Meteo_Weather*      meteo_weather;
 
   HTTP_Request*       http_request;
   HTTP_Response*      http_response;
