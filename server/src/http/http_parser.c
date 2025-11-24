@@ -196,6 +196,21 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
   return 0;
 }
 
+const char* http_build_full_response(int _status_code, const char* _headers, const char* _body)
+{
+  /* Build firstline */
+  const char* reason_phrase = HttpStatus_reasonPhrase(_status_code);
+  char firstline[128];
+  unsigned int firstline_len = snprintf(firstline, 128, HTTP_RESPONSE_FIRSTLINE_TEMPLATE,
+                                _status_code,
+                                reason_phrase);
+  firstline[firstline_len] = '\0';
+
+
+  // Yesyes will finish later 
+  return NULL;
+}
+
 HTTPMethod http_method_string_to_enum(const char* _method_str)
 {
   if (strcmp(_method_str, "GET") == 0)

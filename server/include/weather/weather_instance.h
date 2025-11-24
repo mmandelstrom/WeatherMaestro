@@ -32,7 +32,7 @@ typedef struct
   void*                               context; // Weather_Server
   weather_server_instance_on_finish   on_finish;
 
-  Weather_Request*                    weather_request;
+  Weather_API*                        weather_api;
 
 } Weather_Server_Instance;
 

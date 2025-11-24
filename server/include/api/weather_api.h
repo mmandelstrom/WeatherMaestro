@@ -7,6 +7,8 @@
 /* ******************************************************************* */
 
 #include "../../include/http/http_parser.h"
+#include "meteo.h"
+
 #include <time.h>
 #include <errno.h>
 
@@ -33,7 +35,7 @@ typedef struct
   HTTPMethod          method;
   const char*         path;
 
-} Weather_API_Endpoint;
+} Weather_API_Endpoint; // Array of definitions in weather_api.c
 
 typedef struct
 {
@@ -65,7 +67,7 @@ typedef struct
 typedef struct
 {
   const char* name;
-  char        country[2];
+  char        country[2]; // two-char country code, should have helper to get full country name
   float       lat;
   float       lon;
 
@@ -75,19 +77,20 @@ typedef struct
 {
   WeatherAPIEndpoint  endpoint;
 
-  HTTP_Request*       http_request;
   City*               city;
   Weather*            current_weather;
   Forecast*           forecast_weather;
 
-  char*               response_body;
+  HTTP_Request*       http_request;
+  HTTP_Response*      http_response;
 
-} Weather_Request;
+} Weather_API;
 
-int weather_api_init_ptr(Weather_Request** _Weather_Req_Ptr, HTTP_Request* _HTTP_Req);
+int weather_api_init_ptr(Weather_API** _Weather_Req_Ptr, HTTP_Request* _HTTP_Req, HTTP_Response* _HTTP_Res);
 
-int weather_api_handle_endpoint(Weather_Request* _Request);
+/** Takes the path from HTTP_Request and validates it, runs relevant endpoint functions */
+int weather_api_handle_endpoint(Weather_API* _Request);
 
-void weather_api_dispose_ptr(Weather_Request** _Request_Ptr);
+void weather_api_dispose_ptr(Weather_API** _Request_Ptr);
 
 #endif

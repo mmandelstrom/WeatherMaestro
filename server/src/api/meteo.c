@@ -3,9 +3,6 @@
 
 const char* meteo_get_weather(float _lat, float _lon)
 {
-  char* weather;
 
-
-  weather = NULL;
-  return weather;
+  return NULL;
 }

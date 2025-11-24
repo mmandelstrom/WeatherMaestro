@@ -67,30 +67,18 @@ int weather_server_instance_on_response(void* _context)
 
 WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Instance)
 {
-  /* This will take the http parsed Request and find out what the user wants 
-   * Should populate necessery data structs so that an appropriate response can be built*/
-  if (weather_api_init_ptr(&_Instance->weather_request, _Instance->http_connection->request) != 0)
+  if (weather_api_init_ptr(&_Instance->weather_api, _Instance->http_connection->request, _Instance->http_connection->response) != 0 || weather_api_handle_endpoint(_Instance->weather_api) != 0)
   {
-
+    _Instance->http_connection->response->status_code = 500;
     return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
   }
 
-  weather_api_handle_endpoint(_Instance->weather_request);
-
-/*
-  printf ("\n -- Request params (%i) -- \n", Request->params_count);
-  int i;
-  for (i = 0; i < Request->params_count; i++)
-  {
-    printf ("%s: %s\r\n", Request->params[i].key, Request->params[i].val);
-  }
-*/
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING;
 }
 WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Instance)
 {
-  
+
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
 }
@@ -144,9 +132,9 @@ void weather_server_instance_dispose(Weather_Server_Instance* _Instance)
     http_server_connection_dispose_ptr(&_Instance->http_connection);
   _Instance->http_connection = NULL;
 
-  if (_Instance->weather_request != NULL)
-    weather_api_dispose_ptr(&_Instance->weather_request);
-  _Instance->weather_request = NULL;
+  if (_Instance->weather_api != NULL)
+    weather_api_dispose_ptr(&_Instance->weather_api);
+  _Instance->weather_api = NULL;
 
 }
 void weather_server_instance_dispose_ptr(Weather_Server_Instance** _Instance_Ptr)

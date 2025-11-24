@@ -17,6 +17,7 @@
 #include "../../../utils/include/linked_list.h"
 
 #define HTTP_REQUEST_MAX_PARAMS 10
+#define HTTP_RESPONSE_FIRSTLINE_TEMPLATE "HTTP/1.1 %i %s"
 
 typedef enum
 {
@@ -33,7 +34,7 @@ typedef enum
 typedef struct
 {
   enum HttpStatus_Code status_code;
-  char*                head;
+  char*                firstline;
   char*                headers;
   char*                body;  
 
