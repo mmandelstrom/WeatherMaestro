@@ -81,6 +81,7 @@ void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, vo
 /* --------------TASKWORK STATE FUNCTIONS-------------- */
 HTTPServerConnectionState worktask_init(HTTP_Server_Connection* _Connection)
 {
+  (void)_Connection;
   return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
 }
 
@@ -329,152 +330,140 @@ HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Con
   return HTTP_SERVER_CONNECTION_WEATHER_HANDOVER;
  }
 
+
 HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 {
-  HTTP_Response* Res = _Connection->response;
   TCP_Client* TCP_C = _Connection->tcp_client;
-  int written = 0;
 
-  if (_Connection->response->full_response == NULL)
+  if (_Connection->response->full_response != NULL)
   {
-    printf("Full response: \n%s\n", _Connection->response->full_response);
+    const char* full = _Connection->response->full_response;
+    size_t full_len = strlen(full);
 
-    /* size_t full_response_len = strlen(Res->firstline) + 
-                          strlen(Res->headers) + 
-                          strlen(Res->body) + 
-                          6 + // newlines
-                          1; // nullterm
-    char full_response[full_response_len];
+    printf("Full response:\n%s\n", full);
 
-    written = snprintf(full_response, full_response_len, 
-             "%s\r\n"   "%s\r\n\r\n"  "%s",
-             Res->firstline, Res->headers, Res->body); */
-
-    size_t full_response_len = strlen(_Connection->response->full_response);
-
-    TCP_C->writeData = malloc(full_response_len);
+    TCP_C->writeData = malloc(full_len + 1);
     if (!TCP_C->writeData) {
       perror("malloc");
-      /*Add internal error*/
       return HTTP_SERVER_CONNECTION_ERROR;
     }
 
-    memcpy(TCP_C->writeData, _Connection->response->full_response, full_response_len);
-    TCP_C->writeData[full_response_len] = '\0';
-    printf("Writedata: \n%s\n", TCP_C->writeData);
+    memcpy(TCP_C->writeData, full, full_len);
+    TCP_C->writeData[full_len] = '\0';
 
-    int result = tcp_client_write(TCP_C, written);
-    printf("tcp result: %i\n", result);
-  } 
-  else 
-  {
-    HTTP_Request *req = _Connection->request;
+    printf("Writedata:\n%s\n", (char*)TCP_C->writeData);
 
-    char* body_ptr = NULL;
-    int body_len = 0;
+    int result = tcp_client_write(TCP_C, (int)full_len);
+    printf("tcp result: %d\n", result);
 
-    /*Get body if there is one*/
-    if (_Connection->content_length > 0 &&
-        TCP_C->data.size >= (size_t)_Connection->content_length) {
-      body_ptr = (char*)TCP_C->data.addr;
-      body_len = _Connection->content_length;
-    }
-
-    /*Write queries*/
-
-    char queries_json[1024];
-    queries_json[0] = '\0';
-
-    if (req->params) {
-      linked_list_foreach(req->params, node) {
-        HTTP_Key_Value *p = (HTTP_Key_Value*)node->item;
-        char temp[128];
-        snprintf(temp, sizeof(temp),
-                 "{ \"key\": \"%s\", \"value\": \"%s\" }, \n",
-                 p->key, p->value);
-        strncat(queries_json, temp, sizeof(queries_json) - strlen(queries_json) -1);
-      }
-    }
-
-
-
-    /*Write headers*/
-    char headers_json[1024];
-    headers_json[0] = '\0';
-
-    if (req->headers) {
-      linked_list_foreach(req->headers, node) {
-        HTTP_Key_Value *h = (HTTP_Key_Value*)node->item;
-        char temp[128];
-        snprintf(temp, sizeof(temp),
-                 "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
-                 h->key, h->value);
-        strncat(headers_json, temp, sizeof(headers_json) - strlen(headers_json) -1);
-      }
-    }
-
-    /*Remove trailing ,*/
-    size_t headers_len = strlen(headers_json);
-    if (headers_len > 2 && headers_json[headers_len -2] == ',') {
-      headers_json[headers_len - 2] = '\n';
-      headers_json[headers_len - 1] = '\0';
-    }
-
-    /*Build response*/
-
-    char response_body[2048];
-    snprintf(response_body, sizeof(response_body),
-               "{\n"
-               "  \"method\": \"%s\",\n"
-               "  \"path\": \"%s\",\n"
-               "  \"query\": \"%s\",\n"
-               "  \"headers\": [\n%s  ],\n"
-               "  \"body\": \"%.*s\"\n"
-               "}\n",
-               req->method_str,
-               req->path,
-               queries_json,
-               headers_json,
-               body_len,
-               body_ptr ? body_ptr : "");
-
-    int response_body_len = strlen(response_body);
-
-    char http_response[4096];
-    int written = snprintf(
-        http_response, sizeof(http_response),
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: application/json\r\n"
-        "Content-Length: %d\r\n"
-        "Connection: close\r\n"
-        "\r\n"
-        "%s",
-        response_body_len,
-        response_body
-    );
-
-    TCP_C->writeData = malloc(written + 1);
-    if (!TCP_C->writeData) {
-      perror("malloc");
-      /*Add internal error*/
-      return HTTP_SERVER_CONNECTION_ERROR;
-    }
-
-    memcpy(TCP_C->writeData, http_response, written);
-    TCP_C->writeData[written] = '\0';
-    printf("Writedata: \n%s\n", TCP_C->writeData);
-    tcp_client_write(TCP_C, written);
+    return HTTP_SERVER_CONNECTION_DISPOSING;
   }
 
+  
+  HTTP_Request *req = _Connection->request;
+
+  char* body_ptr = NULL;
+  int body_len = 0;
+
+  /*Get body if there is one*/
+  if (_Connection->content_length > 0 &&
+      TCP_C->data.size >= (size_t)_Connection->content_length) {
+      body_ptr = (char*)TCP_C->data.addr;
+      body_len = _Connection->content_length;
+  }
+
+  /*Write queries*/
+  char queries_json[1024];
+  queries_json[0] = '\0';
+
+  if (req->params) {
+    linked_list_foreach(req->params, node) {
+      HTTP_Key_Value *p = (HTTP_Key_Value*)node->item;
+      char temp[128];
+      snprintf(temp, sizeof(temp),
+                    "{ \"key\": \"%s\", \"value\": \"%s\" }, \n",
+                    p->key, p->value);
+      strncat(queries_json, temp,
+                  sizeof(queries_json) - strlen(queries_json) - 1);
+      }
+  }
+
+  /*Write headers*/
+  char headers_json[1024];
+  headers_json[0] = '\0';
+
+  if (req->headers) {
+    linked_list_foreach(req->headers, node) {
+      HTTP_Key_Value *h = (HTTP_Key_Value*)node->item;
+      char temp[128];
+      snprintf(temp, sizeof(temp),
+                "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
+                h->key, h->value);
+      strncat(headers_json, temp,
+                  sizeof(headers_json) - strlen(headers_json) - 1);
+      }
+  }
+
+  /*Remove trailing ,*/
+  size_t headers_len = strlen(headers_json);
+  if (headers_len > 2 && headers_json[headers_len - 2] == ',') {
+    headers_json[headers_len - 2] = '\n';
+    headers_json[headers_len - 1] = '\0';
+  }
+
+  /*Build response*/
+  char response_body[4096];
+  snprintf(response_body, sizeof(response_body),
+            "{\n"
+            "  \"method\": \"%s\",\n"
+            "  \"path\": \"%s\",\n"
+            "  \"query\": \"%s\",\n"
+            "  \"headers\": [\n%s  ],\n"
+            "  \"body\": \"%.*s\"\n"
+            "}\n",
+            req->method_str,
+            req->path,
+            queries_json,
+            headers_json,
+            body_len,
+            body_ptr ? body_ptr : "");
+
+  int response_body_len = (int)strlen(response_body);
+
+  char http_response[8122];
+  int written = snprintf(
+      http_response, sizeof(http_response),
+      "HTTP/1.1 200 OK\r\n"
+      "Content-Type: application/json\r\n"
+      "Content-Length: %d\r\n"
+      "Connection: close\r\n"
+      "\r\n"
+      "%s",
+      response_body_len,
+      response_body
+  );
+
+  TCP_C->writeData = malloc(written + 1);
+  if (!TCP_C->writeData) {
+      perror("malloc");
+      return HTTP_SERVER_CONNECTION_ERROR;
+  }
+
+  memcpy(TCP_C->writeData, http_response, written);
+  ((char*)TCP_C->writeData)[written] = '\0';
+
+  printf("Writedata:\n%s\n", (char*)TCP_C->writeData);
+  tcp_client_write(TCP_C, written);
 
   return HTTP_SERVER_CONNECTION_DISPOSING;
 }
-/* ---------------------------------------------------- */
 
+/* ---------------------------------------------------- */
 
 void http_server_connection_taskwork(void* _Context, uint64_t _montime)
 {
 	HTTP_Server_Connection* _Connection = (HTTP_Server_Connection*)_Context;
+  (void)_montime;
 
   switch (_Connection->state)
   {
@@ -505,6 +494,7 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
     {
       printf("HTTP_SERVER_CONNECTION_VALIDATING\n");
       _Connection->state = worktask_request_validate(_Connection);
+      break;
     }
 
     case HTTP_SERVER_CONNECTION_WEATHER_HANDOVER:
