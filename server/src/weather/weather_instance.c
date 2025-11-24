@@ -79,6 +79,38 @@ WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Inst
 WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Instance)
 {
 
+  HTTP_Response* Res = _Instance->http_connection->response;
+  if (Res->body != NULL && Res->status_code == 200)
+  {
+    int body_len = strlen(Res->body);
+
+    const char* reason_phrase = HttpStatus_reasonPhrase(Res->status_code);
+    char firstline[128];
+    unsigned int firstline_len = snprintf(firstline, 128, HTTP_RESPONSE_FIRSTLINE_TEMPLATE,
+                                  Res->status_code,
+                                  reason_phrase);
+    firstline[firstline_len] = '\0';
+
+    char headers_buf[512];
+    int headers_len = snprintf(headers_buf, 512,
+             "Content-Length: %i\r\n"
+             "Content-Type: application/json\r\n"
+             "Connection: close\r\n\r\n", body_len);
+
+    headers_buf[headers_len] = '\0';
+
+    int full_response_len = body_len + headers_len + firstline_len + 1;
+    char full_response[full_response_len];
+    snprintf(full_response, full_response_len, "%s%s%s", firstline, headers_buf, Res->body);
+
+    _Instance->http_connection->response->full_response = malloc(full_response_len);
+    if (_Instance->http_connection->response->full_response == NULL)
+    {
+      // handle
+      perror("malloc");
+    }
+    memcpy(_Instance->http_connection->response->full_response, full_response, full_response_len);
+  }
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
 }

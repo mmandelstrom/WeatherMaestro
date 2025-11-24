@@ -1,11 +1,15 @@
 #include "../../include/http/http_parser.h"
+#include <stdio.h>
 
-int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req) {
-  if (!_line || !_Req || _line_len < 1) {
+int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req, Linked_List **_params_out) {
+
+  if (!_line || !_Req || !_params_out || _line_len < 1) {
     errno = EINVAL;
     return -1;
   }
 
+  *_params_out = NULL;
+  
   char *line_copy = malloc(_line_len + 1);
   if (!line_copy) {
     perror("malloc");
@@ -38,15 +42,48 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   }
 
   char *question_mark = strchr(request_target, '?');
-  if (question_mark) {
+  
+  if (!question_mark) {
+    /*No query string*/
+    _Req->path = strdup(request_target);
+  } else {
     *question_mark = '\0';
     _Req->path = strdup(request_target);
-    _Req->query = strdup(question_mark + 1);
-  } else {
-    _Req->path = strdup(request_target);
-    _Req->query = NULL;
-  }
 
+    *_params_out = linked_list_create();
+    if (!*_params_out) {
+      free(line_copy);
+      return -1;
+    }
+
+  char* param_str = question_mark + 1;
+
+  while (param_str && *param_str) {
+    char *param_delim = strchr(param_str, '=');
+    if (!param_delim) break;
+    *param_delim = '\0';
+    char *param_key = param_str;
+
+    char *amp = strchr(param_delim + 1, '&');
+    char *param_value;
+
+    if (amp) {
+      *amp = '\0';
+      param_value = param_delim + 1;
+      param_str = amp + 1;   /*Keep looping*/
+    } else {
+      param_value = param_delim + 1;
+      param_str = NULL;      /*Last param*/
+    }
+
+      HTTP_Key_Value *param = malloc(sizeof(HTTP_Key_Value));
+      param->key = strdup(param_key);
+      param->value = strdup(param_value);
+      linked_list_item_add(*_params_out, NULL, param);
+      _Req->params_count++;
+    }
+  }
+   
   _Req->method_str = strdup(method);
   _Req->version = strdup(version);
   _Req->method = http_method_string_to_enum(_Req->method_str);
@@ -168,7 +205,7 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
       *--end = '\0';
     }
 
-    HTTP_Header *header = (HTTP_Header*)malloc(sizeof(HTTP_Header));
+    HTTP_Key_Value *header = (HTTP_Key_Value*)malloc(sizeof(HTTP_Key_Value));
     if (!header) {
       perror("malloc");
       free(line);
@@ -257,7 +294,7 @@ int http_parser_get_header_value(Linked_List* _headers, char* _name, const char*
   }
 
   linked_list_foreach(_headers, node) {
-    HTTP_Header *h = (HTTP_Header*)node->item;
+    HTTP_Key_Value *h = (HTTP_Key_Value*)node->item;
     if (!h || !h->key || !h->value) {
       continue;
     }
@@ -275,7 +312,7 @@ void http_parser_dispose_headers(Linked_List *_headers) {
   if (!_headers) return;
 
   linked_list_foreach(_headers, node) {
-    HTTP_Header *header = (HTTP_Header*)node->item;
+    HTTP_Key_Value *header = (HTTP_Key_Value*)node->item;
     if (header) {
       free(header->key);
       free(header->value);
@@ -287,3 +324,18 @@ void http_parser_dispose_headers(Linked_List *_headers) {
   linked_list_destroy(&_headers);      
 }
 
+void http_parser_dispose_params(Linked_List *_params) {
+  if (!_params) return;
+
+  linked_list_foreach(_params, node) {
+    HTTP_Key_Value *param = (HTTP_Key_Value*)node->item;
+    if (param) {
+      free(param->key);
+      free(param->value);
+      free(param);
+    }
+  }
+
+  linked_list_items_dispose(_params);
+  linked_list_destroy(&_params);      
+}

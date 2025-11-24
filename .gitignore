@@ -74,6 +74,7 @@ vgcore*
 findings/
 findings_old/
 findings_copy/
+findings_old_old/
 fuzz_http
 fuzz_http_asan
 /*.cur_input

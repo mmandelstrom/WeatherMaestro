@@ -176,7 +176,6 @@ int weather_api_handle_endpoint(Weather_API* _API)
 int weather_api_handle_endpoint_weather_get(Weather_API* _API)
 {
 
-
   if (_API->http_request->params_count < 2)
   {
     _API->http_response->status_code = 400;
@@ -196,15 +195,16 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   int lat_found = 0;
   int lon_found = 0;
   for (int i = 0; i < _API->http_request->params_count; i++)
+    linked_list_foreach(_API->http_request->params, node)
   {
-    yuarel_param* param = _API->http_request->params;
-    if (param[i].key != NULL && param[i].val != NULL)
+    HTTP_Key_Value* Param = (HTTP_Key_Value*)node->item;
+    if (Param->key != NULL && Param->value != NULL)
     {
-      if (strcmp(param[i].key, "latitude") == 0)
-        lat_found += weather_utils_parse_lat_lon(param[i].val, &_API->city->lat);
+      if (strcmp(Param->key, "latitude") == 0)
+        lat_found += weather_utils_parse_lat_lon(Param->value, &_API->city->lat);
 
-      if (strcmp(param[i].key, "longitude") == 0)
-        lon_found += weather_utils_parse_lat_lon(param[i].val, &_API->city->lon);
+      if (strcmp(Param->key, "longitude") == 0)
+        lon_found += weather_utils_parse_lat_lon(Param->value, &_API->city->lon);
 
       // Potential to add "city=" param here to get lat+lon in the same request
       // Also specific weather data, if not all is wanted
@@ -212,23 +212,25 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   }
   if (lat_found > 0 && lon_found > 0)
   {
+    printf("lat: %f\n", _API->city->lat);
+    printf("lon: %f\n", _API->city->lon);
+
     const char* mock_json = meteo_get_weather_json(12.12452, 54.12345);
     printf("mock_json: %s\n\n", mock_json);
 
-    meteo_parse_json(mock_json, _API->meteo_weather);
+    _API->http_response->body = strdup(mock_json);
+    /* meteo_parse_json(mock_json, _API->meteo_weather); */
 
-    const char* filename = "mock_weather.json";
+    /* const char* filename = "mock_weather.json";
     char filepath[128];
     snprintf(filepath, 128, "%s%s", METEO_CACHE_DIR, filename);
     int result;
     result = create_directory_if_not_exists(METEO_CACHE_DIR);
     printf("result: %i\n", result);
     result = write_string_to_file(mock_json, filepath);
-    printf("result: %i\n", result);
-
-    printf("lat: %f\n", _API->city->lat);
-    printf("lon: %f\n", _API->city->lon);
+    printf("result: %i\n", result); */
   }
+
   printf("lat_found; %i, lon_found: %i\n", lat_found, lon_found);
 
   free(_API->city);
