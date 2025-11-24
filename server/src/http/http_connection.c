@@ -20,6 +20,7 @@ int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
   TCP_Client* TCPC = (TCP_Client*)calloc(1, sizeof(TCP_Client));
   HTTP_Request* req = (HTTP_Request*)calloc(1, sizeof(HTTP_Request));
   HTTP_Response* resp = (HTTP_Response*)calloc(1, sizeof(HTTP_Response));
+
   if (!TCPC || !req || !resp) {
     perror("calloc");
     return -1;
@@ -141,7 +142,7 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
 /*   printf("First line found\r\nline_buf_len: %d\r\nline_buf: %s\n", _Connection->line_buf_len, (char*)_Connection->line_buf); */
 
 
-  if (http_parser_first_line((const char*)TCP_C->data.addr, TCP_C->data.size, _Connection->request) != 0) {
+  if (http_parser_first_line((const char*)TCP_C->data.addr, TCP_C->data.size, _Connection->request, &_Connection->request->params) != 0) {
     /*Add internal error*/
     return HTTP_SERVER_CONNECTION_ERROR;
   }
@@ -174,6 +175,16 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
     /*Add internal error*/
     return HTTP_SERVER_CONNECTION_ERROR; 
   }
+
+
+  if (_Connection->request->params != NULL) {
+    printf("Printing params...\n");
+    linked_list_foreach(_Connection->request->params, node) {
+      HTTP_Key_Value *p = (HTTP_Key_Value*)node->item;
+      printf("ParamKey: %s\nParamValue: %s\n", p->key, p->value);
+    }
+  }
+
   
   TCP_Client *TCP_C = _Connection->tcp_client;
 
@@ -362,13 +373,31 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
       body_len = _Connection->content_length;
     }
 
+    /*Write queries*/
+
+    char queries_json[1024];
+    queries_json[0] = '\0';
+
+    if (req->params) {
+      linked_list_foreach(req->params, node) {
+        HTTP_Key_Value *p = (HTTP_Key_Value*)node->item;
+        char temp[128];
+        snprintf(temp, sizeof(temp),
+                 "{ \"key\": \"%s\", \"value\": \"%s\" }, \n",
+                 p->key, p->value);
+        strncat(queries_json, temp, sizeof(queries_json) - strlen(queries_json) -1);
+      }
+    }
+
+
+
     /*Write headers*/
     char headers_json[1024];
     headers_json[0] = '\0';
 
     if (req->headers) {
       linked_list_foreach(req->headers, node) {
-        HTTP_Header *h = (HTTP_Header*)node->item;
+        HTTP_Key_Value *h = (HTTP_Key_Value*)node->item;
         char temp[128];
         snprintf(temp, sizeof(temp),
                  "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
@@ -397,7 +426,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
                "}\n",
                req->method_str,
                req->path,
-               req->query ? req->query : "",
+               queries_json,
                headers_json,
                body_len,
                body_ptr ? body_ptr : "");
@@ -541,31 +570,36 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       free(_Connection->request->version);
       _Connection->request->version = NULL;
     }
-    if (_Connection->request->params != NULL)
-    {
-      int i;
-      for (i = 0; i < _Connection->request->params_count; i++)
-      {
-        if (_Connection->request->params[i].key != NULL) {
-          free(_Connection->request->params[i].key);
-          _Connection->request->params[i].key = NULL;
-        }
-        if (_Connection->request->params[i].val != NULL)
-        {
-          free(_Connection->request->params[i].val);
-          _Connection->request->params[i].val = NULL;
-        }
-      }
-      free(_Connection->request->params);
-      _Connection->request->params_count = 0;
-    }
+
+    // if (_Connection->request->params != NULL)
+    // {
+    //   int i;
+    //   for (i = 0; i < _Connection->request->params_count; i++)
+    //   {
+    //     if (_Connection->request->params[i].key != NULL) {
+    //       free(_Connection->request->params[i].key);
+    //       _Connection->request->params[i].key = NULL;
+    //     }
+    //     if (_Connection->request->params[i].val != NULL)
+    //     {
+    //       free(_Connection->request->params[i].val);
+    //       _Connection->request->params[i].val = NULL;
+    //     }
+    //   }
+    //   free(_Connection->request->params);
+    //   _Connection->request->params_count = 0;
+    // }
 
     http_parser_dispose_headers(_Connection->request->headers);
+    http_parser_dispose_params(_Connection->request->params);
 
     _Connection->request->headers = NULL;
+    _Connection->request->params = NULL;
+
     free(_Connection->request);
     _Connection->request = NULL;
   }
+  
 
   /* Free HTTP_Response */
   if (_Connection->response != NULL)

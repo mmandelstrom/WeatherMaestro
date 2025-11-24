@@ -193,21 +193,21 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
 
   int lat_found = 0;
   int lon_found = 0;
-  for (int i = 0; i < _API->http_request->params_count; i++)
-  {
-    yuarel_param* param = _API->http_request->params;
-    if (param[i].key != NULL && param[i].val != NULL)
-    {
-      if (strcmp(param[i].key, "latitude") == 0)
-        lat_found += weather_utils_parse_lat_lon(param[i].val, &_API->city->lat);
-
-      if (strcmp(param[i].key, "longitude") == 0)
-        lon_found += weather_utils_parse_lat_lon(param[i].val, &_API->city->lon);
-
-      // Potential to add "city=" param here to get lat+lon in the same request
-      // Also specific weather data, if not all is wanted
-    }
-  }
+  // for (int i = 0; i < _API->http_request->params_count; i++)
+  // {
+  //   yuarel_param* param = _API->http_request->params;
+  //   if (param[i].key != NULL && param[i].val != NULL)
+  //   {
+  //     if (strcmp(param[i].key, "latitude") == 0)
+  //       lat_found += weather_utils_parse_lat_lon(param[i].val, &_API->city->lat);
+  //
+  //     if (strcmp(param[i].key, "longitude") == 0)
+  //       lon_found += weather_utils_parse_lat_lon(param[i].val, &_API->city->lon);
+  //
+  //     // Potential to add "city=" param here to get lat+lon in the same request
+  //     // Also specific weather data, if not all is wanted
+  //   }
+  // }
   if (lat_found > 0 && lon_found > 0)
   {
     /* int result = meteo_get_weather(_API->city->lat, _API->city->lon, ); */
