@@ -58,7 +58,7 @@ int tcp_client_read(TCP_Client* _Client);
 int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len);
 /** Writes specified amount of data using realloc to TCP_Data struct
  * is type agnostic, hence pass size of type one wish to save data as */
-size_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size, size_t _type_size);
+ssize_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size);
 
 int tcp_client_write(TCP_Client* _Client, size_t _length);
 int tcp_client_write_simple(TCP_Client* _Client, const uint8_t* _buf, int _len);

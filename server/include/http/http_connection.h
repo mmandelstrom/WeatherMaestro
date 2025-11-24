@@ -67,6 +67,6 @@ void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, vo
 
 void http_server_connection_dispose(HTTP_Server_Connection* _Connection);
 void http_server_connection_dispose_ptr(HTTP_Server_Connection** _Connection_Ptr);
-
+void http_handle_request(const uint8_t *_data, size_t _len);
 
 #endif

@@ -66,6 +66,22 @@ build/
 # no vgcore
 vgcore*
 
+# Fuzzing binaries & outputs
+/fuzz_http
+/fuzz_http_asan
+/findings/
+/default/
+findings/
+findings_old/
+findings_copy/
+fuzz_http
+fuzz_http_asan
+/*.cur_input
+/*.state
+/*.synced
+
+
+
 #Untracking these for now
 external/
 core/

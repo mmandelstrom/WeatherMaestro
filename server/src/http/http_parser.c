@@ -56,14 +56,14 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   return 0;
 }
 
-int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len, size_t _start_offset) {
+int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len) {
   if (_buf_len < 2) {
     errno = EINVAL;
     return -1;
   }
   
   size_t i;
-  for (i = _start_offset; i + 1 < _buf_len; i++) {
+  for (i = 0; i + 1 < _buf_len; i++) {
     if (_buf[i] == '\r' && _buf[i + 1] == '\n') {
       return (int)i;
     }
@@ -72,12 +72,12 @@ int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len, size_t _star
 }
 
 
-int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len, size_t _start_offset) {
+int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len) {
   if (_buf_len < 4) {
     return -1;
   }
   size_t i;
-  for (i = _start_offset; i + 3 < _buf_len; i++) {
+  for (i = 0; i + 3 < _buf_len; i++) {
     if (_buf[i] == '\r' &&
         _buf[i+1] == '\n' &&
         _buf[i+2] == '\r' &&

@@ -1,4 +1,5 @@
 #include "../../include/tcp/tcp_client.h"
+#include <stdint.h>
 
 /*---------------------Internal functions------------------------------*/
 
@@ -86,10 +87,14 @@ int tcp_client_set_nonblocking(int fd) {
   return 0;
 }
 
-size_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size, size_t _type_size) 
+ssize_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size) 
 {
-  size_t realsize = _size * _type_size;
-  void* ptr = realloc(_Data->addr, _Data->size + realsize + 1); // We reallocate memory for our chunk and make a pointer to the new addr
+  if (!_Data || !_input || !_size) {
+    return -1;
+  }
+
+  ssize_t new_size = _size * sizeof(uint8_t);
+  void* ptr = realloc(_Data->addr, _Data->size + new_size + 1); // We reallocate memory for our chunk and make a pointer to the new addr
   if (!ptr)
   {
     perror("realloc");
@@ -98,11 +103,11 @@ size_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size, size
   }
 
   _Data->addr = ptr; // We redefine our addr to the newly allocated memory (Should test if previous addr pointer should be freed aswell?) 
-  memcpy(&(_Data->addr[_Data->size]), _input, realsize); // We copy realsize*bytes from contents to our chunk
-  _Data->size += realsize; // we add realsize to our chunksize
+  memcpy(&(_Data->addr[_Data->size]), _input, new_size); // We copy realsize*bytes from contents to our chunk
+  _Data->size += new_size; // we add realsize to our chunksize
   _Data->addr[_Data->size] = 0; // null last byte for strings 
 
-  return realsize; // We return the size of the chunk
+  return new_size; // We return the size of the chunk
 }
 
 int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len) {
@@ -246,7 +251,7 @@ void tcp_client_dispose(TCP_Client* _Client) {
     free(_Client->writeData);
     _Client->writeData = NULL;
   }
-  if (_Client->data.size > 0) {
+  if (_Client->data.addr != NULL) {
     free(_Client->data.addr);
     _Client->data.addr = NULL;
     _Client->data.size = 0;

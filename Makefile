@@ -16,6 +16,8 @@ MODULES := server client
 	$(addsuffix /clean,$(MODULES)) \
 	$(addsuffix /valgrind,$(MODULES)) \
 	$(addsuffix /gdb,$(MODULES)) \
+	$(addsuffix /fuzz,$(MODULES)) \
+	$(addsuffix /fuzz-asan,$(MODULES)) \
 
 
 #############################
@@ -61,3 +63,13 @@ $(addsuffix /gdb,$(MODULES)):
 	@MODULE=$(@D); \
 	echo "Debugging module $$MODULE using gdb..."; \
 	$(MAKE) -C $$MODULE gdb 
+
+$(addsuffix /fuzz,$(MODULES)):
+	@MODULE=$(@D); \
+	echo "Building fuzz target for $$MODULE..."; \
+	$(MAKE) -C $$MODULE fuzz
+
+$(addsuffix /fuzz-asan,$(MODULES)):
+	@MODULE=$(@D); \
+	echo "Building ASan fuzz binary for $$MODULE..."; \
+	$(MAKE) -C $$MODULE fuzz-asan
