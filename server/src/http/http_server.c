@@ -26,7 +26,7 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
   _HTTPServer->retry_args = NULL;
   _HTTPServer->retry_function = NULL;
 
-	if (tcp_server_init(&_HTTPServer->tcp_server, "58080", http_server_on_accept, _HTTPServer) <0 ) {
+	if (tcp_server_init(&_HTTPServer->tcp_server, "10580", http_server_on_accept, _HTTPServer) <0 ) {
     perror("tcp_server_init");
     _HTTPServer->state = HTTP_SERVER_ERROR;
     _HTTPServer->error_state = HTTP_SERVER_ERROR_TCP_INIT_FAILED;
@@ -39,7 +39,7 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
    
     /*Pack the arguments needed for retrying tcp_init*/
     args->tcp_server = &_HTTPServer->tcp_server;
-    args->port = "58080";
+    args->port = "10580";
     args->on_accept = http_server_on_accept;
     args->context = _HTTPServer;
 
