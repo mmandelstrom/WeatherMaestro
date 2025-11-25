@@ -308,34 +308,22 @@ int http_parser_get_header_value(Linked_List* _headers, char* _name, const char*
   return -1;
 }
 
-void http_parser_dispose_headers(Linked_List *_headers) {
-  if (!_headers) return;
+void http_parser_dispose_linked_list(Linked_List *_list) {
+  if (!_list) return;
 
-  linked_list_foreach(_headers, node) {
-    HTTP_Key_Value *header = (HTTP_Key_Value*)node->item;
-    if (header) {
-      free(header->key);
-      free(header->value);
-      free(header);
+  linked_list_foreach(_list, node) {
+    HTTP_Key_Value *obj = (HTTP_Key_Value*)node->item;
+    if (obj) {
+      if (obj->key)
+        free(obj->key);
+      if (obj->value)
+        free(obj->value);
+      free(obj);
     }
   }
 
-  linked_list_items_dispose(_headers);
-  linked_list_destroy(&_headers);      
+  linked_list_items_dispose(_list);
+  linked_list_destroy(&_list);      
 }
 
-void http_parser_dispose_params(Linked_List *_params) {
-  if (!_params) return;
 
-  linked_list_foreach(_params, node) {
-    HTTP_Key_Value *param = (HTTP_Key_Value*)node->item;
-    if (param) {
-      free(param->key);
-      free(param->value);
-      free(param);
-    }
-  }
-
-  linked_list_items_dispose(_params);
-  linked_list_destroy(&_params);      
-}

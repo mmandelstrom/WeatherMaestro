@@ -333,6 +333,11 @@ HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Con
 
 HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 {
+
+  if (_Connection->state == HTTP_SERVER_CONNECTION_ERROR) {
+    return HTTP_SERVER_CONNECTION_DISPOSING;
+  }
+
   TCP_Client* TCP_C = _Connection->tcp_client;
 
   if (_Connection->response->full_response != NULL)
@@ -537,14 +542,6 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
     _Connection->tcp_client = NULL;
   }
 
-  /* Free TCP_Data */
-  /* if (_Connection->tcp_client->data.addr != NULL)
-  {
-    free(_Connection->tcp_client->data.addr);
-    _Connection->tcp_client->data.addr = NULL;
-    _Connection->tcp_client->data.size = 0;
-  } */
-
   /* Free HTTP_Request */
   if (_Connection->request != NULL)
   {
@@ -569,28 +566,9 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       _Connection->request->version = NULL;
     }
 
-    // if (_Connection->request->params != NULL)
-    // {
-    //   int i;
-    //   for (i = 0; i < _Connection->request->params_count; i++)
-    //   {
-    //     if (_Connection->request->params[i].key != NULL) {
-    //       free(_Connection->request->params[i].key);
-    //       _Connection->request->params[i].key = NULL;
-    //     }
-    //     if (_Connection->request->params[i].val != NULL)
-    //     {
-    //       free(_Connection->request->params[i].val);
-    //       _Connection->request->params[i].val = NULL;
-    //     }
-    //   }
-    //   free(_Connection->request->params);
-    //   _Connection->request->params_count = 0;
-    // }
-
-    http_parser_dispose_headers(_Connection->request->headers);
-    http_parser_dispose_params(_Connection->request->params);
-
+    http_parser_dispose_linked_list(_Connection->request->headers);
+    http_parser_dispose_linked_list(_Connection->request->params);
+    
     _Connection->request->headers = NULL;
     _Connection->request->params = NULL;
 

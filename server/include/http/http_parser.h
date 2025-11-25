@@ -74,7 +74,6 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
 int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len);
 int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len);
 int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_headers_out);
-void http_parser_dispose_headers(Linked_List *_headers);
+void http_parser_dispose_linked_list(Linked_List *_list);
 int http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value);
-void http_parser_dispose_params(Linked_List *_params);
 #endif //__HTTP_Server_h_
