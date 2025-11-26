@@ -335,7 +335,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
   TCP_Client* TCP_C = _Connection->tcp_client;
   int written = 0;
 
-  if (_Connection->response->full_response == NULL)
+  if (_Connection->response->full_response != NULL) // means we built response as part of valid weather request
   {
     printf("Full response: \n%s\n", _Connection->response->full_response);
 
@@ -363,10 +363,10 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     TCP_C->writeData[full_response_len] = '\0';
     printf("Writedata: \n%s\n", TCP_C->writeData);
 
-    int result = tcp_client_write(TCP_C, written);
+    int result = tcp_client_write(TCP_C, full_response_len);
     printf("tcp result: %i\n", result);
   } 
-  else 
+  else if (strcmp(_Connection->request->path, "/echo") == 0) 
   {
     HTTP_Request *req = _Connection->request;
 
@@ -465,7 +465,39 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     printf("Writedata: \n%s\n", TCP_C->writeData);
     tcp_client_write(TCP_C, written);
   }
+  else
+  {
+    const char* reason_phrase = HttpStatus_reasonPhrase(_Connection->response->status_code);
+    int reason_phrase_len = strlen(reason_phrase);
 
+    char err_response_buf[512];
+    int written = snprintf(
+        err_response_buf, 512,
+        "HTTP/1.1 %i %s\r\n"
+        "Content-Type: application/text\r\n"
+        "Content-Length: %d\r\n"
+        "Connection: close\r\n"
+        "\r\n"
+        "%s",
+        _Connection->response->status_code,
+        reason_phrase,
+        reason_phrase_len,
+        reason_phrase // Should have a more informational body, based on error logs
+        );
+
+    TCP_C->writeData = malloc(written + 1);
+    if (!TCP_C->writeData) {
+      perror("malloc");
+      /*Add internal error*/
+      return HTTP_SERVER_CONNECTION_ERROR;
+    }
+
+    memcpy(TCP_C->writeData, err_response_buf, written);
+    TCP_C->writeData[written] = '\0';
+    printf("Writedata: \n%s\n", TCP_C->writeData);
+    tcp_client_write(TCP_C, written);
+  }
+    
 
   return HTTP_SERVER_CONNECTION_DISPOSING;
 }
@@ -505,7 +537,7 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
     {
       printf("HTTP_SERVER_CONNECTION_VALIDATING\n");
       _Connection->state = worktask_request_validate(_Connection);
-    }
+    } break;
 
     case HTTP_SERVER_CONNECTION_WEATHER_HANDOVER:
     {
@@ -547,14 +579,6 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
     _Connection->tcp_client = NULL;
   }
 
-  /* Free TCP_Data */
-  /* if (_Connection->tcp_client->data.addr != NULL)
-  {
-    free(_Connection->tcp_client->data.addr);
-    _Connection->tcp_client->data.addr = NULL;
-    _Connection->tcp_client->data.size = 0;
-  } */
-
   /* Free HTTP_Request */
   if (_Connection->request != NULL)
   {
@@ -578,25 +602,6 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       free(_Connection->request->version);
       _Connection->request->version = NULL;
     }
-
-    // if (_Connection->request->params != NULL)
-    // {
-    //   int i;
-    //   for (i = 0; i < _Connection->request->params_count; i++)
-    //   {
-    //     if (_Connection->request->params[i].key != NULL) {
-    //       free(_Connection->request->params[i].key);
-    //       _Connection->request->params[i].key = NULL;
-    //     }
-    //     if (_Connection->request->params[i].val != NULL)
-    //     {
-    //       free(_Connection->request->params[i].val);
-    //       _Connection->request->params[i].val = NULL;
-    //     }
-    //   }
-    //   free(_Connection->request->params);
-    //   _Connection->request->params_count = 0;
-    // }
 
     http_parser_dispose_headers(_Connection->request->headers);
     http_parser_dispose_params(_Connection->request->params);

@@ -1,7 +1,6 @@
 #ifndef __HTTP_SERVER_PARSER_H_
 #define __HTTP_SERVER_PARSER_H_
 
-
 /* ******************************************************************* */
 /* ************************** HTTP PARSING *************************** */
 /* ******************************************************************* */
@@ -13,7 +12,7 @@
 #include <errno.h>
 #include "../../../libs/include/HTTPStatusCodes.h"
 #include "../../../libs/include/yuarel.h"
-#include "../../../utils/include/utils.h"
+#include "../../../utils/include/misc_utils.h"
 #include "../../../utils/include/linked_list.h"
 
 #define HTTP_REQUEST_MAX_PARAMS 10
@@ -33,29 +32,32 @@ typedef enum
 
 typedef struct
 {
-  enum HttpStatus_Code status_code;
   char*                firstline;
   char*                headers;
   char*                body;  
-
   char*                full_response;
+
+  enum HttpStatus_Code status_code;
 
 } HTTP_Response;
 
 typedef struct
 {
-  HTTPMethod      method;
   char*           method_str;
   char*           path; 
   char*           query; // maybe we don't need to save this now that we have array of params
-  Linked_List*    params;
-  int             params_count;
   char*           version;
+  char*           body;
+
+  Linked_List*    params;
+  Linked_List*    headers;
+
+  HTTPMethod      method;
+
+  int             params_count;
   int             firstline_len; // To set pointer for headers parsing
   int             headers_len;
   int             bode_len;
-  Linked_List*    headers;
-  char*           body;
 
 } HTTP_Request;
 
@@ -64,8 +66,6 @@ typedef struct {
   char* value;
 
 } HTTP_Key_Value;
-
-
 
 
 HTTPMethod http_method_string_to_enum(const char* _method_str);
@@ -77,4 +77,6 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
 void http_parser_dispose_headers(Linked_List *_headers);
 int http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value);
 void http_parser_dispose_params(Linked_List *_params);
-#endif //__HTTP_Server_h_
+
+
+#endif 

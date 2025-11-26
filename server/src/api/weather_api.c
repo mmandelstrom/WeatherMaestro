@@ -6,39 +6,38 @@
 /* Defines the API endpoints' paths and methods */
 const Weather_API_Endpoint Endpoints[ENDPOINT_INVALID] = {
   { 
+    "/weather",
+    HTTP_GET, 
     ENDPOINT_WEATHER_GET, 
-    HTTP_GET, 
-    "/weather" 
   },
   { 
+    "/forecast", 
+    HTTP_GET, 
     ENDPOINT_FORECAST_GET, 
-    HTTP_GET, 
-    "/forecast" 
   },
   { 
+    "/cities",
+    HTTP_GET, 
     ENDPOINT_CITIES_LIST, 
-    HTTP_GET, 
-    "/cities" 
   },
   { 
+    "/cities/geo",
+    HTTP_GET, 
     ENDPOINT_CITIES_COORDS, 
-    HTTP_GET, 
-    "/cities/geo" 
   },
   { 
-    ENDPOINT_CITIES_ADD, // Should not be public, i.e should have an auth of some kind 
+    "/cities/add",
     HTTP_POST, 
-    "/cities/add" 
+    ENDPOINT_CITIES_ADD, // Should not be public, i.e should have an auth of some kind 
   },
   { 
-    ENDPOINT_CITIES_REMOVE, // Same as above
+    "/cities/remove",
     HTTP_DELETE, 
-    "/cities/remove" 
+    ENDPOINT_CITIES_REMOVE, // Same as cities_add
   },
 };
 
 WeatherAPIEndpoint weather_api_get_endpoint(const char* _request_path);
-int weather_utils_parse_lat_lon(const char* _val, float* _target_coord);
 
 int weather_api_handle_endpoint_weather_get(Weather_API* _Request);
 
@@ -66,8 +65,6 @@ int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req
   return 0;
 }
 
-/** ---------------------------- UTILS --------------------------- */
-
 /** Return endpoint enum from path string */
 WeatherAPIEndpoint weather_api_get_endpoint(const char* _request_path)
 {
@@ -91,42 +88,6 @@ WeatherAPIEndpoint weather_api_get_endpoint(const char* _request_path)
   }
 }
 
-/** Takes a string and tries to convert it to float
- * Only takes COORD_BUFFER_LENGTH amount of chars to target
- * Returns 1 if succesful, 0 if none parsed and -1 on error */
-int weather_utils_parse_lat_lon(const char* _val, float* _target_coord)
-{
-  char coord[COORD_BUFFER_LENGTH];
-  char* endptr; // for strtof
-
-  int val_len = strlen(_val);
-  errno = 0; // reset errno
-  if (val_len > COORD_BUFFER_LENGTH)
-  {
-    strncpy(coord, _val, COORD_BUFFER_LENGTH);
-    coord[COORD_BUFFER_LENGTH-1] = '\0';
-    float coord_val = strtof(coord, &endptr);
-    if (errno != 0 || endptr == coord || *endptr != '\0')
-      return -1;
-
-    *_target_coord = coord_val;
-    return 1;
-    
-  } else {
-    strncpy(coord, _val, val_len);
-    coord[val_len] = '\0';
-
-    float coord_val = strtof(coord, &endptr);
-    if (errno != 0 || endptr == coord || *endptr != '\0')
-      return -1;
-
-    *_target_coord = coord_val;
-    return 1;
-  }
-
-  return 0;
-}
-
 /** ---------------------- ENDPOINTS HANDLING -------------------- */
 
 int weather_api_handle_endpoint(Weather_API* _API)
@@ -141,32 +102,36 @@ int weather_api_handle_endpoint(Weather_API* _API)
         printf("ENDPOINT_WEATHER      \n");
         result = weather_api_handle_endpoint_weather_get(_API);
 
-        printf("result: %i\n", result);
-
       } break;
     case ENDPOINT_FORECAST_GET:
       {
         printf("ENDPOINT_FORECAST_GET \n");
+        _API->http_response->status_code = 404; // replace with actual implementation
       } break;
     case ENDPOINT_CITIES_LIST:
       {
         printf("ENDPOINT_CITIES_LIST  \n");
+        _API->http_response->status_code = 404; // replace with actual implementation
       } break;
     case ENDPOINT_CITIES_COORDS:
       {
         printf("ENDPOINT_CITIES_COORDS\n");
+        _API->http_response->status_code = 404; // replace with actual implementation
       } break;
     case ENDPOINT_CITIES_ADD:
       {
         printf("ENDPOINT_CITIES_ADD   \n");
+        _API->http_response->status_code = 404; // replace with actual implementation
       } break;
     case ENDPOINT_CITIES_REMOVE:
       {
         printf("ENDPOINT_CITIES_REMOVE\n");
+        _API->http_response->status_code = 404; // replace with actual implementation
       } break;
     case ENDPOINT_INVALID:
       {
         printf("ENDPOINT_INVALID      \n");
+        _API->http_response->status_code = 404;
       } break;
   }
 
@@ -175,65 +140,72 @@ int weather_api_handle_endpoint(Weather_API* _API)
 
 int weather_api_handle_endpoint_weather_get(Weather_API* _API)
 {
-
-  if (_API->http_request->params_count < 2)
+  if (_API->http_request->params_count < 1)
   {
     _API->http_response->status_code = 400;
+    return 0;
+  }
+
+  /* Init new City struct (Should check city cache first) */
+  
+  if (weather_parser_init_ptr(&_API->city, NULL, NULL) != 0 && _API->city == NULL)
+  {
+    perror("weather_parser_init_ptr");
+    _API->http_response->status_code = 500;
     return -1;
   }
 
-  City* New_City = malloc(sizeof(City));
-  if (New_City == NULL)
-  {
-    _API->http_response->status_code = 500;
-    perror("malloc");
-    return -2;
-  }
-
-  _API->city = New_City;
-
-  int lat_found = 0;
-  int lon_found = 0;
-  for (int i = 0; i < _API->http_request->params_count; i++)
-    linked_list_foreach(_API->http_request->params, node)
+  /* Find and validate latitude and longitude params */
+  float lat, lon = 0;
+  int lat_found, lon_found = 0;
+  linked_list_foreach(_API->http_request->params, node)
   {
     HTTP_Key_Value* Param = (HTTP_Key_Value*)node->item;
     if (Param->key != NULL && Param->value != NULL)
     {
-      if (strcmp(Param->key, "latitude") == 0)
-        lat_found += weather_utils_parse_lat_lon(Param->value, &_API->city->lat);
+      if (strcmp(Param->key, "latitude") == 0 || strcmp(Param->key, "lat") == 0)
+        lat_found += weather_parser_lat_lon(Param->value, &_API->city->lat);
 
-      if (strcmp(Param->key, "longitude") == 0)
-        lon_found += weather_utils_parse_lat_lon(Param->value, &_API->city->lon);
+      if (strcmp(Param->key, "longitude") == 0 || strcmp(Param->key, "lon") == 0)
+        lon_found += weather_parser_lat_lon(Param->value, &_API->city->lon);
 
       // Potential to add "city=" param here to get lat+lon in the same request
-      // Also specific weather data, if not all is wanted
+      // Then we should have City cache as well to look for previously searched cities
     }
   }
-  if (lat_found > 0 && lon_found > 0)
+
+  if (lat_found > 0 && lon_found > 0) // Could add an || for city->name and let parser find coords for that city 
   {
     printf("lat: %f\n", _API->city->lat);
     printf("lon: %f\n", _API->city->lon);
 
-    const char* mock_json = meteo_get_weather_json(12.12452, 54.12345);
-    printf("mock_json: %s\n\n", mock_json);
+    if (weather_parser_init_ptr(NULL, &_API->city->weather, NULL) != 0)
+    {
+      _API->http_response->status_code = 500;
+      return -2;
+    }
 
-    _API->http_response->body = strdup(mock_json);
-    /* meteo_parse_json(mock_json, _API->meteo_weather); */
+    /* Build city weather from open-meteo response (Should check weather cache first) */
+    weather_parser_get_weather_meteo(_API->city, false);
+  
+    const char* json_response = weather_parser_build_weather_json(_API->city->weather);
+    size_t json_len = strlen(json_response);
 
-    /* const char* filename = "mock_weather.json";
-    char filepath[128];
-    snprintf(filepath, 128, "%s%s", METEO_CACHE_DIR, filename);
-    int result;
-    result = create_directory_if_not_exists(METEO_CACHE_DIR);
-    printf("result: %i\n", result);
-    result = write_string_to_file(mock_json, filepath);
-    printf("result: %i\n", result); */
+    _API->http_response->body = malloc(json_len + 1); 
+    if (_API->http_response->body == NULL)
+    {
+      perror("malloc");
+      return -3;
+    }
+    memcpy(_API->http_response->body, json_response, json_len);
+    _API->http_response->body[json_len] = '\0';
+    _API->http_response->status_code = 200;
+
   }
+  else
+    _API->http_response->status_code = 400;
 
-  printf("lat_found; %i, lon_found: %i\n", lat_found, lon_found);
-
-  free(_API->city);
+  weather_parser_dispose_ptr(&_API->city, NULL, NULL);
   _API->city = NULL;
 
   return 0;

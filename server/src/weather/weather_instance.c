@@ -82,26 +82,26 @@ WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Ins
   HTTP_Response* Res = _Instance->http_connection->response;
   if (Res->body != NULL && Res->status_code == 200)
   {
-    int body_len = strlen(Res->body);
+    size_t body_len = strlen(Res->body);
 
     const char* reason_phrase = HttpStatus_reasonPhrase(Res->status_code);
     char firstline[128];
-    unsigned int firstline_len = snprintf(firstline, 128, HTTP_RESPONSE_FIRSTLINE_TEMPLATE,
+    size_t firstline_len = snprintf(firstline, 128, HTTP_RESPONSE_FIRSTLINE_TEMPLATE,
                                   Res->status_code,
                                   reason_phrase);
     firstline[firstline_len] = '\0';
 
     char headers_buf[512];
-    int headers_len = snprintf(headers_buf, 512,
-             "Content-Length: %i\r\n"
+    size_t headers_len = snprintf(headers_buf, 512,
+             "Content-Length: %zu\r\n"
              "Content-Type: application/json\r\n"
              "Connection: close\r\n\r\n", body_len);
 
     headers_buf[headers_len] = '\0';
 
-    int full_response_len = body_len + headers_len + firstline_len + 1;
-    char full_response[full_response_len];
-    snprintf(full_response, full_response_len, "%s%s%s", firstline, headers_buf, Res->body);
+    size_t full_response_len = body_len + headers_len + firstline_len + 2;
+    char full_response[full_response_len + 1];
+    snprintf(full_response, full_response_len, "%s%s%s\r\n", firstline, headers_buf, Res->body);
 
     _Instance->http_connection->response->full_response = malloc(full_response_len);
     if (_Instance->http_connection->response->full_response == NULL)
@@ -144,7 +144,7 @@ void weather_server_instance_taskwork(void* _context, uint64_t _montime)
       printf("WEATHER_SERVER_INSTANCE_RESPONSE_SENDING\n");
 
       _Instance->http_connection->weather_done = 1;
-        _Instance->http_connection->state = HTTP_SERVER_CONNECTION_RESPONDING;
+      _Instance->http_connection->state = HTTP_SERVER_CONNECTION_RESPONDING;
       
       _Instance->state = WEATHER_SERVER_INSTANCE_DISPOSING;
     } break;
