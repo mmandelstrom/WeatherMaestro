@@ -81,6 +81,7 @@ void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, vo
 /* --------------TASKWORK STATE FUNCTIONS-------------- */
 HTTPServerConnectionState worktask_init(HTTP_Server_Connection* _Connection)
 {
+  (void)_Connection;
   return HTTP_SERVER_CONNECTION_READING_FIRSTLINE;
 }
 
@@ -329,13 +330,13 @@ HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Con
   return HTTP_SERVER_CONNECTION_WEATHER_HANDOVER;
  }
 
+
 HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 {
-  HTTP_Response* Res = _Connection->response;
-  TCP_Client* TCP_C = _Connection->tcp_client;
-  int written = 0;
 
-  if (_Connection->response->full_response != NULL) // means we built response as part of valid weather request
+  TCP_Client* TCP_C = _Connection->tcp_client;
+
+  if (_Connection->response->full_response != NULL && _Connection->response->status_code != 500) // means we already built full response as part of a valid request
   {
     printf("Full response: \n%s\n", _Connection->response->full_response);
 
@@ -376,12 +377,11 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     /*Get body if there is one*/
     if (_Connection->content_length > 0 &&
         TCP_C->data.size >= (size_t)_Connection->content_length) {
-      body_ptr = (char*)TCP_C->data.addr;
-      body_len = _Connection->content_length;
+        body_ptr = (char*)TCP_C->data.addr;
+        body_len = _Connection->content_length;
     }
 
     /*Write queries*/
-
     char queries_json[1024];
     queries_json[0] = '\0';
 
@@ -390,13 +390,12 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
         HTTP_Key_Value *p = (HTTP_Key_Value*)node->item;
         char temp[128];
         snprintf(temp, sizeof(temp),
-                 "{ \"key\": \"%s\", \"value\": \"%s\" }, \n",
-                 p->key, p->value);
-        strncat(queries_json, temp, sizeof(queries_json) - strlen(queries_json) -1);
-      }
+                      "{ \"key\": \"%s\", \"value\": \"%s\" }, \n",
+                      p->key, p->value);
+        strncat(queries_json, temp,
+                    sizeof(queries_json) - strlen(queries_json) - 1);
+        }
     }
-
-
 
     /*Write headers*/
     char headers_json[1024];
@@ -407,40 +406,40 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
         HTTP_Key_Value *h = (HTTP_Key_Value*)node->item;
         char temp[128];
         snprintf(temp, sizeof(temp),
-                 "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
-                 h->key, h->value);
-        strncat(headers_json, temp, sizeof(headers_json) - strlen(headers_json) -1);
-      }
+                  "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
+                  h->key, h->value);
+        strncat(headers_json, temp,
+                    sizeof(headers_json) - strlen(headers_json) - 1);
+        }
     }
 
     /*Remove trailing ,*/
     size_t headers_len = strlen(headers_json);
-    if (headers_len > 2 && headers_json[headers_len -2] == ',') {
+    if (headers_len > 2 && headers_json[headers_len - 2] == ',') {
       headers_json[headers_len - 2] = '\n';
       headers_json[headers_len - 1] = '\0';
     }
 
     /*Build response*/
-
-    char response_body[2048];
+    char response_body[4096];
     snprintf(response_body, sizeof(response_body),
-               "{\n"
-               "  \"method\": \"%s\",\n"
-               "  \"path\": \"%s\",\n"
-               "  \"query\": \"%s\",\n"
-               "  \"headers\": [\n%s  ],\n"
-               "  \"body\": \"%.*s\"\n"
-               "}\n",
-               req->method_str,
-               req->path,
-               queries_json,
-               headers_json,
-               body_len,
-               body_ptr ? body_ptr : "");
+              "{\n"
+              "  \"method\": \"%s\",\n"
+              "  \"path\": \"%s\",\n"
+              "  \"query\": \"%s\",\n"
+              "  \"headers\": [\n%s  ],\n"
+              "  \"body\": \"%.*s\"\n"
+              "}\n",
+              req->method_str,
+              req->path,
+              queries_json,
+              headers_json,
+              body_len,
+              body_ptr ? body_ptr : "");
 
-    int response_body_len = strlen(response_body);
+    int response_body_len = (int)strlen(response_body);
 
-    char http_response[4096];
+    char http_response[8122];
     int written = snprintf(
         http_response, sizeof(http_response),
         "HTTP/1.1 200 OK\r\n"
@@ -455,14 +454,14 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 
     TCP_C->writeData = malloc(written + 1);
     if (!TCP_C->writeData) {
-      perror("malloc");
-      /*Add internal error*/
-      return HTTP_SERVER_CONNECTION_ERROR;
+        perror("malloc");
+        return HTTP_SERVER_CONNECTION_ERROR;
     }
 
     memcpy(TCP_C->writeData, http_response, written);
-    TCP_C->writeData[written] = '\0';
-    printf("Writedata: \n%s\n", TCP_C->writeData);
+    ((char*)TCP_C->writeData)[written] = '\0';
+
+    printf("Writedata:\n%s\n", (char*)TCP_C->writeData);
     tcp_client_write(TCP_C, written);
   }
   else
@@ -498,15 +497,15 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     tcp_client_write(TCP_C, written);
   }
     
-
   return HTTP_SERVER_CONNECTION_DISPOSING;
 }
-/* ---------------------------------------------------- */
 
+/* ---------------------------------------------------- */
 
 void http_server_connection_taskwork(void* _Context, uint64_t _montime)
 {
 	HTTP_Server_Connection* _Connection = (HTTP_Server_Connection*)_Context;
+  (void)_montime;
 
   switch (_Connection->state)
   {
@@ -603,9 +602,9 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
       _Connection->request->version = NULL;
     }
 
-    http_parser_dispose_headers(_Connection->request->headers);
-    http_parser_dispose_params(_Connection->request->params);
-
+    http_parser_dispose_linked_list(_Connection->request->headers);
+    http_parser_dispose_linked_list(_Connection->request->params);
+    
     _Connection->request->headers = NULL;
     _Connection->request->params = NULL;
 

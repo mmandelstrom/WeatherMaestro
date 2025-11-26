@@ -57,22 +57,21 @@ void scheduler_destroy_task(Scheduler_Task* _Task)
 void scheduler_work(uint64_t _montime)
 {
 
-  uint64_t start = _montime;
-
 	int i;
 	for(i = 0; i < SCHEDULER_MAX_TASKS; i++)
 	{
-		if(Global_Scheduler.tasks[i].callback != NULL)
+		if(Global_Scheduler.tasks[i].callback != NULL) {
+      uint64_t start = SystemMonotonicMS();
 			Global_Scheduler.tasks[i].callback(Global_Scheduler.tasks[i].context, _montime);
+      uint64_t end = SystemMonotonicMS();
 
+      uint64_t elapsed = end - start;
+
+      if (elapsed < MIN_LOOP_MS) {
+        ms_sleep(MIN_LOOP_MS - elapsed);
+      }
+    }
 	}
-
-  uint64_t end = SystemMonotonicMS();
-  uint64_t elapsed = end - start;
-
-  if (elapsed < MIN_LOOP_MS) {
-    ms_sleep(MIN_LOOP_MS - elapsed);
-  }
 
 }
 
