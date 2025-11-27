@@ -81,6 +81,8 @@ const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast)
 	if (curl_init(&C_Data) != 0)
 		return NULL;
 
+  printf("\n--- CALLING METEO RESPONSE --- \n\n");
+    
 	int result = curl_get_response(&C_Data, url);
 	if (result != 0)
 	{

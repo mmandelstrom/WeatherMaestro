@@ -55,7 +55,10 @@ FUZZ_SOURCES = \
     src/weather/weather_instance.c \
     src/weather/weather_server.c \
     ../utils/src/linked_list.c \
-    ../utils/src/utils.c \
+		../utils/src/misc_utils.c \
+    ../utils/src/file_utils.c \
+    ../utils/src/json_utils.c \
+    ../utils/src/time_utils.c \
     ../libs/src/yuarel.c \
     ../libs/src/HTTPStatusCodes.c \
     ../fuzz_http.c

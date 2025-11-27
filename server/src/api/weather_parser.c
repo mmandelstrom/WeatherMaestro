@@ -5,7 +5,7 @@
 
 int weather_parser_parse_weather_meteo(Weather* _Weather, Meteo_Weather* _M_Weather);
 
-const char* weather_parser_build_weather_json(Weather* _Weather);
+char* weather_parser_build_weather_json(Weather* _Weather);
 
 /* ----------------------------------------------------------------- */
 
@@ -127,7 +127,7 @@ int weather_parser_parse_weather_meteo(Weather* _Weather, Meteo_Weather* _M_Weat
   return 0;
 }
 
-const char* weather_parser_build_weather_json(Weather* _Weather)
+char* weather_parser_build_weather_json(Weather* _Weather)
 {
 
   cJSON* Json_Root = cJSON_CreateObject();
@@ -152,7 +152,7 @@ const char* weather_parser_build_weather_json(Weather* _Weather)
   cJSON_AddItemToObject(Json_Root, "units", Json_Units);
   cJSON_AddItemToObject(Json_Root, "weather", Json_Weather);
 
-  char* json_str = cJSON_Print(Json_Root);
+  char* json_str = cJSON_Print(Json_Root); // Uses realloc and ends up in heap
 
   cJSON_Delete(Json_Root);
 
@@ -250,6 +250,7 @@ void weather_parser_dispose_ptr(City** _C_Ptr, Weather** _W_Ptr, Forecast** _F_P
     if (*_F_Ptr != NULL)
     {
       //TODO: dispose each individual Weather struct
+      // weather_parser_dispose_ptr(NULL, [forecastindexptr]->weather, NULL)
       free(*_F_Ptr);
       *_F_Ptr = NULL;
     }
@@ -259,12 +260,32 @@ void weather_parser_dispose_ptr(City** _C_Ptr, Weather** _W_Ptr, Forecast** _F_P
   /* Dispose of Weather */
   if (_W_Ptr != NULL)
   {
-    if (*_W_Ptr != NULL)
+    if ((*_W_Ptr) != NULL)
     {
-      free(*_W_Ptr);
-      *_W_Ptr = NULL;
+      if ((*_W_Ptr)->temperature_unit   != NULL)  
+      {
+        free((void*)(*_W_Ptr)->temperature_unit);
+        (*_W_Ptr)->temperature_unit = NULL;
+      }
+      if ((*_W_Ptr)->windspeed_unit     != NULL)    
+      {
+        free((void*)(*_W_Ptr)->windspeed_unit);
+        (*_W_Ptr)->windspeed_unit = NULL;
+      }
+      if ((*_W_Ptr)->precipitation_unit != NULL)
+      {
+        free((void*)(*_W_Ptr)->precipitation_unit);
+        (*_W_Ptr)->precipitation_unit = NULL;
+      }
+      if ((*_W_Ptr)->winddirection_unit != NULL)
+      {
+        free((void*)(*_W_Ptr)->winddirection_unit);
+        (*_W_Ptr)->winddirection_unit = NULL;
+      }
+
+      free((*_W_Ptr));
+      (*_W_Ptr) = NULL;
     }
     _W_Ptr = NULL;
   }
-
 }

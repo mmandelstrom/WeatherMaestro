@@ -53,7 +53,6 @@ int curl_get_response(Curl_Data* _Data, const char* _url)
 
   _Data->size = 0; /* We will reallocate memory to it in write_memory(), for now 0 data */
 
-  curl_global_init(CURL_GLOBAL_DEFAULT); /* init curl with defaults (same as _ALL = WIN32 && SSL) */
   curl = curl_easy_init();
 
   curl_easy_setopt(curl, CURLOPT_URL, _url);
@@ -82,7 +81,6 @@ int curl_get_response(Curl_Data* _Data, const char* _url)
   }
 
   curl_easy_cleanup(curl);
-  curl_global_cleanup();
   /* free(_data->addr); */
 
   return 0;

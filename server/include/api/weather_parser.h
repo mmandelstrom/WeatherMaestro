@@ -73,8 +73,8 @@ int weather_parser_init_ptr(City** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr);
 int weather_parser_get_weather_meteo(City* _City, bool _forecast);
 
 /** Builds a json formatted string from built struct */
-const char* weather_parser_build_weather_json(Weather* _Weather);
-const char* weather_parser_build_forecast_json(Forecast* _Forecast);
+char* weather_parser_build_weather_json(Weather* _Weather);
+char* weather_parser_build_forecast_json(Forecast* _Forecast);
 
 /** Takes a string and tries to convert it to float
  * Only takes COORD_BUFFER_LENGTH amount of chars to target

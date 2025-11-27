@@ -174,7 +174,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
     }
   }
 
-  if (lat_found > 0 && lon_found > 0) // Could add an || for city->name and let parser find coords for that city 
+  if (lat_found > 0 && lon_found > 0) // Could add an if else for city->name != NULL and let parser find coords for that city then
   {
     printf("lat: %f\n", _API->city->lat);
     printf("lon: %f\n", _API->city->lon);
@@ -188,8 +188,8 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
     /* Build city weather from open-meteo response (Should check weather cache first) */
     weather_parser_get_weather_meteo(_API->city, false);
   
-    const char* json_response = weather_parser_build_weather_json(_API->city->weather);
-    size_t json_len = strlen(json_response);
+    char* json_response = weather_parser_build_weather_json(_API->city->weather);
+    /* size_t json_len = strlen(json_response);
 
     _API->http_response->body = malloc(json_len + 1); 
     if (_API->http_response->body == NULL)
@@ -198,8 +198,14 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
       return -3;
     }
     memcpy(_API->http_response->body, json_response, json_len);
-    _API->http_response->body[json_len] = '\0';
+    _API->http_response->body[json_len] = '\0'; */
+    
+    _API->http_response->body = json_response;
+
     _API->http_response->status_code = 200;
+
+
+    /* free((void*)json_response); */
 
   }
   else
