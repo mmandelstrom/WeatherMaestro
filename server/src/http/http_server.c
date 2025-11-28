@@ -11,8 +11,7 @@ HTTPServerState http_server_error_work(HTTP_Server* _Server);
 int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callback, void* _ContextServer)
 {
   if (!_HTTPServer || !_Callback) {
-    errno = EINVAL; /*Invalid argument*/
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   _HTTPServer->context = _ContextServer;
@@ -26,15 +25,14 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
   _HTTPServer->retry_args = NULL;
   _HTTPServer->retry_function = NULL;
 
-	if (tcp_server_init(&_HTTPServer->tcp_server, "10580", http_server_on_accept, _HTTPServer) <0 ) {
-    perror("tcp_server_init");
+	int result = tcp_server_init(&_HTTPServer->tcp_server, "10580", http_server_on_accept, _HTTPServer);
+  if (result != SUCCESS) {
     _HTTPServer->state = HTTP_SERVER_ERROR;
     _HTTPServer->error_state = HTTP_SERVER_ERROR_TCP_INIT_FAILED;
 
     HTTP_Tcp_Init_Args* args = (HTTP_Tcp_Init_Args*)malloc(sizeof(HTTP_Tcp_Init_Args));
     if (!args) {
-      errno = ENOMEM;
-      return -1;
+      return ERR_NO_MEMORY;
     }
    
     /*Pack the arguments needed for retrying tcp_init*/
@@ -50,7 +48,7 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
 
     _HTTPServer->task = scheduler_create_task(_HTTPServer, http_server_taskwork);
 
-    return -1;
+    return result;
   }
  
   /*This wont matter as if there is no task nothing will execute error code*/
@@ -59,29 +57,26 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
     fprintf(stderr, "scheduler_create_task failed\n");
     tcp_server_dispose(&_HTTPServer->tcp_server);
     _HTTPServer->state = HTTP_SERVER_ERROR;
-    errno = EAGAIN;
-    return -1;
+    return ERR_FATAL;
   }
 
   _HTTPServer->state = HTTP_SERVER_IDLE;
-	return 0;
+	return SUCCESS;
 }
 
 int http_server_initiate_ptr(http_server_on_connection _callback, void* _context, HTTP_Server** _ServerPtr)
 {
 	if(_ServerPtr == NULL) {
-    errno = EINVAL;
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   HTTP_Server* _Server = (HTTP_Server*)malloc(sizeof(HTTP_Server));
 	if(_Server == NULL) {
-    errno = ENOMEM;
-    return -1;
+    return ERR_NO_MEMORY;
   }
 
 	int result = http_server_init(_Server, _callback, _context);
-	if(result != 0)
+	if(result != SUCCESS)
 	{
     perror("http_server_init");
 		free(_Server);
@@ -90,14 +85,13 @@ int http_server_initiate_ptr(http_server_on_connection _callback, void* _context
 
 	*(_ServerPtr) = _Server;
 
-	return 0;
+	return SUCCESS;
 }
 
 HTTPServerState http_server_connection_handover(int _fd, void* _Context)
 {
   if (!_Context || _fd < 0) {
-    errno = EINVAL;
-    return -1;
+    return HTTP_SERVER_ERROR;
   }
 
 	HTTP_Server* Server = (HTTP_Server*)_Context;
@@ -106,7 +100,7 @@ HTTPServerState http_server_connection_handover(int _fd, void* _Context)
 
 	HTTP_Server_Connection* Connection = NULL;
 	int result = http_server_connection_init_ptr(_fd, &Connection);
-	if(result != 0)
+	if(result != SUCCESS)
 	{
     perror("http_server_connection_init_ptr");
     close(_fd);
@@ -116,7 +110,7 @@ HTTPServerState http_server_connection_handover(int _fd, void* _Context)
 
 
   result = Server->on_connection(Server, Connection);
-  if (result != 0)
+  if (result != SUCCESS)
   {
     perror("Server->on_connection");
     close(_fd);
@@ -132,8 +126,7 @@ HTTPServerState http_server_connection_handover(int _fd, void* _Context)
 int http_server_on_accept(int _fd, void* _Context)
 {
   if (!_Context || _fd < 0) {
-    errno = EINVAL;
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   printf("on accept fd: %i\n", _fd);
@@ -141,13 +134,12 @@ int http_server_on_accept(int _fd, void* _Context)
   Server->client_fd = _fd;
   Server->state = HTTP_SERVER_CONNECTING;
 
-	return 0;
+	return SUCCESS;
 }
 
 void http_server_taskwork(void* _context, uint64_t _montime)
 {
   if (!_context) {
-    errno = EINVAL;
     return;
   }
 
@@ -225,7 +217,6 @@ HTTPServerState http_server_error_work(HTTP_Server* _Server) {
 
 HTTPServerState http_server_retry_work(HTTP_Server* _Server) {
   if (!_Server) {
-    errno = EINVAL;
     return HTTP_SERVER_DISPOSING;
   }
 
@@ -240,7 +231,7 @@ HTTPServerState http_server_retry_work(HTTP_Server* _Server) {
 
   int result = _Server->retry_function(_Server->retry_args);
 
-  if (result == 0) {
+  if (result == SUCCESS) {
     free(_Server->retry_args);
     
     _Server->retry_args = NULL;
@@ -277,7 +268,7 @@ void http_server_dispose(HTTP_Server* _Server)
 
 	tcp_server_dispose(&_Server->tcp_server);
 
-  memset(_Server, 0, sizeof(TCP_Server));
+  memset(_Server, 0, sizeof(HTTP_Server));
 
   _Server = NULL;
 }

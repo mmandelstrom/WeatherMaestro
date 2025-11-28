@@ -14,6 +14,7 @@
 #include "../../../libs/include/yuarel.h"
 #include "../../../utils/include/misc_utils.h"
 #include "../../../utils/include/linked_list.h"
+#include "../error.h"
 
 #define HTTP_REQUEST_MAX_PARAMS 10
 #define HTTP_RESPONSE_FIRSTLINE_TEMPLATE "HTTP/1.1 %i %s\r\n"

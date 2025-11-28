@@ -16,49 +16,67 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection);
 
 int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd)
 {
+  if (!_Connection || _fd < 0) {
+    return ERR_INVALID_ARG;
+  }
 
   TCP_Client* TCPC = (TCP_Client*)calloc(1, sizeof(TCP_Client));
   HTTP_Request* req = (HTTP_Request*)calloc(1, sizeof(HTTP_Request));
   HTTP_Response* resp = (HTTP_Response*)calloc(1, sizeof(HTTP_Response));
 
   if (!TCPC || !req || !resp) {
-    perror("calloc");
-    return -1;
+    free(TCPC);
+    free(req);
+    free(resp);
+    return ERR_NO_MEMORY;
   }
   
   _Connection->tcp_client = TCPC;
   _Connection->tcp_client->fd = _fd;
   _Connection->tcp_client->data.addr = calloc(1, sizeof(uint8_t));
   if (!_Connection->tcp_client->data.addr) {
-    perror("calloc");
     free(TCPC);
     free(req);
     free(resp);
-    return -1;
+    _Connection->tcp_client = NULL;
+    return ERR_NO_MEMORY;
   }
   _Connection->request = req;
   _Connection->response = resp;
 	_Connection->task = scheduler_create_task(_Connection, http_server_connection_taskwork);
 
+  if (!_Connection->task) {
+    
+    free(_Connection->tcp_client->data.addr);
+    free(_Connection->tcp_client);
+    free(_Connection->request);
+    free(_Connection->response);
+    _Connection->tcp_client = NULL;
+    _Connection->request = NULL;
+    _Connection->response = NULL;
+    return ERR_FATAL;      
+  }
+
   _Connection->state = HTTP_SERVER_CONNECTION_INITIALIZING;
   _Connection->retries = 0;
   _Connection->weather_done = 0;
 
-	return 0;
+	return SUCCESS;
 }
 
 int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connection_Ptr)
 {
 	if(_Connection_Ptr == NULL) {
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   HTTP_Server_Connection* _Connection = calloc(1, sizeof(HTTP_Server_Connection));
-	if(_Connection == NULL)
-		return -2;
+	if(_Connection == NULL) {
+    return ERR_NO_MEMORY;
+  }
 
 	int result = http_server_connection_init(_Connection, _fd);
-	if(result != 0)
+	if(result != SUCCESS)
 	{
 		free(_Connection);
 		return result;
@@ -66,7 +84,7 @@ int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connectio
 
 	*(_Connection_Ptr) = _Connection;
 
-	return 0;
+	return SUCCESS;
 }
 
 /*From weatherinstance "init"*/
@@ -143,7 +161,7 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
 /*   printf("First line found\r\nline_buf_len: %d\r\nline_buf: %s\n", _Connection->line_buf_len, (char*)_Connection->line_buf); */
 
 
-  if (http_parser_first_line((const char*)TCP_C->data.addr, TCP_C->data.size, _Connection->request, &_Connection->request->params) != 0) {
+  if (http_parser_first_line((const char*)TCP_C->data.addr, TCP_C->data.size, _Connection->request, &_Connection->request->params) != SUCCESS) {
     /*Add internal error*/
     return HTTP_SERVER_CONNECTION_ERROR;
   }
@@ -244,7 +262,7 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
 
   if (http_parser_headers((const char*)TCP_C->data.addr,
                           header_len,
-                          &_Connection->request->headers) !=0) {
+                          &_Connection->request->headers) != SUCCESS) {
     _Connection->response->status_code = 400;
     return HTTP_SERVER_CONNECTION_RESPONDING;
   }
@@ -353,7 +371,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 
     size_t full_response_len = strlen(_Connection->response->full_response);
 
-    TCP_C->writeData = malloc(full_response_len);
+    TCP_C->writeData = malloc(full_response_len + 1);
     if (!TCP_C->writeData) {
       perror("malloc");
       /*Add internal error*/
@@ -504,6 +522,10 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 
 void http_server_connection_taskwork(void* _Context, uint64_t _montime)
 {
+  if (!_Context) {
+    return;
+  }
+
 	HTTP_Server_Connection* _Connection = (HTTP_Server_Connection*)_Context;
   (void)_montime;
 
@@ -571,6 +593,10 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
 
 void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
 {
+  if (!_Connection) {
+    return;
+  }
+
   tcp_client_dispose(_Connection->tcp_client);
   if (_Connection->tcp_client != NULL)
   {
@@ -633,6 +659,7 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
   }
 
 	scheduler_destroy_task(_Connection->task);
+  _Connection->task = NULL;
 }
 
 void http_server_connection_dispose_ptr(HTTP_Server_Connection** _Connection_Ptr)

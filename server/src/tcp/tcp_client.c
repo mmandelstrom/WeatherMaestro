@@ -1,4 +1,5 @@
 #include "../../include/tcp/tcp_client.h"
+#include <limits.h>
 #include <stdint.h>
 
 /*---------------------Internal functions------------------------------*/
@@ -7,6 +8,10 @@ int tcp_client_set_nonblocking(int fd);
 
 /*---------------------------------------------------------------------*/
 int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
+  if (!_Client || !_Host || !_Port) {
+    return ERR_INVALID_ARG;
+  }
+
   _Client->fd = -1;
   _Client->readData = NULL;
   _Client->writeData = NULL;
@@ -22,7 +27,7 @@ int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
   int rc = getaddrinfo(_Host, _Port, &addresses, &result);
   if (rc != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rc));
-    return -1;
+    return ERR_IO;
   }
 
   int fd = -1;
@@ -31,8 +36,9 @@ int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
     fd = socket(addr_info->ai_family, addr_info->ai_socktype, addr_info->ai_protocol);
     if (fd < 0) continue;
 
-    if (tcp_client_set_nonblocking(fd) != 0) {
-      close(fd); fd = -1;
+    if (tcp_client_set_nonblocking(fd) != SUCCESS) {
+      close(fd);
+      fd = -1;
       continue;
     }
 
@@ -53,44 +59,50 @@ int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
   freeaddrinfo(result);
 
   if (fd < 0) {
-    return -1;
+    return ERR_IO;
   }
 
   _Client->fd = fd;
-  return 0;
+  return SUCCESS;
 }
 
 int tcp_client_init_ptr(TCP_Client** _ClientPtr, const char* _Host, const char* _Port) {
   if (!_ClientPtr) {
-    return -1;
+    return ERR_INVALID_ARG;
   }
   TCP_Client* client = (TCP_Client*)malloc(sizeof(TCP_Client));
   if (!client) {
     perror("malloc");
-    return -2;
+    return ERR_NO_MEMORY;
   }
   int result = tcp_client_init(client, _Host, _Port);
-  if (result != 0) {
+  if (result != SUCCESS) {
     free(client);
-    return -3;
+    return result;
   }
   
   *(_ClientPtr) = client;
 
-  return 0;
+  return SUCCESS;
 }
 
 int tcp_client_set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
-  if (flags == -1) return -1;
-  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) return -1;
-  return 0;
+  if (flags == -1) {
+    return ERR_IO;
+  }
+
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+    return ERR_IO;
+  }
+
+  return SUCCESS;
 }
 
 ssize_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size) 
 {
   if (!_Data || !_input || !_size) {
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   ssize_t new_size = _size * sizeof(uint8_t);
@@ -99,7 +111,7 @@ ssize_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size)
   {
     perror("realloc");
     printf("Not enough memory for TCP buffer - realloc returned NULL\n");
-    return -1;
+    return ERR_NO_MEMORY;
   }
 
   _Data->addr = ptr; // We redefine our addr to the newly allocated memory (Should test if previous addr pointer should be freed aswell?) 
@@ -117,11 +129,11 @@ int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len) {
 
 int tcp_client_read(TCP_Client* _Client) {
   if (!_Client) {
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   if (_Client->fd < 0) {
-    return -2;
+    return ERR_INVALID_ARG;
   }
 
   if (_Client->readData) {
@@ -133,7 +145,7 @@ int tcp_client_read(TCP_Client* _Client) {
   _Client->readData = (char*)malloc(capacity + 1);
   if (!_Client->readData) {
     perror("malloc");
-    return -3;
+    return ERR_NO_MEMORY;
   }
   ssize_t bytesRead;
   size_t usedSpace = 0;
@@ -148,7 +160,7 @@ int tcp_client_read(TCP_Client* _Client) {
         free(_Client->readData);
         _Client->readData = NULL;
         perror("realloc");
-        return -4;
+        return ERR_NO_MEMORY;
       }
       capacity = newCapacity;
       _Client->readData = tempBuffer;
@@ -161,7 +173,7 @@ int tcp_client_read(TCP_Client* _Client) {
       if (errno == EINTR) continue;
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ENOTCONN) {
         if (usedSpace == 0) {
-          return 0;
+          return SUCCESS;
         }
 
         _Client->readData[usedSpace] = '\0';
@@ -172,7 +184,7 @@ int tcp_client_read(TCP_Client* _Client) {
       free(_Client->readData);
       _Client->readData = NULL;
       perror("recv");
-      return -5;
+      return ERR_IO;
     }
 
     if (bytesRead == 0) {
@@ -189,7 +201,7 @@ int tcp_client_read(TCP_Client* _Client) {
 
 int tcp_client_write(TCP_Client* _Client, size_t _Length) {
   if (!_Client || _Client->fd < 0 || !_Client->writeData) {
-    return -1;
+    return ERR_INVALID_ARG;
   }
   
   size_t bytesLeft = _Length;
@@ -208,7 +220,7 @@ int tcp_client_write(TCP_Client* _Client, size_t _Length) {
         }
 
         perror("send");
-        return -2; // fatal error
+        return ERR_IO; // fatal error
       }
 
       if (bytesSent == 0) {

@@ -1,5 +1,4 @@
 #include "../../include/weather/weather_server.h"
-#include <asm-generic/errno-base.h>
 
 /* -----------------Internal Functions----------------- */
 
@@ -13,8 +12,10 @@ WeatherServerState weather_server_connection_handover(Weather_Server* _Server);
 int weather_server_init(Weather_Server* _Server)
 {
 
-  if (!_Server)
-    return -1;
+  if (!_Server) {
+    return ERR_INVALID_ARG;
+  }
+
   /*_Server->http_server = NULL;*/
   _Server->instances = NULL;
   _Server->task = NULL;
@@ -22,35 +23,56 @@ int weather_server_init(Weather_Server* _Server)
   _Server->http_connection = NULL;
 
   int result = http_server_init(&_Server->http_server, weather_server_on_http_connection, _Server);
-  if (result != 0){
+  if (result != SUCCESS){
 
     _Server->state = WEATHER_SERVER_ERROR;
 
-    return -1;
+    return result;
   }
 
   Linked_List* Instances = linked_list_create();
 
+  if (!Instances) {
+    http_server_dispose(&_Server->http_server);
+    _Server->state = WEATHER_SERVER_ERROR;
+    return ERR_NO_MEMORY;
+  }
+
   _Server->instances = Instances;
   _Server->task = scheduler_create_task(_Server, weather_server_taskwork);
+  if (!_Server->task) {
+    linked_list_destroy(&_Server->instances);
+    http_server_dispose(&_Server->http_server);
+    _Server->state = WEATHER_SERVER_ERROR;
+    return ERR_FATAL;
+  }
+
   _Server->state = WEATHER_SERVER_IDLE;
 
-  return 0;
+  return SUCCESS;
 }
 
 int weather_server_init_ptr(Weather_Server** _Server_Ptr)
 {
-  int result;
 
-  _Server_Ptr = malloc(sizeof(Weather_Server));
-  if (_Server_Ptr == NULL)
-    return -1;
+  if (!_Server_Ptr) {
+    return ERR_INVALID_ARG;
+  }
 
-  result = weather_server_init(*_Server_Ptr);
-  if (result != 0)
-    return -2;
+  Weather_Server* Server = calloc(1, sizeof(Weather_Server));
+  if (!Server) {
+    return ERR_NO_MEMORY;
+  }
 
-  return 0;
+  int result = weather_server_init(Server);
+  if (result != SUCCESS) {
+    free(Server);
+    return result;
+  }
+
+  *_Server_Ptr = Server;
+
+  return SUCCESS;
 }
 
 /* --------------TASKWORK STATE FUNCTIONS-------------- */
@@ -59,32 +81,29 @@ int weather_server_init_ptr(Weather_Server** _Server_Ptr)
 
 int weather_server_on_http_connection(void* _context, HTTP_Server_Connection* _Connection)
 {
-  if (!_context) {
-    errno = EINVAL;
-    return -1;
-  }  
+  if (!_context || ! _Connection) {
+    return ERR_INVALID_ARG;
+  }
 
   Weather_Server* Server = (Weather_Server*)_context;
   Server->http_connection = _Connection;
 
   Server->state = WEATHER_SERVER_CONNECTING;
-  return 0;
+  return SUCCESS;
 
 }
 
 WeatherServerState weather_server_connection_handover(Weather_Server* _Server)
 {
   if (!_Server) {
-    errno = EINVAL;
     return WEATHER_SERVER_ERROR;
   }
 
   Weather_Server_Instance* Instance = NULL;
   int result = weather_server_instance_init_ptr(_Server, _Server->http_connection, &Instance);
-  if(result != 0)
+  if(result != SUCCESS)
   {
-    perror("weather_server_instance_init_ptr");
-    return -1;
+    return WEATHER_SERVER_ERROR;
   }
 
   Linked_Item* LI;
@@ -99,6 +118,10 @@ WeatherServerState weather_server_connection_handover(Weather_Server* _Server)
 
 int weather_server_on_instance_finish(void* _context, void* _instance)
 {
+  if (!_context || !_instance) {
+    return ERR_INVALID_ARG;
+  }
+
   Weather_Server* Server = (Weather_Server*)_context;
   Weather_Server_Instance* Instance = (Weather_Server_Instance*)_instance;
   if (Instance->item != NULL)
@@ -109,18 +132,19 @@ int weather_server_on_instance_finish(void* _context, void* _instance)
 
   weather_server_instance_dispose_ptr(&Instance);
 
-  return 0;
+  return SUCCESS;
 }
 
 int weather_server_on_http_error(void* _context)
 {
-  if (!_context)
-    return -1;
+  if (!_context) {
+    return ERR_INVALID_ARG;
+  }
 
   Weather_Server* server = (Weather_Server*)_context;
   server->state = WEATHER_SERVER_DISPOSING;
-  return 0;
 
+  return SUCCESS;
 }
 
 void weather_server_taskwork(void* _context, uint64_t _MonTime)
@@ -169,8 +193,17 @@ void weather_server_taskwork(void* _context, uint64_t _MonTime)
 
 void weather_server_dispose(Weather_Server* _Server)
 {
-  linked_list_destroy(&_Server->instances);
+  if (!_Server) {
+    return;
+  }
+
+  if (_Server->instances) {
+    linked_list_destroy(&_Server->instances);
+  }
 	http_server_dispose(&_Server->http_server);
-	scheduler_destroy_task(_Server->task);
+
+  if (_Server->task) {
+    scheduler_destroy_task(_Server->task);
+  }
 }
 

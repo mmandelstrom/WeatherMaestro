@@ -11,15 +11,18 @@ TCPServerState tcp_server_connection_handover(TCP_Server* _Server);
 int tcp_server_set_nonblocking(int fd) {
   int flags = fcntl(fd, F_GETFL, 0);
   if (flags < 0) {
-    return -1;
+    return ERR_IO;
   }
-  return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+  if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+    return ERR_IO;
+  }
+
+  return SUCCESS;
 }
 
 int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept _on_accept, void* _context) {
-  if (!_Server) {
-    errno = EINVAL; /*Invalid argument*/
-    return -1;
+  if (!_Server || !_port || !_on_accept) {
+    return ERR_INVALID_ARG;
   }
   _Server->context = _context;
   _Server->on_accept = _on_accept; 
@@ -39,8 +42,7 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
   int getAddressInfo = getaddrinfo(NULL, _Server->port, &addresses, &res);
   if (getAddressInfo != 0) {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(getAddressInfo));
-    errno = EIO; /*General I/O issue likely hostname or nameresolution failed*/
-    return -1;
+    return ERR_IO;
   }
 
   int fd = -1;
@@ -70,7 +72,7 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
 
     _Server->fd = fd;
 
-    if (tcp_server_set_nonblocking(_Server->fd) < 0) {
+    if (tcp_server_set_nonblocking(_Server->fd) != SUCCESS) {
       _Server->fd = -1;
       fd = -1;
       continue;
@@ -82,43 +84,40 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
     _Server->state = TCP_SERVER_LISTENING;
     _Server->task = scheduler_create_task(_Server, tcp_server_taskwork);
 
-    return 0;
+    return SUCCESS;
   }
   
   /*No addresses found*/
   freeaddrinfo(res);
-  errno = EADDRNOTAVAIL; /*NO address available to bind*/
-  return -1;
+  return ERR_IO;
 }
 
 
 int tcp_server_init_ptr(TCP_Server** _Server_Ptr, const char* _port, tcp_server_on_accept _on_accept, void* _context) {
   if (!_Server_Ptr) {
-    errno = EINVAL;
-    return -1;
+    return ERR_INVALID_ARG;
   }
+
   TCP_Server* server = (TCP_Server*)malloc(sizeof(TCP_Server));
   if (!server) {
-    errno = ENOMEM; /*Out of memory*/
     perror("malloc");
-    return -1;
+    return ERR_NO_MEMORY;
   }
   int result = tcp_server_init(server, _port, _on_accept, _context);
-  if (result != 0) {
+  if (result != SUCCESS) {
     /*tcp_server_init already set errno*/
     free(server);
-    return -1;
+    return result;
   }
   
   *(_Server_Ptr) = server;
 
-  return 0;
+  return SUCCESS;
 }
 
 int tcp_server_accept(TCP_Server *_Server) {
   if (!_Server) {
-    errno = EINVAL;
-    return TCP_ACCEPT_FATAL_ERROR;
+    return ERR_INVALID_ARG;
   }
 
   struct sockaddr_storage address; /*Works for both ipv4 & ipv6*/
@@ -128,20 +127,20 @@ int tcp_server_accept(TCP_Server *_Server) {
   int client_fd = accept(_Server->fd, (struct sockaddr*)&address, &addressLength);
   if (client_fd < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-      return TCP_ACCEPT_NO_CONNECTION;
+      return ERR_WOULD_BLOCK;
     }
     perror("accept");
-    return TCP_ACCEPT_FATAL_ERROR; // No connection yet
+    return ERR_CONNECTION_FAIL;
   }
 
-  if (tcp_server_set_nonblocking(client_fd) < 0) {
+  if (tcp_server_set_nonblocking(client_fd) != SUCCESS) {
     perror("tcp_server_set_nonblocking");
     close(client_fd);
-    return TCP_ACCEPT_FATAL_ERROR;
+    return ERR_IO;
   }
 
   _Server->client_fd = client_fd;
-  return 0;
+  return SUCCESS;
 }
 
 void tcp_server_taskwork(void* _Context, uint64_t _MonTime)
@@ -181,15 +180,17 @@ TCPServerState tcp_server_handle_listening(TCP_Server* _Server, uint64_t _montim
 
   int result = tcp_server_accept(_Server);
       
-  if (result >= 0) {
+  if (result == SUCCESS) {
     /*Connection accepted*/
     return TCP_SERVER_CONNECTING;
+  }
 
-  } else if (result == TCP_ACCEPT_NO_CONNECTION) {
-    
+  if (result == ERR_WOULD_BLOCK) {
+    /*No connection yet*/
     return TCP_SERVER_LISTENING;
+  } 
 
-  } else if (result == TCP_ACCEPT_FATAL_ERROR) {
+  if (result == ERR_CONNECTION_FAIL || result == ERR_FATAL) {
 
     /* _Server->args = (TCP_Init_Args*)malloc(sizeof(TCP_Init_Args)); */
 
@@ -221,8 +222,7 @@ TCPServerState tcp_server_connection_handover(TCP_Server* _Server)
     return TCP_SERVER_ERROR;
   }
   int result = _Server->on_accept(_Server->client_fd, _Server->context);
-  if (result != 0) {
-    errno = EIO; /*Generic I/O error*/
+  if (result != SUCCESS) {
     return TCP_SERVER_ERROR;
   }
 
