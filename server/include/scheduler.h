@@ -6,7 +6,8 @@
 
 #include <stdint.h>
 #include <string.h>
-#include "../../utils/include/utils.h"
+#include "../../utils/include/misc_utils.h"
+#include "../../utils/include/time_utils.h"
 
 #ifndef SCHEDULER_MAX_TASKS
     #define SCHEDULER_MAX_TASKS 10000

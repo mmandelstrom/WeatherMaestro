@@ -16,7 +16,7 @@ BUILD_DIR := build
 SRC_DIR   := src
 
 # libs and utils source files to build
-UTILS_SRC := ../utils/src/utils.c ../utils/src/json_utils.c ../utils/src/file_utils.c ../utils/src/linked_list.c
+UTILS_SRC := ../utils/src/misc_utils.c ../utils/src/time_utils.c ../utils/src/json_utils.c ../utils/src/file_utils.c ../utils/src/linked_list.c ../utils/src/curl.c
 LIBS_SRC := ../libs/src/HTTPStatusCodes.c ../libs/src/yuarel.c ../libs/src/cJSON.c
 
 ALL_SRC := $(SRC) $(UTILS_SRC) $(LIBS_SRC)
@@ -38,7 +38,7 @@ else
 endif
 
 # Linked libraries
-# LIBS := -lcurl
+LIBS := -lcurl
 
 #Fuzzing build
 FUZZ_CC     ?= afl-gcc-fast
@@ -55,7 +55,10 @@ FUZZ_SOURCES = \
     src/weather/weather_instance.c \
     src/weather/weather_server.c \
     ../utils/src/linked_list.c \
-    ../utils/src/utils.c \
+		../utils/src/misc_utils.c \
+    ../utils/src/file_utils.c \
+    ../utils/src/json_utils.c \
+    ../utils/src/time_utils.c \
     ../libs/src/yuarel.c \
     ../libs/src/HTTPStatusCodes.c \
     ../fuzz_http.c
