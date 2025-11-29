@@ -24,9 +24,12 @@ TCP_Client::TCP_Client(std::string _Host, std::string _Port)
         fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
         if (fd < 0) {continue;}
 
-        int conn = connect(fd, res->ai_addr, res->ai_addrlen); 
+        if (int conn = connect(fd, res->ai_addr, res->ai_addrlen) == 0) {
+            break;
+        } else if (errno == EINPROGRESS) {
+            break; //Nonblocking connection in progess (SOCKcess)
+        }
         
-        //TODO: hantera fel på connect
 
         close(fd);
         fd = -1;

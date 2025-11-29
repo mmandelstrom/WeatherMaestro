@@ -1,12 +1,14 @@
 #define _POSIX_C_SOURCE 200112L
 
 #include <string>
+#include <iostream>
+
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
 
-#include <iostream>
 
 //
 //
@@ -21,6 +23,7 @@ class TCP_Client {
         std::string receive_data;
         bool ready;
 
+        
 
     public:
         TCP_Client(std::string _Host, std::string _Port);
