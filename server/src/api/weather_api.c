@@ -146,73 +146,87 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
     return 0;
   }
 
-  /* Init new City struct (Should check city cache first) */
-  
-  if (weather_parser_init_ptr(&_API->city, NULL, NULL) != 0 && _API->city == NULL)
-  {
-    perror("weather_parser_init_ptr");
-    _API->http_response->status_code = 500;
-    return -1;
-  }
-
   /* Find and validate latitude and longitude params */
   float lat, lon = 0;
   int lat_found, lon_found = 0;
+  int city_found;
   linked_list_foreach(_API->http_request->params, node)
   {
     HTTP_Key_Value* Param = (HTTP_Key_Value*)node->item;
     if (Param->key != NULL && Param->value != NULL)
     {
       if (strcmp(Param->key, "latitude") == 0 || strcmp(Param->key, "lat") == 0)
-        lat_found += weather_parser_lat_lon(Param->value, &_API->city->lat);
+        lat_found += weather_parser_lat_lon(Param->value, &lat);
 
       if (strcmp(Param->key, "longitude") == 0 || strcmp(Param->key, "lon") == 0)
-        lon_found += weather_parser_lat_lon(Param->value, &_API->city->lon);
+        lon_found += weather_parser_lat_lon(Param->value, &lon);
+
+      /* if (strcmp(Param->key, "city") == 0 || strcmp(Param->key, "cityname") == 0)
+        city_found += weather_parser_city() */
 
       // Potential to add "city=" param here to get lat+lon in the same request
-      // Then we should have City cache as well to look for previously searched cities
+      // Then we should have Location cache as well to look for previously searched cities
     }
   }
 
-  if (lat_found > 0 && lon_found > 0) // Could add an if else for city->name != NULL and let parser find coords for that city then
+  /* Parse found query params and identify location */
+  if ((lat_found > 0 && lon_found > 0)) // Could add an if else for city->name != NULL and let parser find coords for that city then
   {
-    printf("lat: %f\n", _API->city->lat);
-    printf("lon: %f\n", _API->city->lon);
-
-    if (weather_parser_init_ptr(NULL, &_API->city->weather, NULL) != 0)
+    if (weather_parser_init_ptr(&_API->location, &_API->location->weather, NULL) != 0)
     {
+      perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;
       return -2;
     }
 
-    /* Build city weather from open-meteo response (Should check weather cache first) */
-    weather_parser_get_weather_meteo(_API->city, false);
-  
-    char* json_response = weather_parser_build_weather_json(_API->city->weather);
-    /* size_t json_len = strlen(json_response);
-
-    _API->http_response->body = malloc(json_len + 1); 
-    if (_API->http_response->body == NULL)
+    if (weather_parser_get_location_by_coords(_API->location, lat, lon) != 0)
     {
-      perror("malloc");
+      perror("weather_parser_get_location_by_coords");
+      _API->http_response->status_code = 500;
       return -3;
+
     }
-    memcpy(_API->http_response->body, json_response, json_len);
-    _API->http_response->body[json_len] = '\0'; */
-    
-    _API->http_response->body = json_response;
+  }
+  else if (city_found > 0)
+  {
+    if (weather_parser_init_ptr(&_API->location, &_API->location->weather, NULL) != 0)
+    {
+      perror("weather_parser_init_ptr");
+      _API->http_response->status_code = 500;
+      return -2;
+    }
 
-    _API->http_response->status_code = 200;
+    /* if (weather_parser_get_location_by_names(_API->location, Http_Data* _Query_Params) != 0)
+    {
+      perror("weather_parser_get_location_by_coords");
+      _API->http_response->status_code = 500;
+      return -3;
 
-
-    /* free((void*)json_response); */
+    } */
 
   }
   else
+  {
     _API->http_response->status_code = 400;
+    weather_parser_dispose_ptr(&_API->location, NULL, NULL);
+    return 0;
+  }
 
-  weather_parser_dispose_ptr(&_API->city, NULL, NULL);
-  _API->city = NULL;
+  /* Build Location Weather from external API response */
+  if (weather_parser_get_weather(_API->location, false, OPEN_METEO) != 0)
+  {
+    perror("weather_parser_get_weather");
+    _API->http_response->status_code = 500;
+    return -4;
+  }
+
+  char* json_response = weather_parser_build_json_weather(_API->location->weather);
+
+  _API->http_response->body = json_response;
+  _API->http_response->status_code = 200;
+
+  weather_parser_dispose_ptr(&_API->location, NULL, NULL);
+  _API->location = NULL;
 
   return 0;
 }

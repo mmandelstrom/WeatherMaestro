@@ -11,7 +11,6 @@
 #include <errno.h>
 
 #define API_ENDPOINT_ROOT "/api/v1"
-#define CACHE_DIR "./data/cache/"
 
 typedef enum
 {
@@ -40,7 +39,7 @@ typedef struct
   HTTP_Request*       http_request;
   HTTP_Response*      http_response;
 
-  City*               city; // This contains the weather structs as well
+  Location*           location; // This contains the weather structs as well
 
   WeatherAPIEndpoint  endpoint;
 

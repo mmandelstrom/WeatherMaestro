@@ -36,7 +36,7 @@
  */
  
  
-#include "md5.h"
+#include "../include/md5.h"
 #include <stdio.h>
 
 char g_MD5_String[33];

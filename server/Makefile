@@ -17,7 +17,7 @@ SRC_DIR   := src
 
 # libs and utils source files to build
 UTILS_SRC := ../utils/src/misc_utils.c ../utils/src/time_utils.c ../utils/src/json_utils.c ../utils/src/file_utils.c ../utils/src/linked_list.c ../utils/src/curl.c
-LIBS_SRC := ../libs/src/HTTPStatusCodes.c ../libs/src/yuarel.c ../libs/src/cJSON.c
+LIBS_SRC := ../libs/src/HTTPStatusCodes.c ../libs/src/yuarel.c ../libs/src/cJSON.c ../libs/src/md5.c
 
 ALL_SRC := $(SRC) $(UTILS_SRC) $(LIBS_SRC)
 

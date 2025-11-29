@@ -26,14 +26,19 @@ int weather_server_init(Weather_Server* _Server)
 
     _Server->state = WEATHER_SERVER_ERROR;
 
-    return -1;
+    return -2;
   }
 
   Linked_List* Instances = linked_list_create();
-
+  if (Instances == NULL) 
+    return -3;
+    
   _Server->instances = Instances;
   _Server->task = scheduler_create_task(_Server, weather_server_taskwork);
   _Server->state = WEATHER_SERVER_IDLE;
+
+  create_directory_if_not_exists(DATA_DIR);
+  create_directory_if_not_exists(CACHE_DIR);
 
   return 0;
 }

@@ -50,3 +50,30 @@ int write_string_to_file(const char* _str, const char* _filename)
 
   return 0;
 }
+
+/** Heap allocated */
+const char* read_file_to_string(const char* _filename) 
+{
+
+  FILE* file = fopen(_filename, "r");
+  if (!file) { fprintf(stderr, "File load error: %s\n", _filename); return NULL; }
+  
+  fseek(file, 0, SEEK_END); /* Seek end of file */
+  size_t file_size = ftell(file); /* Define filesize based on fseek position */
+  rewind(file); /* Rewind to beginning of file */
+
+  char* string = malloc(file_size + 1); /* Plus one for \0 */
+
+  if (string == NULL) { perror("malloc"); return NULL; }
+
+  /* Reads file into buffer and returns the amount of bytes read */
+  int read_size = fread(string, 1, file_size, file); 
+  if (read_size != file_size) { perror("fread"); free(string); return NULL; }
+
+  string[file_size] = '\0';
+
+  fclose(file); /* Done with file, close it */
+
+  return string;
+}
+

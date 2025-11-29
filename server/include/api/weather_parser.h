@@ -8,13 +8,23 @@
 #include "../http/http_parser.h"
 #include "../../../utils/include/file_utils.h"
 #include "../../../utils/include/time_utils.h"
+#include "../../../libs/include/md5.h"
 
 #include "meteo.h"
+#include "bigdatacloud.h"
 
 #include <stdint.h>
 #include <stdlib.h>
 
-#define COORD_BUFFER_LENGTH 12 // How many max chars we take from latitude+longitude param strings. 12 will for example allow -111.111111
+#define CACHE_DIR "data/cache/"
+#define CITY_COORD_BUFFER_LENGTH 12 // How many max chars we take from latitude+longitude param strings. 12 will for example allow -111.111111
+#define CITY_NAME_BUFFER_LENGTH 128 // How many max chars we take from name param string
+
+typedef enum
+{
+  OPEN_METEO
+
+} ExternalWeatherAPI;
 
 typedef struct
 {
@@ -24,8 +34,10 @@ typedef struct
   const char*     winddirection_unit;
 
   time_t          timestamp;
-
-  float           latitude;
+  time_t          update_interval;
+  
+  /* lat+lon differ in precision from city lat+lon, depending on where data was gathered from */
+  float           latitude; 
   float           longitude;
   float           temperature; 
   float           precipitation;
@@ -50,31 +62,34 @@ typedef struct
   Weather*    weather;
   Forecast*   forecast;
 
-  const char* name;
+  const char* country;
+  const char* city;
+  const char* locality;
+  const char* timezone; // local timezone, ex: "Europe/Stockholm"
 
   char        timezone_gmt[7]; // local timezone, ex: "GMT+12"
   
   float       lat;
   float       lon;
 
-  char        country[3]; // two-char country code, ex: "SE"
+  char        country_code[3]; // two-char country code, ex: "SE"
 
-} City;
+} Location;
 
 
 /* ---------------------- Interface ----------------------- */
 
 /** Heap init for data structs. To skip one, pass NULL as argument */
-int weather_parser_init_ptr(City** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr);
+int weather_parser_init_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr);
 
-/** Builds a Weather or Forecast struct using open-meteo API
- * Pre-reqs: _City->lat & _City->lon must be set and _City->weather must be inited
- * If _forecast is true then _City->forecast must be inited instead */
-int weather_parser_get_weather_meteo(City* _City, bool _forecast);
+int weather_parser_get_location_by_coords(Location* _Location, float _lat, float _lon);
+int weather_parser_get_weather(Location* _Location, bool _forecast, ExternalWeatherAPI _ExtAPI);
 
-/** Builds a json formatted string from built struct */
-char* weather_parser_build_weather_json(Weather* _Weather);
-char* weather_parser_build_forecast_json(Forecast* _Forecast);
+/** Builds a json formatted string from struct members 
+ * Saves it to cache file as well */
+char* weather_parser_build_json_weather(Weather* _Weather);
+// char* weather_parser_build_json_forecast(Forecast* _Forecast);
+// char* weather_parser_build_json_location(Location* _Location)
 
 /** Takes a string and tries to convert it to float
  * Only takes COORD_BUFFER_LENGTH amount of chars to target
@@ -82,7 +97,7 @@ char* weather_parser_build_forecast_json(Forecast* _Forecast);
 int weather_parser_lat_lon(const char* _val, float* _target_coord);
 
 /** Heap dispose for data structs. To skip one, pass NULL as argument */
-void weather_parser_dispose_ptr(City** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr);
+void weather_parser_dispose_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr);
 
 /* -------------------------------------------------------- */
 

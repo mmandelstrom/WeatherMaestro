@@ -11,6 +11,8 @@
 #include "../scheduler.h"
 #include "../../../utils/include/linked_list.h"
 
+#define DATA_DIR "data/"
+
 typedef enum
 {
   WEATHER_SERVER_INIT,

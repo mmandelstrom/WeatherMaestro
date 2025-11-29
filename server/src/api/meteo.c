@@ -133,32 +133,32 @@ int meteo_parse_json(Meteo_Weather* _MW, const char* _json)
   }
 
   /* Parse data from json */
-  _MW->latitude                = parsedata_get_double(Json_Root, "latitude");
-  _MW->longitude               = parsedata_get_double(Json_Root, "longitude");
-  _MW->generationtime_ms       = parsedata_get_double(Json_Root, "generationtime_ms");
-  _MW->elevation               = parsedata_get_double(Json_Root, "elevation");
+  memcpy(_MW->timestamp, json_get_string(Cur_Weather, "time"), 16);
+  _MW->timestamp[16] = '\0';
 
-  _MW->precipitation           = parsedata_get_double(Cur_Weather, "precipitation");
-  _MW->temperature_2m          = parsedata_get_double(Cur_Weather, "temperature_2m");
-  _MW->wind_speed_10m          = parsedata_get_double(Cur_Weather, "wind_speed_10m");
+  _MW->latitude                = json_get_double(Json_Root, "latitude");
+  _MW->longitude               = json_get_double(Json_Root, "longitude");
+  _MW->generationtime_ms       = json_get_double(Json_Root, "generationtime_ms");
+  _MW->elevation               = json_get_double(Json_Root, "elevation");
 
-  _MW->wind_direction_10m      = parsedata_get_int(Cur_Weather, "wind_direction_10m");
-  _MW->utc_offset_seconds      = parsedata_get_int(Cur_Weather, "utc_offset_seconds");
-  _MW->interval                = parsedata_get_int(Cur_Weather, "interval");
-  _MW->is_day                  = parsedata_get_int(Cur_Weather, "is_day");
-  _MW->weathercode             = parsedata_get_int(Cur_Weather, "weathercode");
+  _MW->precipitation           = json_get_double(Cur_Weather, "precipitation");
+  _MW->temperature_2m          = json_get_double(Cur_Weather, "temperature_2m");
+  _MW->wind_speed_10m          = json_get_double(Cur_Weather, "wind_speed_10m");
+
+  _MW->wind_direction_10m      = json_get_int(Cur_Weather, "wind_direction_10m");
+  _MW->utc_offset_seconds      = json_get_int(Cur_Weather, "utc_offset_seconds");
+  _MW->interval                = json_get_int(Cur_Weather, "interval");
+  _MW->is_day                  = json_get_int(Cur_Weather, "is_day");
+  _MW->weathercode             = json_get_int(Cur_Weather, "weathercode");
 
   /* Heap allocations */
-  _MW->timestamp               = strdup(parsedata_get_string(Json_Root, "time"));
-  _MW->timezone_abbreviation   = strdup(parsedata_get_string(Json_Root, "timezone_abbreviation"));
-  _MW->temperature_2m_unit     = strdup(parsedata_get_string(Cur_Weather_Units, "temperature_2m"));
-  _MW->elevation_unit          = strdup(parsedata_get_string(Cur_Weather_Units, "elevation"));
-  _MW->precipitation_unit      = strdup(parsedata_get_string(Cur_Weather_Units, "precipitation"));
-  _MW->wind_speed_10m_unit     = strdup(parsedata_get_string(Cur_Weather_Units, "wind_speed_10m"));
-  _MW->wind_direction_10m_unit = strdup(parsedata_get_string(Cur_Weather_Units, "wind_direction_10m"));
-
-  if (_MW->timestamp               == NULL ||
-      _MW->timezone_abbreviation   == NULL ||
+  _MW->timezone_abbreviation   = strdup(json_get_string(Json_Root, "timezone_abbreviation"));
+  _MW->temperature_2m_unit     = strdup(json_get_string(Cur_Weather_Units, "temperature_2m"));
+  _MW->elevation_unit          = strdup(json_get_string(Cur_Weather_Units, "elevation"));
+  _MW->precipitation_unit      = strdup(json_get_string(Cur_Weather_Units, "precipitation"));
+  _MW->wind_speed_10m_unit     = strdup(json_get_string(Cur_Weather_Units, "wind_speed_10m"));
+  _MW->wind_direction_10m_unit = strdup(json_get_string(Cur_Weather_Units, "wind_direction_10m"));
+  if (_MW->timezone_abbreviation   == NULL ||
       _MW->temperature_2m_unit     == NULL ||
       _MW->elevation_unit          == NULL ||
       _MW->precipitation_unit      == NULL ||
@@ -196,11 +196,11 @@ void meteo_dispose_ptr(Meteo_Weather** _MW_Ptr)
     free((void*)(*_MW_Ptr)->timezone_abbreviation);
     (*_MW_Ptr)->timezone_abbreviation = NULL;
   }
-  if ((*_MW_Ptr)->timestamp != NULL)
+  /* if ((*_MW_Ptr)->timestamp != NULL)
   {
     free((void*)(*_MW_Ptr)->timestamp);
     (*_MW_Ptr)->timestamp = NULL;
-  }
+  } */
   if ((*_MW_Ptr)->temperature_2m_unit != NULL)
   {
     free((void*)(*_MW_Ptr)->temperature_2m_unit);

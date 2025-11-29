@@ -20,6 +20,8 @@
 
 typedef struct
 {
+  char        timestamp[17];
+
   double      temperature_2m; 
   double      wind_speed_10m; 
   double      precipitation;
@@ -27,7 +29,6 @@ typedef struct
   double      generationtime_ms;
 
   const char* timezone_abbreviation;
-  const char* timestamp;
 
   const char* temperature_2m_unit; 
   const char* wind_speed_10m_unit;

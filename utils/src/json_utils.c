@@ -1,6 +1,6 @@
 #include "../include/json_utils.h"
 
-double parsedata_get_double(cJSON* _Root, const char* _Name) {
+double json_get_double(cJSON* _Root, const char* _Name) {
   cJSON* field = cJSON_GetObjectItemCaseSensitive(_Root, _Name);
   double _Fallback = 0.0f;
   if (!cJSON_IsNumber(field)) {
@@ -9,7 +9,7 @@ double parsedata_get_double(cJSON* _Root, const char* _Name) {
   return field->valuedouble;
 }
 
-const char* parsedata_get_string(cJSON* _Root, const char* _Name) {
+const char* json_get_string(cJSON* _Root, const char* _Name) {
   cJSON* field = cJSON_GetObjectItemCaseSensitive(_Root, _Name);
   const char* _Fallback = "Unknown";
   if (!cJSON_IsString(field)) {
@@ -19,7 +19,7 @@ const char* parsedata_get_string(cJSON* _Root, const char* _Name) {
 }
 
 
-int parsedata_get_int(cJSON* _Root, const char* _Name) {
+int json_get_int(cJSON* _Root, const char* _Name) {
   cJSON* field = cJSON_GetObjectItemCaseSensitive(_Root, _Name);
   int _Fallback = 0;
   if (!cJSON_IsNumber(field)) {
@@ -27,3 +27,30 @@ int parsedata_get_int(cJSON* _Root, const char* _Name) {
   }
   return field->valueint;
 }
+
+
+void json_set_int(cJSON* _Json, const char* _key, int _val)
+{
+  if (_key == NULL)
+    return;
+  else
+    cJSON_AddNumberToObject(_Json, _key, _val);
+}
+void json_set_double(cJSON* _Json, const char* _key, double _val)
+{
+  if (_key == NULL)
+    return;
+  else
+    cJSON_AddNumberToObject(_Json, _key, _val);
+
+}
+void json_set_string(cJSON* _Json, const char* _key, const char* _val)
+{
+  if (_key == NULL)
+    return;
+  else if (_val == NULL)
+    cJSON_AddStringToObject(_Json, _key, "Unknown");
+  else
+    cJSON_AddStringToObject(_Json, _key, _val);
+}
+

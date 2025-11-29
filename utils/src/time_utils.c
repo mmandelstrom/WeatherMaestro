@@ -54,7 +54,7 @@ uint64_t SystemMonotonicMS()
 }
 
 /* Helper for parsing iso8601 formatted datetime string to time_t epoch */
-time_t parse_iso_string_to_epoch(const char* _time_str) 
+time_t parse_iso_datetime_string_to_epoch(const char* _time_str) 
 {
   struct tm tm = {0};
   int year, month, day, hour, min;
@@ -75,7 +75,7 @@ time_t parse_iso_string_to_epoch(const char* _time_str)
 
 /* Helper for parsing time_t epoch to iso8601 formatted datetime string
  * uses strdup, i.e return value needs to be freed from heap by caller */
-const char* parse_epoch_to_iso_string(time_t* _epoch)
+const char* parse_epoch_to_iso_datetime_string(time_t* _epoch)
 {
   struct tm* tm = gmtime(_epoch);
   if (!tm) return strdup("Invalid datetime");
