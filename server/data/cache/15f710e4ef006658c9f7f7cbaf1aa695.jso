@@ -1,0 +1,18 @@
+{
+	"timestamp":	"2025-11-30T21:00",
+	"latitude":	1.125,
+	"longitude":	-123.125,
+	"units":	{
+		"temperature_unit":	"Unknown",
+		"windspeed_unit":	"Unknown",
+		"precipitation_unit":	"Unknown",
+		"winddirection_unit":	"Unknown"
+	},
+	"weather":	{
+		"temperature":	0,
+		"precipitation":	0,
+		"windspeed":	0,
+		"winddirection":	0,
+		"wmo_code":	0
+	}
+}

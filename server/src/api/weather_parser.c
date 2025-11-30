@@ -38,18 +38,18 @@ char* weather_parser_get_cache_filepath_weather(Location* _Location, bool _forec
 /* ----------------------------------------------------------------- */
 
 
-int weather_parser_init_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr)
+int weather_parser_init_ptr(Location** _L_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr)
 {
-  if (_C_Ptr != NULL)
+  if (_L_Ptr != NULL)
   {
-    *_C_Ptr = malloc(sizeof(Location));
-    if (*_C_Ptr == NULL)
+    *_L_Ptr = malloc(sizeof(Location));
+    if (*_L_Ptr == NULL)
     {
       perror("malloc");
       return -1;
     }
 
-    memset(*_C_Ptr, 0, sizeof(Location));
+    memset(*_L_Ptr, 0, sizeof(Location));
   }
   if (_W_Ptr != NULL)
   {
@@ -81,9 +81,14 @@ int weather_parser_init_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** _F_P
 
 /************************ WEATHER PARSING *************************/
 
-/** Looks in cache first, if not recent enough call API for update */
+/** Looks in cache first, if not recent enough call API for update 
+ * Pre-reqs: Location and Location->weather/Location->forecast must be inited */
 int weather_parser_get_weather(Location* _Location, bool _forecast, ExternalWeatherAPI _ExtAPI)
 {
+  printf("_Location: %p, _Location->weather: %p\n", _Location, _Location->weather); 
+  if (_Location == NULL || _Location->weather == NULL)
+    return -1;
+
   int interval = 0;
 
   if (_ExtAPI == OPEN_METEO)
@@ -97,17 +102,19 @@ int weather_parser_get_weather(Location* _Location, bool _forecast, ExternalWeat
   if (_Location->city == NULL)
     return -1;
 
-  const char* cache_filepath = weather_parser_get_cache_filepath_weather(_Location, _forecast);
+  _Location->weather->cache_path = weather_parser_get_cache_filepath_weather(_Location, _forecast);
 
-  if (weather_parser_recent_weather_cache_exists(cache_filepath, 
+  if (weather_parser_recent_weather_cache_exists(_Location->weather->cache_path, 
         interval, 
         _forecast))
   {
-    if (weather_parser_get_weather_from_cache(_Location, cache_filepath, _forecast) != 0)
+    printf("Getting weather from cache\n");
+    if (weather_parser_get_weather_from_cache(_Location, _Location->weather->cache_path, _forecast) != 0)
       return -2;
   }
   else
   {
+    printf("Getting weather from API\n");
     if (weather_parser_get_weather_from_api(_Location, _ExtAPI, _forecast) != 0)
       return -3;
   }
@@ -129,7 +136,7 @@ int weather_parser_get_weather_from_api(Location* _Location, ExternalWeatherAPI 
     if (result != 0)
     {
       perror("meteo_init");
-      return -1;
+      return -2;
     }
 
     /* Get fresh Meteo_Weather struct from API */
@@ -138,18 +145,19 @@ int weather_parser_get_weather_from_api(Location* _Location, ExternalWeatherAPI 
     {
       perror("meteo_get_weather");
       meteo_dispose_ptr(&MW);
-      return -2;
+      return -3;
     }
 
     printf("---Meteo_Weather---\ntemperature: %f %s\n", MW->temperature_2m, MW->temperature_2m_unit);
     printf("latitude: %f\n", MW->latitude);
+    printf("windspeed: %f %s\n", MW->wind_speed_10m, MW->wind_speed_10m_unit);
 
     result = weather_parser_parse_meteo_weather(_Location->weather, MW);
     if (result != 0)
     {
       perror("weather_parser_parse_meteo_weather");
       meteo_dispose_ptr(&MW);
-      return -3;
+      return -4;
     }
 
     meteo_dispose_ptr(&MW);
@@ -172,8 +180,10 @@ int weather_parser_get_weather_from_cache(Location* _Location, const char* _file
     if (error_pointer != NULL){
       fprintf(stderr,"meteo json error %s\n", error_pointer);
     }
+    free((void*)weather_json);
     return -2;
   }
+  free((void*)weather_json);
 
   if (!_forecast)
   {
@@ -326,7 +336,7 @@ bool weather_parser_recent_weather_cache_exists(const char* _filepath, int _inte
   }
 }
 
-char* weather_parser_build_json_weather(Weather* _Weather)
+char* weather_parser_build_json_weather(Weather* _Weather, const char* _cache_path)
 {
 
   cJSON* Json_Root = cJSON_CreateObject();
@@ -354,6 +364,9 @@ char* weather_parser_build_json_weather(Weather* _Weather)
   cJSON_AddItemToObject(Json_Root, "weather", Json_Weather);
 
   char* json_str = cJSON_Print(Json_Root); // Uses realloc and ends up in heap
+
+  if (write_string_to_file(json_str, _cache_path) != 0)
+    fprintf(stderr, "Failed to write string \"%p\" to cache \"%s\"\n", json_str, _cache_path); 
 
   free((void*)iso_timestamp);
   cJSON_Delete(Json_Root);
@@ -539,69 +552,47 @@ int weather_parser_lat_lon(const char* _val, float* _target_coord)
 }
 
 
-void weather_parser_dispose_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr)
+void weather_parser_dispose_ptr(Location** _L_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr)
 {
   /* Dispose of Location */
-  if (_C_Ptr != NULL)
+  if (_L_Ptr != NULL)
   {
-    if (*_C_Ptr != NULL)
+    if (*_L_Ptr != NULL)
     {
-      if ((*_C_Ptr)->forecast != NULL)
-      {
-        //TODO: dispose each individual Weather struct
-        free((*_C_Ptr)->forecast);
-        (*_C_Ptr)->forecast = NULL;
-      }
-      if ((*_C_Ptr)->weather != NULL)
-      {
-        if ((*_C_Ptr)->weather->temperature_unit   != NULL)  
-        {
-          free((void*)(*_C_Ptr)->weather->temperature_unit);
-          (*_C_Ptr)->weather->temperature_unit = NULL;
-        }
-        if ((*_C_Ptr)->weather->windspeed_unit     != NULL)    
-        {
-          free((void*)(*_C_Ptr)->weather->windspeed_unit);
-          (*_C_Ptr)->weather->windspeed_unit = NULL;
-        }
-        if ((*_C_Ptr)->weather->precipitation_unit != NULL)
-        {
-          free((void*)(*_C_Ptr)->weather->precipitation_unit);
-          (*_C_Ptr)->weather->precipitation_unit = NULL;
-        }
-        if ((*_C_Ptr)->weather->winddirection_unit != NULL)
-        {
-          free((void*)(*_C_Ptr)->weather->winddirection_unit);
-          (*_C_Ptr)->weather->winddirection_unit = NULL;
-        }
+      if ((*_L_Ptr)->forecast != NULL)
+        weather_parser_dispose_ptr(NULL, NULL, &(*_L_Ptr)->forecast);
+      if ((*_L_Ptr)->weather != NULL)
+        weather_parser_dispose_ptr(NULL, &(*_L_Ptr)->weather, NULL);
 
-        free((*_C_Ptr)->weather);
-        (*_C_Ptr)->weather = NULL;
-      }
-      if ((*_C_Ptr)->locality != NULL)
+      if ((*_L_Ptr)->cache_path != NULL)
       {
-        free((void*)(*_C_Ptr)->locality);
-        (*_C_Ptr)->locality = NULL;
+        free((void*)(*_L_Ptr)->cache_path);
+        (*_L_Ptr)->cache_path = NULL;
       }
-      if ((*_C_Ptr)->city != NULL)
+      if ((*_L_Ptr)->locality != NULL)
       {
-        free((void*)(*_C_Ptr)->city);
-        (*_C_Ptr)->city = NULL;
+        free((void*)(*_L_Ptr)->locality);
+        (*_L_Ptr)->locality = NULL;
       }
-      if ((*_C_Ptr)->country != NULL)
+      if ((*_L_Ptr)->city != NULL)
       {
-        free((void*)(*_C_Ptr)->country);
-        (*_C_Ptr)->country = NULL;
+        free((void*)(*_L_Ptr)->city);
+        (*_L_Ptr)->city = NULL;
       }
-      if ((*_C_Ptr)->timezone != NULL)
+      if ((*_L_Ptr)->country != NULL)
       {
-        free((void*)(*_C_Ptr)->timezone);
-        (*_C_Ptr)->timezone = NULL;
+        free((void*)(*_L_Ptr)->country);
+        (*_L_Ptr)->country = NULL;
       }
-      free(*_C_Ptr);
-      *_C_Ptr = NULL;
+      if ((*_L_Ptr)->timezone != NULL)
+      {
+        free((void*)(*_L_Ptr)->timezone);
+        (*_L_Ptr)->timezone = NULL;
+      }
+      free(*_L_Ptr);
+      *_L_Ptr = NULL;
     }
-    _C_Ptr = NULL;
+    _L_Ptr = NULL;
   }
 
   /* Dispose of Forecast */
@@ -609,6 +600,11 @@ void weather_parser_dispose_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** 
   {
     if (*_F_Ptr != NULL)
     {
+      if ((*_F_Ptr)->cache_path != NULL)
+      {
+        free((void*)(*_F_Ptr)->cache_path);
+        (*_F_Ptr)->cache_path = NULL;
+      }
       //TODO: dispose each individual Weather struct
       // weather_parser_dispose_ptr(NULL, [forecastindexptr]->weather, NULL)
       free(*_F_Ptr);
@@ -622,6 +618,11 @@ void weather_parser_dispose_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** 
   {
     if ((*_W_Ptr) != NULL)
     {
+      if ((*_W_Ptr)->cache_path != NULL)
+      {
+        free((void*)(*_W_Ptr)->cache_path);
+        (*_W_Ptr)->cache_path = NULL;
+      }
       if ((*_W_Ptr)->temperature_unit   != NULL)  
       {
         free((void*)(*_W_Ptr)->temperature_unit);

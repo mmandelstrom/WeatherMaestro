@@ -28,6 +28,7 @@ typedef enum
 
 typedef struct
 {
+  const char*     cache_path;
   const char*     temperature_unit; 
   const char*     windspeed_unit;
   const char*     precipitation_unit;
@@ -52,6 +53,7 @@ typedef struct
 
 typedef struct
 {
+  const char* cache_path;
   Weather*    weather;
   int         count;
 
@@ -62,6 +64,7 @@ typedef struct
   Weather*    weather;
   Forecast*   forecast;
 
+  const char* cache_path;
   const char* country;
   const char* city;
   const char* locality;
@@ -83,11 +86,12 @@ typedef struct
 int weather_parser_init_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr);
 
 int weather_parser_get_location_by_coords(Location* _Location, float _lat, float _lon);
+
 int weather_parser_get_weather(Location* _Location, bool _forecast, ExternalWeatherAPI _ExtAPI);
 
 /** Builds a json formatted string from struct members 
  * Saves it to cache file as well */
-char* weather_parser_build_json_weather(Weather* _Weather);
+char* weather_parser_build_json_weather(Weather* _Weather, const char* _cache_path);
 // char* weather_parser_build_json_forecast(Forecast* _Forecast);
 // char* weather_parser_build_json_location(Location* _Location)
 

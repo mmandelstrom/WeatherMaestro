@@ -172,12 +172,18 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   /* Parse found query params and identify location */
   if ((lat_found > 0 && lon_found > 0)) // Could add an if else for city->name != NULL and let parser find coords for that city then
   {
-    if (weather_parser_init_ptr(&_API->location, &_API->location->weather, NULL) != 0)
+    Weather* Weather;
+    if (weather_parser_init_ptr(&_API->location, &Weather, NULL) != 0)
     {
       perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;
       return -2;
     }
+    _API->location->weather = Weather;
+    printf("_Location: %p, _Location->weather: %p\n", _API->location, _API->location->weather); 
+
+    _API->location->lat = lat;
+    _API->location->lon = lon;
 
     if (weather_parser_get_location_by_coords(_API->location, lat, lon) != 0)
     {
@@ -208,7 +214,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   else
   {
     _API->http_response->status_code = 400;
-    weather_parser_dispose_ptr(&_API->location, NULL, NULL);
+    weather_parser_dispose_ptr(&_API->location, &_API->location->weather, NULL);
     return 0;
   }
 
@@ -220,7 +226,8 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
     return -4;
   }
 
-  char* json_response = weather_parser_build_json_weather(_API->location->weather);
+
+  char* json_response = weather_parser_build_json_weather(_API->location->weather, _API->location->weather->cache_path);
 
   _API->http_response->body = json_response;
   _API->http_response->status_code = 200;

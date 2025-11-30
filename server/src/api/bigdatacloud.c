@@ -90,7 +90,7 @@ const char* bigdatacloud_get_reverse_geocode_json(float _lat, float _lon)
   response[C_Data.size] = '\0';
   curl_dispose(&C_Data);
 
-  printf("===== Meteo Response JSON =====\n\n%s\n\n", response);
+  printf("===== Bigdatacloud Response JSON =====\n\n%s\n\n", response);
 
   return response;
 }

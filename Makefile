@@ -2,7 +2,7 @@
 # 🌤 WeatherMaestro Main Makefile 
 # ======================================
 
-MODULES := server client
+MODULES := server client client_cpp
 
 #############################
 # PHONIES
