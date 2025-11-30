@@ -47,14 +47,15 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _Request);
 int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req, HTTP_Response* _HTTP_Res)
 
 {
-  if (_Weather_API_Ptr == NULL)
-    return -1;
+  if (_Weather_API_Ptr == NULL) {
+    return ERR_INVALID_ARG;
+  }
 
   *_Weather_API_Ptr = malloc(sizeof(Weather_API));
   if (*_Weather_API_Ptr == NULL)
   {
     perror("malloc");
-    return -2;
+    return ERR_NO_MEMORY;
   }
 
   memset(*_Weather_API_Ptr, 0, sizeof(Weather_API));
@@ -62,7 +63,7 @@ int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req
   (*_Weather_API_Ptr)->http_request = _HTTP_Req;
   (*_Weather_API_Ptr)->http_response = _HTTP_Res;
 
-  return 0;
+  return SUCCESS;
 }
 
 /** Return endpoint enum from path string */
@@ -135,7 +136,7 @@ int weather_api_handle_endpoint(Weather_API* _API)
       } break;
   }
 
-  return 0;
+  return SUCCESS;
 }
 
 int weather_api_handle_endpoint_weather_get(Weather_API* _API)
@@ -143,13 +144,13 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   if (_API->http_request->params_count < 1)
   {
     _API->http_response->status_code = 400;
-    return 0;
+    return ERR_INVALID_ARG;
   }
 
   /* Find and validate latitude and longitude params */
   float lat, lon = 0;
   int lat_found, lon_found = 0;
-  int city_found;
+  int city_found = 0;
   linked_list_foreach(_API->http_request->params, node)
   {
     HTTP_Key_Value* Param = (HTTP_Key_Value*)node->item;
@@ -172,14 +173,12 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   /* Parse found query params and identify location */
   if ((lat_found > 0 && lon_found > 0)) // Could add an if else for city->name != NULL and let parser find coords for that city then
   {
-    Weather* Weather;
-    if (weather_parser_init_ptr(&_API->location, &Weather, NULL) != 0)
+    if (weather_parser_init_ptr(&_API->location, true, false) != 0)
     {
       perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;
       return -2;
     }
-    _API->location->weather = Weather;
     printf("_Location: %p, _Location->weather: %p\n", _API->location, _API->location->weather); 
 
     _API->location->lat = lat;
@@ -195,11 +194,11 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   }
   else if (city_found > 0)
   {
-    if (weather_parser_init_ptr(&_API->location, &_API->location->weather, NULL) != 0)
+    if (weather_parser_init_ptr(&_API->location, true, false) != 0)
     {
       perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;
-      return -2;
+      return ERR_NO_MEMORY;
     }
 
     /* if (weather_parser_get_location_by_names(_API->location, Http_Data* _Query_Params) != 0)
@@ -226,7 +225,6 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
     return -4;
   }
 
-
   char* json_response = weather_parser_build_json_weather(_API->location->weather, _API->location->weather->cache_path);
 
   _API->http_response->body = json_response;
@@ -235,7 +233,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   weather_parser_dispose_ptr(&_API->location, NULL, NULL);
   _API->location = NULL;
 
-  return 0;
+  return SUCCESS;
 }
 
 void weather_api_dispose_ptr(Weather_API** _API_Ptr)

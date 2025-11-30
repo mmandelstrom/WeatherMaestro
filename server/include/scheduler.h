@@ -8,6 +8,7 @@
 #include <string.h>
 #include "../../utils/include/misc_utils.h"
 #include "../../utils/include/time_utils.h"
+#include "error.h"
 
 #ifndef SCHEDULER_MAX_TASKS
     #define SCHEDULER_MAX_TASKS 10000

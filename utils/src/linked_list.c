@@ -72,23 +72,24 @@ void linked_list_item_remove(Linked_List* _List, Linked_Item* _Item)
 
 void linked_list_items_dispose(Linked_List* _List)
 {
-  /* Call linked_list_remove on each Item until List no longer has a head */
-  while (_List != NULL && _List->head != NULL)
-  {
-    Linked_Item* Item = _List->head;
-    linked_list_item_remove(_List, Item);
-    _List->head = _List->tail;
+  if (_List == NULL) {
+    return;
+  }
+
+  while (_List->head != NULL) {
+    linked_list_item_remove(_List, _List->head);
   }
 }
 
 void linked_list_destroy(Linked_List** _List_Ptr)
 {
- 
+  if (_List_Ptr == NULL || *_List_Ptr == NULL) {
+    return;
+  }
+
   linked_list_items_dispose(*_List_Ptr);
 
-  if (*_List_Ptr != NULL)
-    free(*_List_Ptr);
-  if (_List_Ptr != NULL)
-    _List_Ptr = NULL;
+  free(*_List_Ptr);
+  *_List_Ptr = NULL;
 }
 

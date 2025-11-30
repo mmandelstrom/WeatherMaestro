@@ -38,7 +38,7 @@ char* weather_parser_get_cache_filepath_weather(Location* _Location, bool _forec
 /* ----------------------------------------------------------------- */
 
 
-int weather_parser_init_ptr(Location** _L_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr)
+int weather_parser_init_ptr(Location** _L_Ptr, bool _weather, bool _forecast)
 {
   if (_L_Ptr != NULL)
   {
@@ -46,36 +46,36 @@ int weather_parser_init_ptr(Location** _L_Ptr, Weather** _W_Ptr, Forecast** _F_P
     if (*_L_Ptr == NULL)
     {
       perror("malloc");
-      return -1;
+      return ERR_NO_MEMORY;
     }
-
     memset(*_L_Ptr, 0, sizeof(Location));
-  }
-  if (_W_Ptr != NULL)
-  {
 
-    *_W_Ptr = malloc(sizeof(Weather));
-    if (*_W_Ptr == NULL)
+    /* Init Location->weather struct */
+    if (_weather)
     {
-      perror("malloc");
-      return -2;
+      (*_L_Ptr)->weather = malloc(sizeof(Weather));
+      if ((*_L_Ptr)->weather == NULL)
+      {
+        perror("malloc");
+        return ERR_NO_MEMORY;
+      }
+      memset((*_L_Ptr)->weather, 0, sizeof(Weather));
     }
 
-    memset(*_W_Ptr, 0, sizeof(Weather));
-  }
-  if (_F_Ptr != NULL)
-  {
-    *_F_Ptr = malloc(sizeof(Forecast));
-    if (*_F_Ptr == NULL)
+    /* Init Location->forecast struct */
+    if (_forecast)
     {
-      perror("malloc");
-      return -3;
+      (*_L_Ptr)->forecast = malloc(sizeof(Forecast));
+      if ((*_L_Ptr)->forecast == NULL)
+      {
+        perror("malloc");
+        return ERR_NO_MEMORY;
+      }
+      memset((*_L_Ptr)->forecast, 0, sizeof(Forecast));
     }
-
-    memset(*_F_Ptr, 0, sizeof(Forecast));
   }
 
-  return 0;
+  return SUCCESS;
 }
 
 
@@ -235,7 +235,7 @@ int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weat
       _Weather->winddirection_unit == NULL)
   {
     perror("Failed to duplicate meteo strings to weather struct");
-    return -1;
+    return ERR_INTERNAL;
   }
 
   _Weather->timestamp              = parse_iso_datetime_string_to_epoch(_M_Weather->timestamp);
@@ -254,7 +254,7 @@ int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weat
   printf("_M_Weather->latitude: %f", _M_Weather->latitude);
   printf("_Weather->latitude: %f", _Weather->latitude);
 
-  return 0;
+  return SUCCESS;
 }
 
 char* weather_parser_get_cache_filepath_weather(Location* _Location, bool _forecast)
@@ -338,6 +338,9 @@ bool weather_parser_recent_weather_cache_exists(const char* _filepath, int _inte
 
 char* weather_parser_build_json_weather(Weather* _Weather, const char* _cache_path)
 {
+  if (!_Weather) {
+    return "";
+  }
 
   cJSON* Json_Root = cJSON_CreateObject();
   cJSON* Json_Weather = cJSON_CreateObject();

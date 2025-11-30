@@ -1,11 +1,9 @@
 #include "../../include/http/http_parser.h"
-#include <stdio.h>
 
 int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req, Linked_List **_params_out) {
 
   if (!_line || !_Req || !_params_out || _line_len < 1) {
-    errno = EINVAL;
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   *_params_out = NULL;
@@ -13,7 +11,7 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   char *line_copy = malloc(_line_len + 1);
   if (!line_copy) {
     perror("malloc");
-    return -1;
+    return ERR_NO_MEMORY;
   }
 
   memcpy(line_copy, _line, _line_len);
@@ -23,7 +21,7 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   char *first_space = strchr(line_copy, ' ');
   if (!first_space) {
     free(line_copy);
-    return -1;
+    return ERR_BAD_FORMAT;
   }
   *first_space = '\0';
   
@@ -31,14 +29,14 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   char *second_space = strchr(request_target, ' ');
   if (!second_space) {
     free(line_copy);
-    return -1;
+    return ERR_BAD_FORMAT;
   }
   *second_space = '\0';
 
   char *version = second_space + 1;
   if (*version == 0) {
     free(line_copy);
-    return -1;
+    return ERR_BAD_FORMAT;
   }
 
   char *question_mark = strchr(request_target, '?');
@@ -46,14 +44,24 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   if (!question_mark) {
     /*No query string*/
     _Req->path = strdup(request_target);
+    if (!_Req->path) {
+      free(line_copy);
+      return ERR_NO_MEMORY;
+    }
+
   } else {
     *question_mark = '\0';
     _Req->path = strdup(request_target);
+    if (!_Req->path) {
+      free(line_copy);
+      return ERR_NO_MEMORY;
+    }
 
     *_params_out = linked_list_create();
     if (!*_params_out) {
       free(line_copy);
-      return -1;
+      free(_Req->path);
+      return ERR_NO_MEMORY;
     }
 
   char* param_str = question_mark + 1;
@@ -77,8 +85,26 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
     }
 
       HTTP_Key_Value *param = malloc(sizeof(HTTP_Key_Value));
+      if (!param) {
+        free(line_copy);
+        http_parser_dispose_linked_list(*_params_out);
+        free(_Req->path);
+        _Req->path = NULL;
+        return ERR_NO_MEMORY;
+      }
       param->key = strdup(param_key);
       param->value = strdup(param_value);
+      if (!param->key || !param->value) {
+        free(param->key);
+        free(param->value);
+        free(param);
+        free(line_copy);
+        http_parser_dispose_linked_list(*_params_out);
+        free(_Req->path);
+        _Req->path = NULL;
+        return ERR_NO_MEMORY;
+      }
+
       linked_list_item_add(*_params_out, NULL, param);
       _Req->params_count++;
     }
@@ -86,16 +112,24 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
    
   _Req->method_str = strdup(method);
   _Req->version = strdup(version);
+  if (!_Req->method_str || !_Req->version) {
+    free(_Req->method_str);
+    free(_Req->version);
+    free(_Req->path);
+    http_parser_dispose_linked_list(*_params_out);
+    free(line_copy);
+    return ERR_NO_MEMORY;
+  }
+
   _Req->method = http_method_string_to_enum(_Req->method_str);
 
   free(line_copy);
   
-  return 0;
+  return SUCCESS;
 }
 
 int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len) {
   if (_buf_len < 2) {
-    errno = EINVAL;
     return -1;
   }
   
@@ -127,13 +161,12 @@ int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len) {
 
 int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_headers_out) {
   if (!_buf || !_headers_out) {
-    errno = EINVAL;
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   *_headers_out = linked_list_create();
   if (!*(_headers_out)) {
-    return -1;
+    return ERR_NO_MEMORY;
   }
 
   size_t start = 0;
@@ -162,7 +195,9 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
     char *line = (char*)malloc(line_len + 1);
     if (!line) {
       perror("malloc");
-      return -1;
+      http_parser_dispose_linked_list(*_headers_out);
+      *_headers_out = NULL;
+      return ERR_NO_MEMORY;
     }
 
     memcpy(line, _buf + start, line_len);
@@ -171,7 +206,9 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
     char *colon = strchr(line, ':');
     if (!colon) {
       free(line);
-      return -1;
+      http_parser_dispose_linked_list(*_headers_out);
+      *_headers_out = NULL;
+      return ERR_BAD_FORMAT;
     }
 
     *colon = '\0';
@@ -209,7 +246,9 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
     if (!header) {
       perror("malloc");
       free(line);
-      return -1;
+      http_parser_dispose_linked_list(*_headers_out);
+      *_headers_out = NULL;
+      return ERR_NO_MEMORY;
     }
 
     header->key = strdup(key);
@@ -221,7 +260,9 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
       free(header->value);
       free(header);
       free(line);
-      return -1;
+      http_parser_dispose_linked_list(*_headers_out);
+      *_headers_out = NULL;
+      return ERR_NO_MEMORY;
     }
 
     linked_list_item_add(*(_headers_out), NULL, header);
@@ -230,7 +271,7 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
     start = line_end + 2;
   }
   
-  return 0;
+  return SUCCESS;
 }
 
 const char* http_build_full_response(int _status_code, const char* _headers, const char* _body)
@@ -290,7 +331,7 @@ const char* http_method_enum_to_string(HTTPMethod _method)
 int http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value) {
   
   if (!_headers || !_name || !_out_value) {
-    return -1;
+    return ERR_INVALID_ARG;
   }
 
   linked_list_foreach(_headers, node) {
@@ -301,11 +342,11 @@ int http_parser_get_header_value(Linked_List* _headers, char* _name, const char*
     
     if (strcmp(h->key, _name) == 0) {
       *(_out_value) = h->value;
-      return 0;
+      return SUCCESS;
     }
   }
 
-  return -1;
+  return ERR_NOT_FOUND;
 }
 
 void http_parser_dispose_linked_list(Linked_List *_list) {

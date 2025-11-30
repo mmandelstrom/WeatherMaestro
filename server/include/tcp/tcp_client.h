@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include "../error.h"
 
 typedef enum {
   CLIENT_STATE_INIT, 

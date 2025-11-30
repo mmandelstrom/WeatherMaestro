@@ -13,6 +13,10 @@ WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Ins
 
 int weather_server_instance_init(void* _context, Weather_Server_Instance* _Instance, HTTP_Server_Connection* _Connection)
 {
+  if (!_Instance || !_Connection) {
+    return ERR_INVALID_ARG;
+  }
+
   memset(_Instance, 0, sizeof(Weather_Server_Instance));
 
   _Instance->context = _context;
@@ -20,20 +24,20 @@ int weather_server_instance_init(void* _context, Weather_Server_Instance* _Insta
   _Instance->http_connection = _Connection;
   http_server_connection_set_callback(_Instance->http_connection, _Instance, weather_server_instance_on_request, weather_server_instance_on_response);
 
-  return 0;
+  return SUCCESS;
 }
 int weather_server_instance_init_ptr(void* _context, HTTP_Server_Connection* _Connection, Weather_Server_Instance** _Instance_Ptr)
 {
 
 	if(_Instance_Ptr == NULL)
-		return -1;
+		return ERR_INVALID_ARG;
 
 	Weather_Server_Instance* _Instance = (Weather_Server_Instance*)malloc(sizeof(Weather_Server_Instance));
 	if(_Instance == NULL)
-		return -2;
+		return ERR_NO_MEMORY;
 
 	int result = weather_server_instance_init(_context, _Instance, _Connection);
-	if(result != 0)
+	if(result != SUCCESS)
 	{
 		free(_Instance);
 		return result;
@@ -41,32 +45,44 @@ int weather_server_instance_init_ptr(void* _context, HTTP_Server_Connection* _Co
 
 	*(_Instance_Ptr) = _Instance;
 
-	return 0;
+	return SUCCESS;
 }
 
 int weather_server_instance_on_request(void* _context)
 {
+  if (!_context) {
+    return ERR_INVALID_ARG;
+  }
+
   Weather_Server_Instance* _Instance = (Weather_Server_Instance*)_context;
   _Instance->state = WEATHER_SERVER_INSTANCE_INITIALIZING;
   _Instance->task = scheduler_create_task(_Instance, weather_server_instance_taskwork);
 
-  return 0;
+  return SUCCESS;
 }
 
 int weather_server_instance_on_response(void* _context)
 {
+  if (!_context) {
+    return ERR_INVALID_ARG;
+  }
+
   Weather_Server_Instance* _Instance = (Weather_Server_Instance*)_context;
   if (_Instance->task != NULL)
     scheduler_destroy_task(_Instance->task);
 
   _Instance->on_finish(_Instance->context, _Instance);
      
-  return 0;
+  return SUCCESS;
 }
 
 
 WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Instance)
 {
+  if (!_Instance) {
+    return WEATHER_SERVER_INSTANCE_ERROR;
+  }
+
   if (weather_api_init_ptr(&_Instance->weather_api, _Instance->http_connection->request, _Instance->http_connection->response) != 0 || weather_api_handle_endpoint(_Instance->weather_api) != 0)
   {
     _Instance->http_connection->response->status_code = 500;
@@ -76,8 +92,12 @@ WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Inst
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING;
 }
+
 WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Instance)
 {
+  if (!_Instance) {
+    return WEATHER_SERVER_INSTANCE_ERROR;
+  }
 
   HTTP_Response* Res = _Instance->http_connection->response;
   if (Res->body != NULL && Res->status_code == 200)
@@ -117,6 +137,12 @@ WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Ins
 
 void weather_server_instance_taskwork(void* _context, uint64_t _montime)
 {
+
+  if(!_context) {
+    return;
+  }
+  (void)_montime;
+
   Weather_Server_Instance* _Instance = (Weather_Server_Instance*)_context;
 
   switch (_Instance->state)
@@ -154,6 +180,12 @@ void weather_server_instance_taskwork(void* _context, uint64_t _montime)
       printf("WEATHER_SERVER_INSTANCE_DISPOSING (%p)\n", _Instance);
       scheduler_destroy_task(_Instance->task);
 
+    } break;
+
+    case WEATHER_SERVER_INSTANCE_ERROR:
+    {
+      _Instance->state = WEATHER_SERVER_INSTANCE_DISPOSING;
+      weather_server_instance_dispose(_Instance);
     } break;
   }
 }

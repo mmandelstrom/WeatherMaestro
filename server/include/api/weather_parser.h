@@ -82,8 +82,8 @@ typedef struct
 
 /* ---------------------- Interface ----------------------- */
 
-/** Heap init for data structs. To skip one, pass NULL as argument */
-int weather_parser_init_ptr(Location** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr);
+/** Heap init for data structs. To init its weather/forecast struct, pass true as that arg */
+int weather_parser_init_ptr(Location** _L_Ptr, bool _weather, bool _forecast);
 
 int weather_parser_get_location_by_coords(Location* _Location, float _lat, float _lon);
 
