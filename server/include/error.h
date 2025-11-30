@@ -23,7 +23,6 @@ typedef enum {
      * Argument / Input Errors     (-1 to -9)
      * ------------------------------------------------------------ */
     ERR_INVALID_ARG      = -1,     /**< One or more arguments were invalid */
-    ERR_OUT_OF_RANGE     = -2,     /**< Value was outside the allowed range */
     ERR_BAD_FORMAT       = -3,     /**< Input data was syntactically incorrect */
 
 
@@ -47,15 +46,12 @@ typedef enum {
      * Parse / Protocol Errors     (-30 to -39)
      * ------------------------------------------------------------ */
     ERR_PARSE            = -30,    /**< Failed to parse input or message */
-    ERR_PROTOCOL         = -31,    /**< Protocol violation or unexpected message */
-    ERR_UNSUPPORTED      = -32,    /**< Feature, command, or format not supported */
 
 
     /* ------------------------------------------------------------
      * Data Errors                 (-40 to -49)
      * ------------------------------------------------------------ */
     ERR_NOT_FOUND        = -40,    /**< Requested item or resource not found */
-    ERR_EMPTY            = -41,    /**< Resource exists but contains no data */
 
 
     /* ------------------------------------------------------------

@@ -47,14 +47,15 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _Request);
 int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req, HTTP_Response* _HTTP_Res)
 
 {
-  if (_Weather_API_Ptr == NULL)
-    return -1;
+  if (_Weather_API_Ptr == NULL) {
+    return ERR_INVALID_ARG;
+  }
 
   *_Weather_API_Ptr = malloc(sizeof(Weather_API));
   if (*_Weather_API_Ptr == NULL)
   {
     perror("malloc");
-    return -2;
+    return ERR_NO_MEMORY;
   }
 
   memset(*_Weather_API_Ptr, 0, sizeof(Weather_API));
@@ -62,7 +63,7 @@ int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req
   (*_Weather_API_Ptr)->http_request = _HTTP_Req;
   (*_Weather_API_Ptr)->http_response = _HTTP_Res;
 
-  return 0;
+  return SUCCESS;
 }
 
 /** Return endpoint enum from path string */
@@ -135,7 +136,7 @@ int weather_api_handle_endpoint(Weather_API* _API)
       } break;
   }
 
-  return 0;
+  return SUCCESS;
 }
 
 int weather_api_handle_endpoint_weather_get(Weather_API* _API)
@@ -143,7 +144,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   if (_API->http_request->params_count < 1)
   {
     _API->http_response->status_code = 400;
-    return 0;
+    return ERR_INVALID_ARG;
   }
 
   /* Init new City struct (Should check city cache first) */
@@ -152,7 +153,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   {
     perror("weather_parser_init_ptr");
     _API->http_response->status_code = 500;
-    return -1;
+    return ERR_NO_MEMORY;
   }
 
   /* Find and validate latitude and longitude params */
@@ -182,7 +183,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
     if (weather_parser_init_ptr(NULL, &_API->city->weather, NULL) != 0)
     {
       _API->http_response->status_code = 500;
-      return -2;
+      return ERR_NO_MEMORY;
     }
 
     /* Build city weather from open-meteo response (Should check weather cache first) */
@@ -214,7 +215,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   weather_parser_dispose_ptr(&_API->city, NULL, NULL);
   _API->city = NULL;
 
-  return 0;
+  return SUCCESS;
 }
 
 void weather_api_dispose_ptr(Weather_API** _API_Ptr)
