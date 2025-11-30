@@ -88,3 +88,4 @@ external/
 core/
 
 .env
+*data/cache/*

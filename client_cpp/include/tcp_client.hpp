@@ -14,8 +14,7 @@
 
 //
 //
-// ..::..
-// ''::''
+//
 //
 //
 
@@ -30,7 +29,7 @@ class TCP_Client {
 
     public:
         TCP_Client(std::string _Host, std::string _Port);
-        ~TCP_Client(){};
+        // ~TCP_Client(); TODO: Add DTor
 
         bool is_ready();
         int read();
