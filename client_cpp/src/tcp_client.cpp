@@ -26,7 +26,7 @@ TCP_Client::TCP_Client(std::string _Host, std::string _Port)
 
         if (int conn = connect(fd, res->ai_addr, res->ai_addrlen) == 0) {
             break;
-        } else if (errno == EINPROGRESS) {
+        } else if (conn == -1 && errno == EINPROGRESS) {
             break; //Nonblocking connection in progess (SOCKcess)
         }
         
@@ -49,4 +49,21 @@ int TCP_Client::set_nonblocking(int _Fd){
     return 0;
 }
 
+int TCP_Client::read() {
+    if (this->fd < 0) {
+        return -1;
+    }
+    //recv(this->fd, , , MSG_DONTWAIT); //TODO: Add reading capability.
+    return 0; //temp
+}
+
+int TCP_Client::write() {
+    return send(this->fd, this->transmit_data.c_str(), this->transmit_data.size(), MSG_NOSIGNAL);
+}
+
+int TCP_Client::getFileDescriptor() {
+    return this->fd;
+}
+
 bool TCP_Client::is_ready() {return ready;}
+
