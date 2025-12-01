@@ -255,7 +255,7 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
   }
 
   /*headers_end is the index of the first \r parser will ignore last line*/
-  size_t header_len = (size_t)headers_end + 2;
+  size_t header_len = (size_t)headers_end + 4;
   
   /*We have still parsed the full line including \r\n\r\n*/
   size_t parsed = (size_t)headers_end + 4;
