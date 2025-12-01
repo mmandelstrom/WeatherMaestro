@@ -10,6 +10,7 @@
 
 int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weather);
 int weather_parser_parse_bigdatacloud_geo(Location* _Location, Bigdatacloud_Geo* _BDC_Geo);
+int weather_parser_parse_nominatim_geo(Location* _Location, Nominatim_Geo* _NOM_Geo);
 
 /** Builds a Weather or Forecast struct using external API
  * Pre-reqs: _Location->lat & _Location->lon must be set and _Location->weather must be inited
@@ -392,6 +393,50 @@ char* weather_parser_build_json_weather(Weather* _Weather)
 
 /************************ LOCATION PARSING *************************/
 
+int weather_parser_get_location_by_query(Location* _Location, const char* _query)
+{
+  if (_query == NULL)
+    return -1;
+
+  int result;
+
+  /* if (file_exists(what?)) */
+  {
+    Nominatim_Geo* NOM_Geo;
+    result = nominatim_init_ptr(&NOM_Geo);
+    if (result != 0)
+    {
+      perror("nominatim_init_ptr");
+      return -2;
+    }
+
+    /* Get fresh Nominatim_Geo struct from API */
+    result = nominatim_get_geo_by_query(NOM_Geo, _query);
+    if (result != 0)
+    {
+      perror("nominatim_get_weather");
+      nominatim_dispose_ptr(&NOM_Geo);
+      return -3;
+    }
+
+    printf("---Nominatim Geo---\ncityname: %s | country %s\n lat: %f, lon: %f\n\n", NOM_Geo->city, NOM_Geo->country, NOM_Geo->lat, NOM_Geo->lon);
+
+    result = weather_parser_parse_nominatim_geo(_Location, NOM_Geo);
+    if (result != 0)
+    {
+      perror("weather_parser_parse_nominatim_weather");
+      nominatim_dispose_ptr(&NOM_Geo);
+      return -4;
+    }
+    nominatim_dispose_ptr(&NOM_Geo);
+
+    /* Not very nice, but doing this to save the cache file for now */
+    char* finished_json = weather_parser_build_json_location(_Location);
+    free(finished_json);
+  }
+  return 0;
+}
+
 /* First looks in cache by lat and lon, if none found search via API */
 int weather_parser_get_location_by_coords(Location* _Location, float _lat, float _lon)
 {
@@ -434,7 +479,6 @@ int weather_parser_get_location_by_coords(Location* _Location, float _lat, float
     }
 
     printf("---Bigdatacloud Geo---\ncityname: %s | country %s\n lat: %f, lon: %f\n\n", BDC_Geo->city, BDC_Geo->country_name, BDC_Geo->latitude, BDC_Geo->longitude);
-    printf("latitude: %f\n", BDC_Geo->latitude);
 
     result = weather_parser_parse_bigdatacloud_geo(_Location, BDC_Geo);
     if (result != 0)
@@ -449,6 +493,42 @@ int weather_parser_get_location_by_coords(Location* _Location, float _lat, float
     char* finished_json = weather_parser_build_json_location(_Location);
     free(finished_json);
   }
+
+  return 0;
+}
+
+int weather_parser_parse_nominatim_geo(Location* _Location, Nominatim_Geo* _NOM_Geo)
+{
+  _Location->lat = _NOM_Geo->lat;
+  _Location->lon = _NOM_Geo->lon;
+
+  /* Assign string members */
+  memcpy(_Location->country_code, _NOM_Geo->country_code, 2);
+  _Location->country_code[2] = '\0';
+
+  if(_NOM_Geo->country  != NULL)
+    _Location->country  = strdup(_NOM_Geo->country );
+  if(_NOM_Geo->county   != NULL)
+    _Location->county   = strdup(_NOM_Geo->county  );
+  if(_NOM_Geo->city     != NULL)
+    _Location->city     = strdup(_NOM_Geo->city    );
+  if(_NOM_Geo->postcode != NULL)
+    _Location->postcode = strdup(_NOM_Geo->postcode);
+  if(_NOM_Geo->street   != NULL)
+    _Location->street   = strdup(_NOM_Geo->street  );
+
+  if (_Location->country  == NULL || 
+      _Location->city     == NULL)
+  {
+    perror("Failed to parse city and country from nominatim");
+    return -1;
+  }
+
+  if (_NOM_Geo->house_number > 0)
+    _Location->street_number = _NOM_Geo->house_number;
+
+  printf("_NOM_Geo->latitude: %f", _NOM_Geo->lat);
+  printf("_Location->latitude: %f", _Location->lat);
 
   return 0;
 }
@@ -499,23 +579,29 @@ int location_parser_get_location_from_cache(Location* _Location, const char* _fi
 
   const char* timestamp_str = json_get_string(Json_Root, "timestamp");
 
-  _Location->lat           = json_get_double(Json_Root, "latitude");
-  _Location->lon           = json_get_double(Json_Root, "longitude");
-                                                 
-  _Location->country       = strdup(json_get_string(Json_Root, "country")); 
-  _Location->city          = strdup(json_get_string(Json_Root, "city")); 
-  _Location->locality      = strdup(json_get_string(Json_Root, "locality")); 
-  _Location->timezone      = strdup(json_get_string(Json_Root, "timezone")); 
+  _Location->lat            = json_get_double(Json_Root, "latitude");
+  _Location->lon            = json_get_double(Json_Root, "longitude");
+                                                  
+  /* Required */
+  _Location->country        = strdup(json_get_string(Json_Root, "country")); 
+  _Location->city           = strdup(json_get_string(Json_Root, "city")); 
 
-  if (_Location->country   == NULL ||
-    _Location->city        == NULL ||
-    _Location->locality    == NULL ||
-    _Location->timezone    == NULL)
+  if (_Location->country    == NULL ||
+    _Location->city         == NULL)
   {
     fprintf(stderr, "One or more strings couldn't be parsed from meteo json\n");
     cJSON_Delete(Json_Root);
     return -3;
   }
+
+  /* Extras, can be null */
+  _Location->county         = strdup(json_get_string(Json_Root, "county")); 
+  _Location->street         = strdup(json_get_string(Json_Root, "street")); 
+  _Location->postcode       = strdup(json_get_string(Json_Root, "postcode")); 
+  _Location->locality       = strdup(json_get_string(Json_Root, "locality")); 
+  _Location->timezone       = strdup(json_get_string(Json_Root, "timezone")); 
+
+  _Location->street_number  = json_get_int(Json_Root, "street_number");
 
   memcpy(_Location->timezone_gmt, json_get_string(Json_Root, "timezone_gmt"), 6);
   _Location->timezone_gmt[6] = '\0';
@@ -552,17 +638,31 @@ char* weather_parser_build_json_location(Location* _Location)
   json_set_double(Json_Root, "latitude", _Location->lat);
   json_set_double(Json_Root, "longitude", _Location->lon);
 
-  json_set_string(Json_Root, "country", _Location->country);
-  json_set_string(Json_Root, "country_code", _Location->country_code);
-  json_set_string(Json_Root, "city", _Location->city);
-  json_set_string(Json_Root, "locality", _Location->city);
-  json_set_string(Json_Root, "timezone", _Location->timezone);
-  json_set_string(Json_Root, "timezone_gmt", _Location->timezone_gmt);
+  if(_Location->country  != NULL && strcmp(_Location->country, "Unknown") != 0)
+    json_set_string(Json_Root, "country", _Location->country);
+  if(_Location->country_code[0]   != '\0') // is this viable?
+    json_set_string(Json_Root, "country_code", _Location->country_code);
+  if(_Location->county   != NULL && strcmp(_Location->county, "Unknown") != 0)
+    json_set_string(Json_Root, "county", _Location->county);
+  if(_Location->city     != NULL && strcmp(_Location->city, "Unknown") != 0)
+    json_set_string(Json_Root, "city", _Location->city);
+  if(_Location->postcode != NULL && strcmp(_Location->postcode, "Unknown") != 0)
+    json_set_string(Json_Root, "postcode", _Location->postcode);
+  if(_Location->street   != NULL && strcmp(_Location->street, "Unknown") != 0)
+    json_set_string(Json_Root, "street", _Location->street);
+  if (_Location->street_number > 0)
+    json_set_int(Json_Root, "street_number", _Location->street_number);
+  if (_Location->locality != NULL && strcmp(_Location->locality, "Unknown") != 0)
+    json_set_string(Json_Root, "locality", _Location->locality);
+  if(_Location->timezone != NULL && strcmp(_Location->timezone, "Unknown") != 0)
+    json_set_string(Json_Root, "timezone", _Location->timezone);
+  if(_Location->timezone_gmt[0]   != '\0')
+    json_set_string(Json_Root, "timezone_gmt", _Location->timezone_gmt);
 
   char* json_str = cJSON_Print(Json_Root); // Uses realloc and ends up in heap
 
   if (write_string_to_file(json_str, _Location->cache_path) != 0)
-    fprintf(stderr, "Failed to write string \"%p\" to cache \"%s\"\n", json_str, _Location->cache_path); 
+    fprintf(stderr, "FAILED TO WRITE STRING \"%p\" TO CACHE \"%s\"\n", json_str, _Location->cache_path); 
 
   cJSON_Delete(Json_Root);
 
@@ -639,6 +739,21 @@ void weather_parser_dispose_ptr(Location** _L_Ptr, Weather** _W_Ptr, Forecast** 
       {
         free((void*)(*_L_Ptr)->timezone);
         (*_L_Ptr)->timezone = NULL;
+      }
+      if ((*_L_Ptr)->county != NULL)
+      {
+        free((void*)(*_L_Ptr)->county);
+        (*_L_Ptr)->county = NULL;
+      }
+      if ((*_L_Ptr)->postcode != NULL)
+      {
+        free((void*)(*_L_Ptr)->postcode);
+        (*_L_Ptr)->postcode = NULL;
+      }
+      if ((*_L_Ptr)->street != NULL)
+      {
+        free((void*)(*_L_Ptr)->street);
+        (*_L_Ptr)->street = NULL;
       }
       free(*_L_Ptr);
       *_L_Ptr = NULL;

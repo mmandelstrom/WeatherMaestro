@@ -63,6 +63,7 @@ const char* bigdatacloud_get_reverse_geocode_json(float _lat, float _lon)
                          _lat, 
                          _lon);
   url[url_len] = '\0';
+  printf("bigdatawhatever request url: \n%s\n", url);
   
 	Curl_Data C_Data;
 	if (curl_init(&C_Data) != 0)
