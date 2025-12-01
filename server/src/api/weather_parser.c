@@ -1,36 +1,36 @@
 #include "../../include/api/weather_parser.h"
 
-#define CACHE_FILENAME_LOCATION "_lat%.3f_lon%.3f_location"
-#define CACHE_FILENAME_WEATHER "_lat%.3f_lon%.3f_current"
-#define CACHE_FILENAME_FORECAST "_lat%.3f_lon%.3f_forecast"
+/* Pre-hashed cache filename definitions
+ * Might not even need hash since they're (almost) the same length */
+#define CACHE_FILENAME_LOCATION "lat%.3f_lon%.3f_location"
+#define CACHE_FILENAME_WEATHER  "lat%.3f_lon%.3f_current"
+#define CACHE_FILENAME_FORECAST "lat%.3f_lon%.3f_forecast"
 
 /* ---------------------- Internal functions ----------------------- */
 
 int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weather);
 int weather_parser_parse_bigdatacloud_geo(Location* _Location, Bigdatacloud_Geo* _BDC_Geo);
 
-/** Builds a Weather or Forecast struct using open-meteo API
+/** Builds a Weather or Forecast struct using external API
  * Pre-reqs: _Location->lat & _Location->lon must be set and _Location->weather must be inited
  * If _forecast is true then _Location->forecast must be inited instead */
 int weather_parser_get_weather_from_api(Location* _Location, ExternalWeatherAPI _ExtAPI, bool _forecast);
-
-char* weather_parser_get_weather_cache_filepath(Location* _Location, bool _forecast);
 
 /** Builds a Weather or Forecast struct from cache file
  * Pre-reqs: Location must have name, lat and lon
  * Returns 0 if succesful, -1 if no recent cache file found (it can still exist) */
 int weather_parser_get_weather_from_cache(Location* _Location, const char* _filepath, bool _forecast);
 
+int location_parser_get_location_from_cache(Location* _Location, const char* _filepath);
+
 char* weather_parser_build_weather_json(Weather* _Weather);
 
-/**/
-bool weather_parser_location_cache_exists(const char* _filepath, const char* _name, float _lat, float _lon);
 /** Checks how long ago timestamp in cachefile was 
   Returns true if file with same path and within time interval exists */
 bool weather_parser_recent_weather_cache_exists(const char* _filepath, int _interval, bool _forecast);
 
 /** Returns the full filepath for a Location's Weather/Forecast cache 
- * Pre-reqs: Location must have name, lat and lon set 
+ * Pre-reqs: Location must have lat and lon set 
  * Writes to heap, free'd by caller */
 char* weather_parser_get_cache_filepath_location(Location* _Location);
 char* weather_parser_get_cache_filepath_weather(Location* _Location, bool _forecast);
@@ -185,6 +185,19 @@ int weather_parser_get_weather_from_cache(Location* _Location, const char* _file
   }
   free((void*)weather_json);
 
+  cJSON* Weather = cJSON_GetObjectItemCaseSensitive(Json_Root, "weather");
+  if (Weather == NULL){
+    fprintf(stderr, "'weather' section missing in cache json\n");
+    cJSON_Delete(Json_Root);
+    return -2;
+  }
+  cJSON* Units = cJSON_GetObjectItemCaseSensitive(Json_Root, "units");
+  if (Units == NULL){
+    fprintf(stderr, "'current_units' section missing in cache json\n");
+    cJSON_Delete(Json_Root);
+    return -3;
+  }
+
   if (!_forecast)
   {
   const char* timestamp_str = json_get_string(Json_Root, "timestamp");
@@ -194,16 +207,16 @@ int weather_parser_get_weather_from_cache(Location* _Location, const char* _file
   _Location->weather->latitude              = json_get_double(Json_Root, "latitude");
   _Location->weather->longitude             = json_get_double(Json_Root, "longitude");
                                                            
-  _Location->weather->temperature           = json_get_int(Json_Root, "temperature");
-  _Location->weather->precipitation         = json_get_int(Json_Root, "precipitation");
-  _Location->weather->windspeed             = json_get_int(Json_Root, "windspeed");
-  _Location->weather->winddirection_azimuth = json_get_int(Json_Root, "winddirection");
-  _Location->weather->wmo_code              = json_get_int(Json_Root, "wmo_code");
+  _Location->weather->temperature           = json_get_int(Weather, "temperature");
+  _Location->weather->precipitation         = json_get_int(Weather, "precipitation");
+  _Location->weather->windspeed             = json_get_int(Weather, "windspeed");
+  _Location->weather->winddirection_azimuth = json_get_int(Weather, "winddirection");
+  _Location->weather->wmo_code              = json_get_int(Weather, "wmo_code");
 
-  _Location->weather->temperature_unit      = strdup(json_get_string(Json_Root, "temperature_unit")); 
-  _Location->weather->windspeed_unit        = strdup(json_get_string(Json_Root, "windspeed_unit")); 
-  _Location->weather->precipitation_unit    = strdup(json_get_string(Json_Root, "precipitation_unit"));
-  _Location->weather->winddirection_unit    = strdup(json_get_string(Json_Root, "winddirection_unit"));
+  _Location->weather->temperature_unit      = strdup(json_get_string(Units, "temperature_unit")); 
+  _Location->weather->windspeed_unit        = strdup(json_get_string(Units, "windspeed_unit")); 
+  _Location->weather->precipitation_unit    = strdup(json_get_string(Units, "precipitation_unit"));
+  _Location->weather->winddirection_unit    = strdup(json_get_string(Units, "winddirection_unit"));
   }
 
   if (_Location->weather->temperature_unit == NULL ||
@@ -336,7 +349,7 @@ bool weather_parser_recent_weather_cache_exists(const char* _filepath, int _inte
   }
 }
 
-char* weather_parser_build_json_weather(Weather* _Weather, const char* _cache_path)
+char* weather_parser_build_json_weather(Weather* _Weather)
 {
   if (!_Weather) {
     return "";
@@ -368,8 +381,8 @@ char* weather_parser_build_json_weather(Weather* _Weather, const char* _cache_pa
 
   char* json_str = cJSON_Print(Json_Root); // Uses realloc and ends up in heap
 
-  if (write_string_to_file(json_str, _cache_path) != 0)
-    fprintf(stderr, "Failed to write string \"%p\" to cache \"%s\"\n", json_str, _cache_path); 
+  if (write_string_to_file(json_str, _Weather->cache_path) != 0)
+    fprintf(stderr, "Failed to write string \"%p\" to cache \"%s\"\n", json_str, _Weather->cache_path); 
 
   free((void*)iso_timestamp);
   cJSON_Delete(Json_Root);
@@ -384,36 +397,58 @@ int weather_parser_get_location_by_coords(Location* _Location, float _lat, float
 {
   int result;
 
-  /* Init bigdatacloud */
-  Bigdatacloud_Geo* BDC_Geo;
-  result = bigdatacloud_init_ptr(&BDC_Geo);
-  if (result != 0)
-  {
-    perror("bigdatacloud_init");
-    return -1;
-  }
+  _Location->lat = _lat;
+  _Location->lon = _lon;
 
-  /* Get fresh Bigdatacloud_Geo struct from API */
-  result = bigdatacloud_get_geo_by_coords(BDC_Geo, _Location->lat, _Location->lon);
-  if (result != 0)
+  _Location->cache_path = weather_parser_get_cache_filepath_location(_Location);
+
+  if (file_exists(_Location->cache_path))
   {
-    perror("bigdatacloud_get_weather");
+    printf("Getting location from cache\n");
+    result = location_parser_get_location_from_cache(_Location, _Location->cache_path);
+    if (result != 0)
+    {
+      perror("location_parser_get_location_from_cache");
+      return -1;
+    }
+  }
+  else // Get from api
+  {
+    printf("Getting location from API\n");
+    /* Init bigdatacloud */
+    Bigdatacloud_Geo* BDC_Geo;
+    result = bigdatacloud_init_ptr(&BDC_Geo);
+    if (result != 0)
+    {
+      perror("bigdatacloud_init");
+      return -2;
+    }
+
+    /* Get fresh Bigdatacloud_Geo struct from API */
+    result = bigdatacloud_get_geo_by_coords(BDC_Geo, _Location->lat, _Location->lon);
+    if (result != 0)
+    {
+      perror("bigdatacloud_get_weather");
+      bigdatacloud_dispose_ptr(&BDC_Geo);
+      return -3;
+    }
+
+    printf("---Bigdatacloud Geo---\ncityname: %s | country %s\n lat: %f, lon: %f\n\n", BDC_Geo->city, BDC_Geo->country_name, BDC_Geo->latitude, BDC_Geo->longitude);
+    printf("latitude: %f\n", BDC_Geo->latitude);
+
+    result = weather_parser_parse_bigdatacloud_geo(_Location, BDC_Geo);
+    if (result != 0)
+    {
+      perror("weather_parser_parse_bigdatacloud_weather");
+      bigdatacloud_dispose_ptr(&BDC_Geo);
+      return -4;
+    }
     bigdatacloud_dispose_ptr(&BDC_Geo);
-    return -2;
+
+    /* Not very nice, but doing this to save the cache file for now */
+    char* finished_json = weather_parser_build_json_location(_Location);
+    free(finished_json);
   }
-
-  printf("---Bigdatacloud Geo---\ncityname: %s | country %s\n lat: %f, lon: %f\n\n", BDC_Geo->city, BDC_Geo->country_name, BDC_Geo->latitude, BDC_Geo->longitude);
-  printf("latitude: %f\n", BDC_Geo->latitude);
-
-  result = weather_parser_parse_bigdatacloud_geo(_Location, BDC_Geo);
-  if (result != 0)
-  {
-    perror("weather_parser_parse_bigdatacloud_weather");
-    bigdatacloud_dispose_ptr(&BDC_Geo);
-    return -3;
-  }
-
-  bigdatacloud_dispose_ptr(&BDC_Geo);
 
   return 0;
 }
@@ -445,6 +480,52 @@ int weather_parser_parse_bigdatacloud_geo(Location* _Location, Bigdatacloud_Geo*
   return 0;
 }
 
+int location_parser_get_location_from_cache(Location* _Location, const char* _filepath)
+{
+  const char* location_json = read_file_to_string(_filepath);
+  if (location_json == NULL)
+    return -1;
+
+  cJSON* Json_Root = cJSON_Parse(location_json);
+  if (Json_Root == NULL) {
+    const char* error_pointer = cJSON_GetErrorPtr();
+    if (error_pointer != NULL){
+      fprintf(stderr,"meteo json error %s\n", error_pointer);
+    }
+    free((void*)location_json);
+    return -2;
+  }
+  free((void*)location_json);
+
+  const char* timestamp_str = json_get_string(Json_Root, "timestamp");
+
+  _Location->lat           = json_get_double(Json_Root, "latitude");
+  _Location->lon           = json_get_double(Json_Root, "longitude");
+                                                 
+  _Location->country       = strdup(json_get_string(Json_Root, "country")); 
+  _Location->city          = strdup(json_get_string(Json_Root, "city")); 
+  _Location->locality      = strdup(json_get_string(Json_Root, "locality")); 
+  _Location->timezone      = strdup(json_get_string(Json_Root, "timezone")); 
+
+  if (_Location->country    == NULL ||
+    _Location->city           == NULL ||
+    _Location->locality       == NULL ||
+    _Location->timezone       == NULL)
+  {
+    fprintf(stderr, "One or more strings couldn't be parsed from meteo json\n");
+    cJSON_Delete(Json_Root);
+    return -3;
+  }
+
+  memcpy(_Location->timezone_gmt, json_get_string(Json_Root, "timezone_gmt"), 6);
+  _Location->timezone_gmt[6] = '\0';
+  memcpy(_Location->country_code, json_get_string(Json_Root, "timezone_gmt"), 2);
+  _Location->country_code[2] = '\0';
+
+  cJSON_Delete(Json_Root);
+
+  return 0;
+}
 char* weather_parser_get_cache_filepath_location(Location* _Location)
 {
   int filename_len;
@@ -464,42 +545,6 @@ char* weather_parser_get_cache_filepath_location(Location* _Location)
   return full_filepath;
 }
 
-/* Uses member "city" to match with _name */
-bool weather_parser_location_cache_exists(const char* _filepath, const char* _name, float _lat, float _lon)
-{
-  if (_filepath == NULL)
-    return false;
-
-  const char* cache_contents = read_file_to_string(_filepath);
-  if (cache_contents == NULL)
-    return false;
-
-  cJSON* Json_Root = cJSON_Parse(cache_contents);
-  if (Json_Root == NULL) {
-    const char* error_pointer = cJSON_GetErrorPtr();
-    if (error_pointer != NULL){
-      fprintf(stderr,"cJSON_Parse error %s\n", error_pointer);
-    }
-    free((void*)cache_contents);
-    return false;
-  }
-  free((void*)cache_contents);
-
-  const char* json_name = json_get_string(Json_Root, "city");
-  float       json_lat  = json_get_double(Json_Root, "latitude");
-  float       json_lon  = json_get_double(Json_Root, "longitude");
-
-  if (json_lat == _lat && json_lon == _lon)
-  {
-    cJSON_Delete(Json_Root);
-    return true;
-  }
-
-  cJSON_Delete(Json_Root);
-  return false;
-}
-
-
 char* weather_parser_build_json_location(Location* _Location)
 {
   cJSON* Json_Root = cJSON_CreateObject();
@@ -515,6 +560,9 @@ char* weather_parser_build_json_location(Location* _Location)
   json_set_string(Json_Root, "timezone_gmt", _Location->timezone_gmt);
 
   char* json_str = cJSON_Print(Json_Root); // Uses realloc and ends up in heap
+
+  if (write_string_to_file(json_str, _Location->cache_path) != 0)
+    fprintf(stderr, "Failed to write string \"%p\" to cache \"%s\"\n", json_str, _Location->cache_path); 
 
   cJSON_Delete(Json_Root);
 

@@ -2,10 +2,21 @@
 #include "../include/file_utils.h"
 
 /* Returns true or false whether directory exists */
-bool directory_exists(const char* _path) {
+bool directory_exists(const char* _path) 
+{
   struct stat buffer;
   if (stat(_path, &buffer) == 0) {
     return S_ISDIR(buffer.st_mode);
+  }
+  return false;
+}
+
+/* Returns true or false whether file exists */
+bool file_exists(const char* _path) 
+{
+  struct stat buffer;
+  if (stat(_path, &buffer) == 0) {
+    return S_ISREG(buffer.st_mode);
   }
   return false;
 }

@@ -85,15 +85,17 @@ typedef struct
 /** Heap init for data structs. To init its weather/forecast struct, pass true as that arg */
 int weather_parser_init_ptr(Location** _L_Ptr, bool _weather, bool _forecast);
 
+/**
+ * Pre-reqs: Location must be inited */
 int weather_parser_get_location_by_coords(Location* _Location, float _lat, float _lon);
 
 int weather_parser_get_weather(Location* _Location, bool _forecast, ExternalWeatherAPI _ExtAPI);
 
 /** Builds a json formatted string from struct members 
  * Saves it to cache file as well */
-char* weather_parser_build_json_weather(Weather* _Weather, const char* _cache_path);
+char* weather_parser_build_json_weather(Weather* _Weather);
 // char* weather_parser_build_json_forecast(Forecast* _Forecast);
-// char* weather_parser_build_json_location(Location* _Location)
+char* weather_parser_build_json_location(Location* _Location);
 
 /** Takes a string and tries to convert it to float
  * Only takes COORD_BUFFER_LENGTH amount of chars to target

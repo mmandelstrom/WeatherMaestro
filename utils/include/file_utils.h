@@ -8,9 +8,13 @@
 #include <errno.h> 
 #include <string.h> 
 
-int write_string_to_file(const char* _str, const char* _filename);
+bool directory_exists(const char* _path);
+
+bool file_exists(const char* _path);
 
 int create_directory_if_not_exists(const char* _path);
+
+int write_string_to_file(const char* _str, const char* _filename);
 
 /* Writes file to heap location */
 const char* read_file_to_string(const char* _filename);

@@ -181,9 +181,6 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
     }
     printf("_Location: %p, _Location->weather: %p\n", _API->location, _API->location->weather); 
 
-    _API->location->lat = lat;
-    _API->location->lon = lon;
-
     if (weather_parser_get_location_by_coords(_API->location, lat, lon) != 0)
     {
       perror("weather_parser_get_location_by_coords");
@@ -225,7 +222,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
     return -4;
   }
 
-  char* json_response = weather_parser_build_json_weather(_API->location->weather, _API->location->weather->cache_path);
+  char* json_response = weather_parser_build_json_weather(_API->location->weather);
 
   _API->http_response->body = json_response;
   _API->http_response->status_code = 200;
