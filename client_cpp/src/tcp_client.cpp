@@ -26,8 +26,9 @@ TCP_Client::TCP_Client(std::string _Host, std::string _Port)
           continue;
         }
      
+        //Todo: Fix nonblocking bug OR remove nonblocking capability
+
         if (int conn = connect(fd, addr_info->ai_addr, addr_info->ai_addrlen) == 0) {
-          std::cout << fd << std::endl;
           break;
         } else if (conn == -1 && errno == EINPROGRESS) {
           std::cout << "in progress" << std::endl;
@@ -37,7 +38,6 @@ TCP_Client::TCP_Client(std::string _Host, std::string _Port)
         close(fd);
         fd = -1;
     }
-    std::cout << fd << std::endl;
     
     freeaddrinfo(res);
     
@@ -113,10 +113,8 @@ int TCP_Client::transmit() {
 
     while (transmit_bytes > 0)
     {
-        std::cout << this->fd << std::endl;
         bytes_transmitted = send(this->fd, this->transmit_data.c_str(), this->transmit_data.size(), MSG_NOSIGNAL);
         std::cout << "Bytes_transmitted: " << bytes_transmitted << std::endl;
-        perror("send");
 
         if (bytes_transmitted < 0) {
             if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR) {
