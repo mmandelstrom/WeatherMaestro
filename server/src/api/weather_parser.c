@@ -507,10 +507,10 @@ int location_parser_get_location_from_cache(Location* _Location, const char* _fi
   _Location->locality      = strdup(json_get_string(Json_Root, "locality")); 
   _Location->timezone      = strdup(json_get_string(Json_Root, "timezone")); 
 
-  if (_Location->country    == NULL ||
-    _Location->city           == NULL ||
-    _Location->locality       == NULL ||
-    _Location->timezone       == NULL)
+  if (_Location->country   == NULL ||
+    _Location->city        == NULL ||
+    _Location->locality    == NULL ||
+    _Location->timezone    == NULL)
   {
     fprintf(stderr, "One or more strings couldn't be parsed from meteo json\n");
     cJSON_Delete(Json_Root);
@@ -519,7 +519,7 @@ int location_parser_get_location_from_cache(Location* _Location, const char* _fi
 
   memcpy(_Location->timezone_gmt, json_get_string(Json_Root, "timezone_gmt"), 6);
   _Location->timezone_gmt[6] = '\0';
-  memcpy(_Location->country_code, json_get_string(Json_Root, "timezone_gmt"), 2);
+  memcpy(_Location->country_code, json_get_string(Json_Root, "country_code"), 2);
   _Location->country_code[2] = '\0';
 
   cJSON_Delete(Json_Root);
