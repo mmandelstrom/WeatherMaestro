@@ -12,6 +12,7 @@
 
 #include "meteo.h"
 #include "bigdatacloud.h"
+#include "nominatim.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -66,7 +67,10 @@ typedef struct
 
   const char* cache_path;
   const char* country;
+  const char* county;
   const char* city;
+  const char* postcode;
+  const char* street;
   const char* locality;
   const char* timezone; // local timezone, ex: "Europe/Stockholm"
 
@@ -74,6 +78,8 @@ typedef struct
   
   float       lat;
   float       lon;
+
+  int         street_number;
 
   char        country_code[3]; // two-char country code, ex: "SE"
 
@@ -88,6 +94,7 @@ int weather_parser_init_ptr(Location** _L_Ptr, bool _weather, bool _forecast);
 /**
  * Pre-reqs: Location must be inited */
 int weather_parser_get_location_by_coords(Location* _Location, float _lat, float _lon);
+int weather_parser_get_location_by_query(Location* _Location, const char* _query);
 
 int weather_parser_get_weather(Location* _Location, bool _forecast, ExternalWeatherAPI _ExtAPI);
 

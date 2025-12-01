@@ -16,30 +16,31 @@ const Weather_API_Endpoint Endpoints[ENDPOINT_INVALID] = {
     ENDPOINT_FORECAST_GET, 
   },
   { 
-    "/cities",
+    "/geo/list",
     HTTP_GET, 
-    ENDPOINT_CITIES_LIST, 
+    ENDPOINT_GEO_LIST, 
   },
   { 
-    "/cities/geo",
+    "/geo",
     HTTP_GET, 
-    ENDPOINT_CITIES_COORDS, 
+    ENDPOINT_GEO_GET, 
   },
   { 
     "/cities/add",
     HTTP_POST, 
-    ENDPOINT_CITIES_ADD, // Should not be public, i.e should have an auth of some kind 
+    ENDPOINT_GEO_ADD, // Should not be public, i.e should have an auth of some kind 
   },
   { 
     "/cities/remove",
     HTTP_DELETE, 
-    ENDPOINT_CITIES_REMOVE, // Same as cities_add
+    ENDPOINT_GEO_REMOVE, // Same as cities_add
   },
 };
 
 WeatherAPIEndpoint weather_api_get_endpoint(const char* _request_path);
 
 int weather_api_handle_endpoint_weather_get(Weather_API* _Request);
+int weather_api_handle_endpoint_geo_get(Weather_API* _API);
 
 /** -------------------------------------------------------------- */
 
@@ -109,22 +110,22 @@ int weather_api_handle_endpoint(Weather_API* _API)
         printf("ENDPOINT_FORECAST_GET \n");
         _API->http_response->status_code = 404; // replace with actual implementation
       } break;
-    case ENDPOINT_CITIES_LIST:
+    case ENDPOINT_GEO_LIST:
       {
-        printf("ENDPOINT_CITIES_LIST  \n");
+        printf("ENDPOINT_GEO_LIST  \n");
         _API->http_response->status_code = 404; // replace with actual implementation
       } break;
-    case ENDPOINT_CITIES_COORDS:
+    case ENDPOINT_GEO_GET:
       {
-        printf("ENDPOINT_CITIES_COORDS\n");
+        printf("ENDPOINT_GEO_GET\n");
+        result = weather_api_handle_endpoint_geo_get(_API); 
+      } break;
+    case ENDPOINT_GEO_ADD:
+      {
+        printf("ENDPOINT_GEO_ADD   \n");
         _API->http_response->status_code = 404; // replace with actual implementation
       } break;
-    case ENDPOINT_CITIES_ADD:
-      {
-        printf("ENDPOINT_CITIES_ADD   \n");
-        _API->http_response->status_code = 404; // replace with actual implementation
-      } break;
-    case ENDPOINT_CITIES_REMOVE:
+    case ENDPOINT_GEO_REMOVE:
       {
         printf("ENDPOINT_CITIES_REMOVE\n");
         _API->http_response->status_code = 404; // replace with actual implementation
@@ -135,6 +136,66 @@ int weather_api_handle_endpoint(Weather_API* _API)
         _API->http_response->status_code = 404;
       } break;
   }
+
+  return SUCCESS;
+}
+
+int weather_api_handle_endpoint_geo_get(Weather_API* _API)
+{
+  if (_API->http_request->params_count < 1)
+  {
+    _API->http_response->status_code = 400;
+    return ERR_INVALID_ARG;
+  }
+
+  /* Init Location without weather or forecast*/
+  if (weather_parser_init_ptr(&_API->location, false, false) != 0)
+  {
+    perror("weather_parser_init_ptr");
+    _API->http_response->status_code = 500;
+    return ERR_INTERNAL;
+  }
+
+  char* query;
+  int query_found = 0;
+  linked_list_foreach(_API->http_request->params, node)
+  {
+    HTTP_Key_Value* Param = (HTTP_Key_Value*)node->item;
+    if (Param->key != NULL && Param->value != NULL)
+    {
+      if ((strcmp(Param->key, "q") == 0 || strcmp(Param->key, "city") == 0) && query_found < 1)
+      {
+        query = strdup(Param->value);
+        query_found++;
+      }
+    }
+  }
+
+  if (query_found > 0)
+  {
+    if (weather_parser_get_location_by_query(_API->location, query) != 0)
+    {
+      perror("weather_parser_get_location_by_coords");
+      free(query);
+      _API->http_response->status_code = 500;
+      return ERR_INTERNAL;
+    }
+  }
+  else
+  {
+    _API->http_response->status_code = 400;
+    return ERR_INVALID_ARG;
+  }
+
+  free(query);
+
+  char* json_response = weather_parser_build_json_location(_API->location);
+
+  _API->http_response->body = json_response;
+  _API->http_response->status_code = 200;
+
+  weather_parser_dispose_ptr(&_API->location, NULL, NULL);
+  _API->location = NULL;
 
   return SUCCESS;
 }

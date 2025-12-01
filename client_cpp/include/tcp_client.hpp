@@ -22,6 +22,7 @@ class TCP_Client {
     private:
         int fd;
         std::string transmit_data;
+        int transmit_length;
         std::string receive_data;
         bool ready;
 
@@ -29,11 +30,11 @@ class TCP_Client {
 
     public:
         TCP_Client(std::string _Host, std::string _Port);
-        // ~TCP_Client(); TODO: Add DTor
-
+        
         bool is_ready();
-        int read();
-        int write();
+        int recieve();
+        int transmit();
+        void setTransmitData(std::string _Data);
         int getFileDescriptor();
 
 };

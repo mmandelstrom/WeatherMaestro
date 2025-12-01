@@ -33,3 +33,35 @@ char* strdup(const char* _str) {
   return copy;
 }
 #endif /* strdup */
+
+int parse_string_to_double(const char* _str, double* _double)
+{
+  if (_str == NULL)
+    return -1;
+
+  int read_max_len = 36; // precision; max chars to read
+  char buf[read_max_len];
+  int str_len = strlen(_str);
+
+  errno = 0; // reset errno
+  if (str_len > read_max_len)
+  {
+    strncpy(buf, _str, read_max_len);
+    buf[read_max_len-1] = '\0';
+  } 
+  else 
+  {
+    strncpy(buf, _str, str_len);
+    buf[str_len] = '\0';
+  }
+
+  char* endptr;
+  double dubb = strtod(buf, &endptr);
+
+  if (errno != 0 || endptr == buf || *endptr != '\0')
+    return -1;
+
+  *_double = dubb;
+
+  return 0;
+}

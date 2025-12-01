@@ -46,7 +46,7 @@ void json_set_double(cJSON* _Json, const char* _key, double _val)
 }
 void json_set_string(cJSON* _Json, const char* _key, const char* _val)
 {
-  if (_key == NULL)
+  if (_key == NULL || _val == NULL)
     return;
   else if (_val == NULL)
     cJSON_AddStringToObject(_Json, _key, "Unknown");
