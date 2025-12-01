@@ -1,6 +1,6 @@
 #include "../include/tcp_client.hpp"
 
-TCP_Client::TCP_Client(std::string _Host, std::string _Port) 
+TCP_Client::TCP_Client() 
     : fd(-1), ready(false), transmit_length(0)
 {
     std::cout << "TCP CLI CTOR" << std::endl; //DEBUG
@@ -12,7 +12,7 @@ TCP_Client::TCP_Client(std::string _Host, std::string _Port)
     connhints.ai_socktype = SOCK_STREAM;
     connhints.ai_protocol = IPPROTO_TCP; // TCP
 
-    int code = getaddrinfo(_Host.c_str(), _Port.c_str(), &connhints, &res);
+    int code = getaddrinfo(HOST, PORT, &connhints, &res);
     if(code != 0) {
         std::cout << "Error " << code << " while getting address info: " << gai_strerror(code) << std::endl;
         return;
@@ -94,13 +94,13 @@ int TCP_Client::recieve() {
 
     recv_buf[buf_len] = '\0';
 
-    std::string s(recv_buf, sizeof(buf_len));
+    std::string s(recv_buf, buf_len);
     this->receive_data = s;
-
-    std::cout << "Recieve data: " << this->receive_data << std::endl; //DEBUG
     
     return 0; 
 }
+
+std::string TCP_Client::getRecieveData() {return this->receive_data;}
 
 int TCP_Client::transmit() {
     if (this->fd < 0 || this->transmit_length <= 0 || this->transmit_data.empty()) {
