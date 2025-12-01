@@ -1,4 +1,4 @@
-#include "tcp_client.hpp"
+#include "../include/tcp_client.hpp"
 
 TCP_Client::TCP_Client(std::string _Host, std::string _Port) 
     : fd(-1), ready(false), transmit_length(0)
@@ -7,10 +7,10 @@ TCP_Client::TCP_Client(std::string _Host, std::string _Port)
 
     struct addrinfo connhints = {0}; 
     struct addrinfo* res = nullptr;
-
+    
     connhints.ai_family = AF_UNSPEC;
     connhints.ai_socktype = SOCK_STREAM;
-    connhints.ai_protocol = 6; // TCP
+    connhints.ai_protocol = IPPROTO_TCP; // TCP
 
     int code = getaddrinfo(_Host.c_str(), _Port.c_str(), &connhints, &res);
     if(code != 0) {
@@ -18,25 +18,27 @@ TCP_Client::TCP_Client(std::string _Host, std::string _Port)
         return;
     }
 
-    int fd;
-    while (res->ai_next != NULL)
+    int fd = -1;
+    for (struct addrinfo *addr_info = res; addr_info; addr_info = addr_info->ai_next)
     {
-        fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-        if (fd < 0) {continue;}
-
-        this->set_nonblocking(fd);
-
-        if (int conn = connect(fd, res->ai_addr, res->ai_addrlen) == 0) {
-            break;
+        fd = socket(addr_info->ai_family, addr_info->ai_socktype, addr_info->ai_protocol);
+        if (fd < 0) {
+          continue;
+        }
+     
+        if (int conn = connect(fd, addr_info->ai_addr, addr_info->ai_addrlen) == 0) {
+          std::cout << fd << std::endl;
+          break;
         } else if (conn == -1 && errno == EINPROGRESS) {
-            break; //Nonblocking connection in progess (SOCKcess)
+          std::cout << "in progress" << std::endl;
+          break; //Nonblocking connection in progess (SOCKcess)
         }
         
-
         close(fd);
         fd = -1;
     }
-
+    std::cout << fd << std::endl;
+    
     freeaddrinfo(res);
     
     if (fd >= 3) {
@@ -47,8 +49,14 @@ TCP_Client::TCP_Client(std::string _Host, std::string _Port)
 }
 
 int TCP_Client::set_nonblocking(int _Fd){
-    if (int flags = fcntl(_Fd, F_GETFL, 0) == -1) {return -1;} else 
-    if (fcntl(_Fd, F_SETFL, flags | O_NONBLOCK) == -1) {return -1;} 
+      if (int flags = fcntl(_Fd, F_GETFL, 0) == -1) 
+      {
+        return -1;
+      } else 
+      if (fcntl(_Fd, F_SETFL, flags | O_NONBLOCK) == -1)
+      {
+        return -1;
+      } 
     return 0;
 }
 
@@ -102,8 +110,10 @@ int TCP_Client::transmit() {
     int transmit_bytes = this->transmit_length;
     int bytes_transmitted = 0;
 
+
     while (transmit_bytes > 0)
     {
+        std::cout << this->fd << std::endl;
         bytes_transmitted = send(this->fd, this->transmit_data.c_str(), this->transmit_data.size(), MSG_NOSIGNAL);
         std::cout << "Bytes_transmitted: " << bytes_transmitted << std::endl;
         perror("send");
