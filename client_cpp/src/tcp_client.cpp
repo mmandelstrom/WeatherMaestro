@@ -3,8 +3,6 @@
 TCP_Client::TCP_Client() 
     : fd(-1), ready(false), transmit_length(0)
 {
-    std::cout << "TCP CLI CTOR" << std::endl; //DEBUG
-
     struct addrinfo connhints = {0}; 
     struct addrinfo* res = nullptr;
     
@@ -43,7 +41,7 @@ TCP_Client::TCP_Client()
     
     if (fd >= 3) {
     this->fd = fd;
-    std::cout << "Socket successfully connected at fd " << fd << "!" << std::endl;
+    //std::cout << "Socket successfully connected at fd " << fd << "!" << std::endl;
     ready = true;
     }
 }

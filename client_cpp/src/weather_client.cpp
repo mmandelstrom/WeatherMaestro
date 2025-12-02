@@ -1,7 +1,6 @@
 #include "weather_client.hpp"
 #include "json.hpp"
 
-
 WeatherClient::WeatherClient(std::string _City, std::string _Country)
     : lat(59.3753f), 
     lon(17.969f), 
@@ -66,15 +65,11 @@ int WeatherClient::parseBody() {
 
     nlohmann::json bodyobj = nlohmann::json::parse(this->http_response_body);
     
-    
-
     std::string timestamp = bodyobj["timestamp"];
     std::size_t t = timestamp.find("T");
     this->date = timestamp.substr(0, t);
     this->time = timestamp.substr(t+1);
     
-
-
     if (bodyobj.contains("weather") && bodyobj["weather"].contains("temperature")) {
         this->temperature = bodyobj["weather"]["temperature"].get<float>();
     }
@@ -102,14 +97,6 @@ int WeatherClient::parseBody() {
     if (bodyobj.contains("units") && bodyobj["units"].contains("winddirection_unit")) {
         this->winddirection_unit = bodyobj["units"]["winddirection_unit"];
     }
-
-    std::cout << date << std::endl;
-    std::cout << time << std::endl;
-    std::cout << this->temperature << this->temperature_unit << std::endl;
-    std::cout << this->windspeed << this->windspeed_unit << std::endl;
-    std::cout << this->precipitation << this->precipitation_unit << std::endl;
-    std::cout << this->winddirection << this->winddirection_unit << std::endl;
-    //std::cout << this->wmo_code << std::endl;
 
     return 0;
 }
