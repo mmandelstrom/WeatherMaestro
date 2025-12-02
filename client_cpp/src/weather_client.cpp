@@ -109,7 +109,7 @@ int WeatherClient::parseBody() {
     std::cout << this->windspeed << this->windspeed_unit << std::endl;
     std::cout << this->precipitation << this->precipitation_unit << std::endl;
     std::cout << this->winddirection << this->winddirection_unit << std::endl;
-    std::cout << this->wmo_code << std::endl;
+    //std::cout << this->wmo_code << std::endl;
 
     return 0;
 }
