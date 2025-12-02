@@ -48,6 +48,13 @@ TCP_Client::TCP_Client()
     }
 }
 
+TCP_Client::~TCP_Client() {
+    if (this->fd >= 3) {
+        close(this->fd);
+        this->fd = -1;
+    }
+}
+
 int TCP_Client::set_nonblocking(int _Fd){
       if (int flags = fcntl(_Fd, F_GETFL, 0) == -1) 
       {

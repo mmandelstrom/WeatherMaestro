@@ -27,6 +27,7 @@ class TCP_Client {
 
     public:
         TCP_Client();
+        ~TCP_Client();
 
         bool is_ready();
         int recieve();

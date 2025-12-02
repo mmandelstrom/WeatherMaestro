@@ -1,9 +1,9 @@
 
-#include "request.hpp"
+#include "weather_client.hpp"
 
 int main() {
-  Request req("Sundbyberg", "Sweden");
-  req.getWeather();
+  WeatherClient client("Sundbyberg", "Sweden");
+  client.getWeather();
 
   return 0; 
 }
