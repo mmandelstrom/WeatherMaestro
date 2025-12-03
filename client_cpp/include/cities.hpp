@@ -1,6 +1,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <iostream>
 
 #include "city.hpp"
 
@@ -13,9 +14,9 @@ class Cities {
         Cities();
         
         int add(City _City);
-        int remove();
-
+        int remove(std::string _Name);
         int getCity(std::string _Name);
-
+        int searchCity(std::string _Query);
+        void listCities();
 
 };

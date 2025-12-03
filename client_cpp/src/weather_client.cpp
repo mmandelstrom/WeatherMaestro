@@ -100,30 +100,27 @@ int WeatherClient::parseBody() {
     return 0;
 }
 
-// int WeatherClient::getCoords() {
-//     TCP_Client client;
+int WeatherClient::getCoords(std::string _Name) {
+    TCP_Client client;
 
-//     std::string request =
-//     "GET /api/v1/geo/?city_name=" + this->city + " HTTP/1.1\r\n"
-//     "Host: stockholm2.onvo.se:81\r\n"
-//     "User-Agent: CPPCLIENT/0.1\r\n"
-//     "Accept: /\r\n"
-//     "Connection: close\r\n"
-//     "\r\n";
+    //TODO ADD HTTPS
+    std::string request =
+    "GET /v1/search?name=" + _Name + " HTTP/1.1\r\n"
+    "Host: geocoding-api.open-meteo.com\r\n"
+    "User-Agent: curl/8.16.0\r\n"
+    "Accept: */*\r\n"
+    "Connection: close\r\n"
+    "\r\n";
 
-//     client.setTransmitData(request);
-//     client.transmit();
-//     client.recieve();
-//     std::string response = client.getRecieveData();
+    std::cout << request << std::endl;
+    client.setTransmitData(request);
+    client.transmit();
+    client.recieve();
+    std::string response = client.getRecieveData();
 
-//     std::cout << response << std::endl;
-// }
+    std::cout << response << std::endl;
 
-// [
-//   {
-//     "city": "Sundbyberg",
-//     "country": "Sweden",
-//     "latitude": 59.3753,
-//     "longitude": 17.969
-//   }
-// ]
+    return 0;
+}
+
+

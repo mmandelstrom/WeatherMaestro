@@ -115,7 +115,7 @@ int TCP_Client::transmit() {
     int transmit_bytes = this->transmit_length;
     int bytes_transmitted = 0;
 
-
+    std::cout << "Coutat från tcp " << std::endl << this->transmit_data << std::endl;
     while (transmit_bytes > 0)
     {
         bytes_transmitted = send(this->fd, this->transmit_data.c_str(), this->transmit_data.size(), MSG_NOSIGNAL);
