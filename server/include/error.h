@@ -40,7 +40,7 @@ typedef enum {
     ERR_WOULD_BLOCK      = -22,    /**< Non-blocking operation would block */
     ERR_CONNECTION_LOST  = -23,    /**< Connection dropped unexpectedly */
     ERR_CONNECTION_FAIL  = -24,    /**< Failed to establish a connection */
-
+    ERR_BUSY             = -25,
 
     /* ------------------------------------------------------------
      * Parse / Protocol Errors     (-30 to -39)
