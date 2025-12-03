@@ -2,9 +2,8 @@
 #define _WEATHER_CLIENT_HPP_
 
 #include <string>
-
-#include "tcp_client.hpp"
-#include "json.hpp"
+#include "../include/tcp_client.hpp"
+#include "../../libs/include/json.hpp"
 
 
 class WeatherClient {

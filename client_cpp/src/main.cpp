@@ -1,5 +1,5 @@
 
-#include "weather_client.hpp"
+#include "../include/weather_client.hpp"
 
 int main() {
   WeatherClient client("Sundbyberg", "Sweden");

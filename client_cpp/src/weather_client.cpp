@@ -1,5 +1,4 @@
-#include "weather_client.hpp"
-#include "json.hpp"
+#include "../include/weather_client.hpp"
 
 WeatherClient::WeatherClient(std::string _City, std::string _Country)
     : lat(59.3753f), 
