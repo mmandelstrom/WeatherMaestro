@@ -1,4 +1,4 @@
-#include "cities.hpp"
+#include "../include/cities.hpp"
 
 Cities::Cities()
     : count(0) {
