@@ -5,12 +5,12 @@
 
 class City {
     private:
-        const std::string name;
-        const std::string region;
-        const std::string country;
+        std::string name;
+        std::string region;
+        std::string country;
         //const std::string UUID;
-        const double lat;
-        const double lon;
+        double lat;
+        double lon;
     public:
         City(std::string _Name, std::string _Region, std::string _Country, double _Lat, double _Lon);
 

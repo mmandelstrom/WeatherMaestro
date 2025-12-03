@@ -36,7 +36,7 @@ class WeatherClient {
     public:
         WeatherClient(std::string _City, std::string _Country); 
         int getWeather();
-        int getCoords();
+        int getCoords(std::string _Name);
         
 
 
