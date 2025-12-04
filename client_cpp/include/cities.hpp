@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "city.hpp"
+#include "weather_client.hpp"
 
 class Cities {
     private:
@@ -16,7 +17,7 @@ class Cities {
         int add(City _City);
         int remove(std::string _Name);
         int getCity(std::string _Name);
-        int searchCity(std::string _Query);
+        int searchCityAPI(std::string _Query);
         void listCities();
 
 };

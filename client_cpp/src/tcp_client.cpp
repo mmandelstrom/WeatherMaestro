@@ -1,7 +1,7 @@
 #include "../include/tcp_client.hpp"
 
 TCP_Client::TCP_Client() 
-    : fd(-1), ready(false), transmit_length(0)
+    : fd(-1), transmit_length(0), ready(false)
 {
     struct addrinfo connhints = {0}; 
     struct addrinfo* res = nullptr;

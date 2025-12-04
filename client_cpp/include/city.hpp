@@ -8,7 +8,7 @@ class City {
         std::string name;
         std::string region;
         std::string country;
-        //const std::string UUID;
+        //std::string UUID;
         double lat;
         double lon;
     public:

@@ -112,13 +112,13 @@ int WeatherClient::getCoords(std::string _Name) {
     "Connection: close\r\n"
     "\r\n";
 
-    std::cout << request << std::endl;
+    std::cout << "Request: " << request << std::endl;
     client.setTransmitData(request);
     client.transmit();
     client.recieve();
     std::string response = client.getRecieveData();
 
-    std::cout << response << std::endl;
+    std::cout << "Response: " << response << std::endl;
 
     return 0;
 }

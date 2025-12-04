@@ -44,3 +44,11 @@ int Cities::getCity(std::string _Name) {
 
     return -1;
 }
+
+void Cities::listCities() {
+  int j = 0;
+  for (City i : this->cities) {
+    std::cout << j << ". " << i.getName() << ", " << i.getRegion() << ", " << i.getCountry() << std::endl;
+    j++;
+  }
+}

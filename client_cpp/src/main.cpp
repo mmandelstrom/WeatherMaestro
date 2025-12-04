@@ -5,22 +5,16 @@
 
 int main() {
   WeatherClient client("Sundbyberg", "Sweden");
-  client.getWeather();
+  Cities c;
+  City c1("Stockholm", "Stockholms Län", "Sverige", 52.123f, 12.234f);
+  City c2("Sundbyberg", "Stockholms Län", "Sverige", 52.123f, 12.234f);
+  City c3("Malmö", "Skåne Län", "Sverige", 13.456f, 54.234f);
 
-  City c("Stockholm", "Norrland", "Uppsala", 17.132112, 18.24929);
+  c.add(c1);
+  c.add(c2);
+  c.add(c3);
 
-
-
-  Cities cities;
-
-  cities.add(c);
-  cities.getCity("Stockholm");
-
-  cities.remove("Stockholm");
-
-  cities.getCity("Stockholm");
-
-  client.getCoords("London");
+  c.listCities();
   
   return 0; 
 }
