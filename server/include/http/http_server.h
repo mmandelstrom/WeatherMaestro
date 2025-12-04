@@ -38,7 +38,7 @@ typedef struct
 	http_server_on_connection on_connection;
   void*                     context;
 	Scheduler_Task*           task;
-	TCP_Server                tcp_server;
+	TCP_Server                tcp_server; //Redo as ptr
   HTTPServerState           state;
   HTTPServerErrorState      error_state;
   int                       client_fd;
