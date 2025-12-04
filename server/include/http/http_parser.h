@@ -37,7 +37,9 @@ typedef struct
   char*                headers;
   char*                body;  
   char*                full_response;
-
+  char*                version;
+  char*                reason_phrase;
+  char*                status_code_string;
   enum HttpStatus_Code status_code;
 
 } HTTP_Response;
@@ -77,6 +79,6 @@ int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len);
 int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_headers_out);
 void http_parser_dispose_linked_list(Linked_List *_list);
 int http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value);
-
+int http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Response* _Resp);
 
 #endif 

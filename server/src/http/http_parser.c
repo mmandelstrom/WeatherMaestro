@@ -1,4 +1,6 @@
 #include "../../include/http/http_parser.h"
+#include <error.h>
+#include <stddef.h>
 
 int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req, Linked_List **_params_out) {
 
@@ -127,6 +129,77 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   
   return SUCCESS;
 }
+
+int http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Response* _Resp) {
+  if (!_line || _line_len || _Resp) {
+    return ERR_INVALID_ARG;
+  }
+  
+  char* line_copy = malloc(_line_len + 1);
+  if (!line_copy) {
+    return ERR_NO_MEMORY;
+  }
+
+  memcpy(line_copy, _line, _line_len);
+  line_copy[_line_len] = '\0';
+
+  // Format: HTTP-version SP status-code SP reason-phrase
+  char *version_string = line_copy;
+  char *first_space = strchr(line_copy, ' ');
+  if (!first_space) {
+    free(line_copy);
+    return ERR_BAD_FORMAT;
+  }
+  *first_space = '\0';
+  
+  char* status_string = first_space + 1;
+  char* second_space = strchr(status_string, ' ');
+  if (!second_space) {
+    free(line_copy);
+    return ERR_BAD_FORMAT;
+  }
+  *second_space = '\0';
+  char* reason_string = second_space + 1;
+
+  _Resp->version = strdup(version_string);
+  if (!_Resp->version) {
+    free(line_copy);
+    return ERR_NO_MEMORY;
+  }
+
+  _Resp->status_code_string = strdup(status_string);
+  if (!_Resp->status_code_string) {
+    free(line_copy);
+    free(_Resp->version);
+    _Resp->version = NULL;
+    return ERR_NO_MEMORY;
+  }
+
+  _Resp->reason_phrase = strdup(reason_string);
+  if (!_Resp->reason_phrase) {
+    free(line_copy);
+    free(_Resp->version);
+    free(_Resp->status_code_string);
+    _Resp->version = NULL;
+    _Resp->status_code_string = NULL;
+    return ERR_NO_MEMORY;
+  }
+
+  int status_int = atoi(_Resp->status_code_string);
+  if (strcmp(_Resp->reason_phrase, HttpStatus_reasonPhrase(status_int)) != 0) {
+    free(line_copy);
+    free(_Resp->version);
+    free(_Resp->status_code_string);
+    _Resp->version = NULL;
+    _Resp->status_code_string = NULL;
+    return ERR_BAD_FORMAT;
+  }
+ 
+  free(line_copy);
+  return SUCCESS;
+
+}
+
 
 int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len) {
   if (_buf_len < 2) {

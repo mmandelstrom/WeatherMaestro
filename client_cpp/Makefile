@@ -17,7 +17,7 @@ SRC_DIR   := src
 
 # libs and utils source files to build
 UTILS_SRC := 
-LIBS_SRC := ../libs/src/md5.c
+LIBS_SRC := 
 
 ALL_SRC := $(SRC) $(UTILS_SRC) $(LIBS_SRC)
 

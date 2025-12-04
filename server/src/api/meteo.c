@@ -1,4 +1,5 @@
 #include "../../include/api/meteo.h"
+#include <error.h>
 
 
 /* ---------------------- Internal functions ----------------------- */
@@ -77,35 +78,48 @@ const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast)
     url[url_len] = '\0';
   }
   
-	Curl_Data C_Data;
-	if (curl_init(&C_Data) != 0)
-		return NULL;
+	// Curl_Data C_Data;
+	// if (curl_init(&C_Data) != 0)
+	// 	return NULL;
+	//
+	//  printf("\n--- CALLING METEO RESPONSE --- \n\n");
+	//
+	// int result = curl_get_response(&C_Data, url);
+	// if (result != 0)
+	// {
+	// 	perror("curl_get_response");
+	// 	curl_dispose(&C_Data);
+	// 	return NULL;
+	// }
+	//
+  HTTP_Client* c = calloc(1, sizeof(HTTP_Client));
+  if (!c) {
+    return NULL;
+  }
+  HTTPMethod method = 1;
 
-  printf("\n--- CALLING METEO RESPONSE --- \n\n");
-    
-	int result = curl_get_response(&C_Data, url);
-	if (result != 0)
-	{
-		perror("curl_get_response");
-		curl_dispose(&C_Data);
-		return NULL;
-	}
+  int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method);
 
-  char* response = malloc(C_Data.size + 1);
-  if (response == NULL)
-  {
-    perror("malloc");
-		curl_dispose(&C_Data);
-		return NULL;
+  if (http_client_initiate(c, (const char*)url, method) != SUCCESS) {
+    return NULL;
   }
 
-  memcpy(response, C_Data.addr, C_Data.size);
-  response[C_Data.size] = '\0';
-  curl_dispose(&C_Data);
 
-  printf("===== Meteo Response JSON =====\n\n%s\n\n", response);
+  // char* response = malloc(C_Data.size + 1);
+  // if (response == NULL)
+  // {
+  //   perror("malloc");
+  // curl_dispose(&C_Data);
+  // return NULL;
+  // }
+  //
+  // memcpy(response, C_Data.addr, C_Data.size);
+  // response[C_Data.size] = '\0';
+  // curl_dispose(&C_Data);
+  //
+  // printf("===== Meteo Response JSON =====\n\n%s\n\n", response);
 
-  return response;
+  return NULL;
 }
 
 int meteo_parse_json(Meteo_Weather* _MW, const char* _json)

@@ -7,7 +7,7 @@
 /* ******************************************************************* */
 /* Ahhh, good old open-meteo */
 
-#include "../http/http_client.h"
+#include "../../../utils/include/http_client.h"
 #include "../../../libs/include/cJSON.h"
 #include "../../../utils/include/json_utils.h"
 #include "../../../utils/include/curl.h"
