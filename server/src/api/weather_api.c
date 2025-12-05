@@ -173,7 +173,8 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
 
   if (query_found > 0)
   {
-    if (weather_parser_get_location_by_query(_API->location, query) != 0)
+    
+    if (weather_parser_get_location_by_query(_API->location) != 0)
     {
       perror("weather_parser_get_location_by_coords");
       free(query);
@@ -189,10 +190,6 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
 
   free(query);
 
-  char* json_response = weather_parser_build_json_location(_API->location);
-
-  _API->http_response->body = json_response;
-  _API->http_response->status_code = 200;
 
   weather_parser_dispose_ptr(&_API->location, NULL, NULL);
   _API->location = NULL;
@@ -211,7 +208,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   /* Find and validate latitude and longitude params */
   float lat, lon = 0;
   int lat_found, lon_found = 0;
-  int city_found = 0;
+  /* int city_found = 0; */
   linked_list_foreach(_API->http_request->params, node)
   {
     HTTP_Key_Value* Param = (HTTP_Key_Value*)node->item;
@@ -240,17 +237,20 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
       _API->http_response->status_code = 500;
       return -2;
     }
-    printf("_Location: %p, _Location->weather: %p\n", _API->location, _API->location->weather); 
+    /* printf("_Location: %p, _Location->weather: %p\n", _API->location, _API->location->weather);  */
 
-    if (weather_parser_get_location_by_coords(_API->location, lat, lon) != 0)
+    _API->location->lat = lat;
+    _API->location->lon = lon;
+
+    /* if (weather_parser_get_location_by_coords(_API->location, lat, lon) != 0)
     {
       perror("weather_parser_get_location_by_coords");
       _API->http_response->status_code = 500;
       return -3;
 
-    }
+    } */
   }
-  else if (city_found > 0)
+  /* else if (city_found > 0)
   {
     if (weather_parser_init_ptr(&_API->location, true, false) != 0)
     {
@@ -259,15 +259,15 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
       return ERR_NO_MEMORY;
     }
 
-    /* if (weather_parser_get_location_by_names(_API->location, Http_Data* _Query_Params) != 0)
+    if (weather_parser_get_location_by_names(_API->location, Http_Data* _Query_Params) != 0)
     {
       perror("weather_parser_get_location_by_coords");
       _API->http_response->status_code = 500;
       return -3;
 
-    } */
+    }
 
-  }
+  } */
   else
   {
     _API->http_response->status_code = 400;
@@ -276,16 +276,13 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   }
 
   /* Build Location Weather from external API response */
-  if (weather_parser_get_weather(_API->location, false, OPEN_METEO) != 0)
+  if (weather_parser_get_weather_by_coords(_API->location, false, OPEN_METEO) != 0)
   {
     perror("weather_parser_get_weather");
     _API->http_response->status_code = 500;
     return -4;
   }
 
-  char* json_response = weather_parser_build_json_weather(_API->location->weather);
-
-  _API->http_response->body = json_response;
   _API->http_response->status_code = 200;
 
   weather_parser_dispose_ptr(&_API->location, NULL, NULL);

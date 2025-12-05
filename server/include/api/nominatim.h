@@ -15,7 +15,7 @@
 #include <stdio.h>
 
 
-#define NOMINATIM_GEOCODE_QUERY "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=1&q=%s"
+#define NOMINATIM_GEOCODE_QUERY "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=%s"
 
 
 typedef struct
@@ -39,11 +39,12 @@ typedef struct
 
 /* ---------------------- Interface ----------------------- */
 
-int nominatim_init_ptr(Nominatim_Geo** _NOM_Location_Ptr);
+int nominatim_init_ptr(Nominatim_Geo** _NOM_Geo_Ptr);
 
-int nominatim_get_geo_by_query(Nominatim_Geo* _NOM_Location, const char* _query);
+/* _geo_count will return how many array items will be in Nominatim_Geo pointer */
+int nominatim_get_geo_by_query(Nominatim_Geo* _NOM_Geo, int _geo_count, const char* _query);
 
-void nominatim_dispose_ptr(Nominatim_Geo** _NOM_Location_Ptr);
+void nominatim_dispose_ptr(Nominatim_Geo** _NOM_Geo_Ptr);
 
 /* -------------------------------------------------------- */
 

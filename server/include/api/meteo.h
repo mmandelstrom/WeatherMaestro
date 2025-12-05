@@ -54,6 +54,8 @@ typedef struct
 
 } Meteo_Forecast;
 
+/* TODO: overlook forecast saving for interface function, maybe remove Forecast struct and instead use pointers in all Weather struct values, then save count and just loop through them all as arrays... Or simply add a new function for saving forecast */
+
 /* ---------------------- Interface ----------------------- */
 
 int meteo_init_ptr(Meteo_Weather** _M_W_Ptr);
