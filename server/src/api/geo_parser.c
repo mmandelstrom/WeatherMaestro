@@ -183,13 +183,17 @@ int geo_parser_get_geo_from_api_by_query(Geos* _Geos, ExternalGeoAPI _ExtAPI)
 
     /* Get fresh Nominatim_Geo struct from API */
     int nom_geo_count = 0;
-    result = nominatim_get_geo_by_query(NOM_Geo, &nom_geo_count, _Geos->query);
+    result = nominatim_get_geo_by_query(&NOM_Geo, &nom_geo_count, _Geos->query);
     if (result != 0)
     {
       perror("nominatim_get_weather");
       nominatim_dispose_ptr(&NOM_Geo);
       return -3;
     }
+
+
+    for (int i = 0; i < nom_geo_count; i++)
+      printf("NOM_Geo[%i] lat: %lf lon: %lf\n", i, NOM_Geo[i].lat, NOM_Geo[i].lon);
 
     result = geo_parser_parse_nominatim_geo(_Geos, NOM_Geo, nom_geo_count);
     if (result != 0)
