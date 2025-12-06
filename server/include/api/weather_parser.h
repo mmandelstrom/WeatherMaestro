@@ -20,7 +20,7 @@
 
 typedef enum
 {
-  OPEN_METEO,
+  OPEN_METEO_WEATHER,
 
 } ExternalWeatherAPI;
 
@@ -63,8 +63,8 @@ typedef struct
 int weather_parser_init_ptr(Weather** _W_Ptr, Forecast** _F_Ptr);
 
 /** Builds a Weather or Forecast struct using cache or external API */
-int weather_parser_get_weather_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char* _json_output);
-int weather_parser_get_forecast_by_coords(Forecast* _Foracast, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char* _json_output);
+int weather_parser_get_weather_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char** _json_output_ptr);
+int weather_parser_get_forecast_by_coords(Forecast* _Foracast, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char** _json_output_ptr);
 
 /** Heap dispose for data structs. To skip one, pass NULL as argument */
 void weather_parser_dispose_ptr(Weather** _W_Ptr, Forecast** _F_Ptr);

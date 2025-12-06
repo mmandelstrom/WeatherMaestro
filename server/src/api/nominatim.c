@@ -4,7 +4,7 @@
 /* ---------------------- Internal functions ----------------------- */
 
 const char* nominatim_get_geocode_json_by_query(const char* _query);
-int nominatim_parse_geocode_json(Nominatim_Geo* _NOM_Geo, int _geo_count, const char* _json);
+int nominatim_parse_geocode_json(Nominatim_Geo* _NOM_Geo, int* _geo_count, const char* _json);
 
 /* ----------------------------------------------------------------- */
 
@@ -26,7 +26,7 @@ int nominatim_init_ptr(Nominatim_Geo** _NOM_Geo_Ptr)
   return 0;
 }
 
-int nominatim_get_geo_by_query(Nominatim_Geo* _NOM_Geo, int _geo_count, const char* _query)
+int nominatim_get_geo_by_query(Nominatim_Geo* _NOM_Geo, int* _geo_count, const char* _query)
 {
   /* GET nominatim city json */
   const char* nominatim_json = nominatim_get_geocode_json_by_query(_query);
@@ -95,7 +95,7 @@ const char* nominatim_get_geocode_json_by_query(const char* _query)
   return response;
 }
 
-int nominatim_parse_geocode_json(Nominatim_Geo* _NOM_Geo, int _geo_count, const char* _json)
+int nominatim_parse_geocode_json(Nominatim_Geo* _NOM_Geo, int* _geo_count, const char* _json)
 {
   cJSON* Json_Root = cJSON_Parse(_json);
   if (Json_Root == NULL) {
@@ -106,8 +106,8 @@ int nominatim_parse_geocode_json(Nominatim_Geo* _NOM_Geo, int _geo_count, const 
     return -1;
   }
 
-  _geo_count = cJSON_GetArraySize(Json_Root);
-  size_t array_size = _geo_count * sizeof(Nominatim_Geo);
+  *_geo_count = cJSON_GetArraySize(Json_Root);
+  size_t array_size = *_geo_count * sizeof(Nominatim_Geo);
 
   _NOM_Geo = realloc(_NOM_Geo, array_size);
   if (_NOM_Geo == NULL)
@@ -118,7 +118,7 @@ int nominatim_parse_geocode_json(Nominatim_Geo* _NOM_Geo, int _geo_count, const 
   }
   memset(_NOM_Geo, 0, array_size);
 
-  for (int i = 0; i < _geo_count; i++)
+  for (int i = 0; i < *_geo_count; i++)
   {
 
     cJSON* Json_Place = cJSON_GetArrayItem(Json_Root, i);
@@ -137,6 +137,7 @@ int nominatim_parse_geocode_json(Nominatim_Geo* _NOM_Geo, int _geo_count, const 
     memcpy(_NOM_Geo[i].country_code, json_get_string(Json_Address, "country_code"), 2);
     _NOM_Geo[i].country_code[2] = '\0';
 
+    /* Parse lat and lon strings */
     char* lat = strdup(json_get_string(Json_Place, "lat"));
     char* lon = strdup(json_get_string(Json_Place, "lon"));
 
@@ -157,24 +158,25 @@ int nominatim_parse_geocode_json(Nominatim_Geo* _NOM_Geo, int _geo_count, const 
     free(lat); free(lon);
 
     /* Heap allocations */
-    _NOM_Geo[i].country   = strdup(json_get_string(Json_Address, "country"));
-    _NOM_Geo[i].county    = strdup(json_get_string(Json_Address, "county"));
-    _NOM_Geo[i].city      = strdup(json_get_string(Json_Address, "city"));
-    _NOM_Geo[i].postcode  = strdup(json_get_string(Json_Address, "postcode"));
-    _NOM_Geo[i].street    = strdup(json_get_string(Json_Address, "street"));
+    _NOM_Geo[i].country       = strdup(json_get_string(Json_Address, "country"));
+    _NOM_Geo[i].county        = strdup(json_get_string(Json_Address, "county"));
+    _NOM_Geo[i].city          = strdup(json_get_string(Json_Address, "city"));
+    _NOM_Geo[i].postcode      = strdup(json_get_string(Json_Address, "postcode"));
+    _NOM_Geo[i].road          = strdup(json_get_string(Json_Address, "road"));
+    _NOM_Geo[i].house_number  = strdup(json_get_string(Json_Address, "house_number"));
 
-    if (_NOM_Geo[i].country   == NULL ||
-        _NOM_Geo[i].county    == NULL ||
-        _NOM_Geo[i].city      == NULL ||
-        _NOM_Geo[i].postcode  == NULL ||
-        _NOM_Geo[i].street    == NULL)
+    if (_NOM_Geo[i].country      == NULL ||
+        _NOM_Geo[i].county       == NULL ||
+        _NOM_Geo[i].city         == NULL ||
+        _NOM_Geo[i].postcode     == NULL ||
+        _NOM_Geo[i].road         == NULL ||
+        _NOM_Geo[i].house_number == NULL)
     {
       fprintf(stderr, "One or more strings couldn't be parsed from nominatim json\n");
       cJSON_Delete(Json_Root);
       return -6;
     }
 
-    _NOM_Geo[i].house_number   = json_get_int(Json_Address, "house_number");
   }
 
   cJSON_Delete(Json_Root);
@@ -214,10 +216,15 @@ void nominatim_dispose_ptr(Nominatim_Geo** _NOM_Geo_Ptr)
     free((void*)(*_NOM_Geo_Ptr)->postcode);
     (*_NOM_Geo_Ptr)->postcode = NULL;
   }
-  if ((*_NOM_Geo_Ptr)->street != NULL)
+  if ((*_NOM_Geo_Ptr)->road != NULL)
   {
-    free((void*)(*_NOM_Geo_Ptr)->street);
-    (*_NOM_Geo_Ptr)->street = NULL;
+    free((void*)(*_NOM_Geo_Ptr)->road);
+    (*_NOM_Geo_Ptr)->road = NULL;
+  }
+  if ((*_NOM_Geo_Ptr)->house_number != NULL)
+  {
+    free((void*)(*_NOM_Geo_Ptr)->house_number);
+    (*_NOM_Geo_Ptr)->house_number = NULL;
   }
 
   free(*_NOM_Geo_Ptr);

@@ -63,7 +63,7 @@ int write_string_to_file(const char* _str, const char* _filename)
 }
 
 /** Heap allocated */
-const char* read_file_to_string(const char* _filename) 
+char* read_file_to_string(const char* _filename) 
 {
 
   FILE* file = fopen(_filename, "r");
@@ -75,15 +75,17 @@ const char* read_file_to_string(const char* _filename)
 
   char* string = malloc(file_size + 1); /* Plus one for \0 */
 
-  if (string == NULL) { perror("malloc"); return NULL; }
+  if (string == NULL) { perror("malloc"); fclose(file); return NULL; }
 
   /* Reads file into buffer and returns the amount of bytes read */
-  int read_size = fread(string, 1, file_size, file); 
-  if (read_size != file_size) { perror("fread"); free(string); return NULL; }
+  size_t read_size = fread(string, 1, file_size, file); 
+  if (read_size != file_size) { perror("fread"); free(string); fclose(file); return NULL; }
 
   string[file_size] = '\0';
 
   fclose(file); /* Done with file, close it */
+
+  printf("read_file_to_string result: \n%s\n", string);
 
   return string;
 }

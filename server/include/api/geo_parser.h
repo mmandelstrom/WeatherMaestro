@@ -29,7 +29,8 @@ typedef struct
   const char* city;
   const char* postcode;
   const char* street;
-  const char* locality;
+  const char* house_number;
+  const char* locality; // Maybe only bigdatacloud specific
   const char* timezone; // local timezone, ex: "Europe/Stockholm"
 
   char        timezone_gmt[7]; // local timezone, ex: "GMT+12"
@@ -37,7 +38,6 @@ typedef struct
   float       lat;
   float       lon;
 
-  int         street_number;
 
   char        country_code[3]; // two-char country code, ex: "SE"
 
@@ -58,13 +58,13 @@ typedef struct
 
 /** Heap init for multi Geos wrapper struct. Count decides how many Geo structs to init 
  * To init their weather/forecast structs, pass true as that arg */
-int geo_parser_init_geos_ptr(Geos** _Gs_Ptr, int _count, bool _weather, bool _forecast);
+int geo_parser_init_ptr(Geos** _Gs_Ptr, int _count, bool _weather, bool _forecast);
 
-/** Pre-reqs: Geos must be inited
- * Can retrieve more than one geolocation, maximum is defined by Geos->count */
-int geo_parser_get_geo_by_query(Geos* _Geos, const char* _query, char* _json_output);
-/** Pre-reqs: Geo must be inited  */
-int geo_parser_get_geo_by_coords(Geos* _Geos, float _lat, float _lon, char* _json_output);
+/** Pre-reqs: Geos must be inited */
+int geo_parser_get_geo_by_query(Geos* _Geos, const char* _query, char** _json_output_ptr);
+/** Pre-reqs: Geo must be inited 
+ * Will only return one geo no matter how many was inited in Geos */
+int geo_parser_get_geo_by_coords(Geos* _Geos, float _lat, float _lon, char** _json_output_ptr);
 
 /** Helper for taking a string and trying to convert it to float
  * Only takes COORD_BUFFER_LENGTH amount of chars to target
@@ -72,7 +72,7 @@ int geo_parser_get_geo_by_coords(Geos* _Geos, float _lat, float _lon, char* _jso
 int geo_parser_lat_lon(const char* _val, float* _target_coord);
 
 /** Heap dispose for data structs. To skip one, pass NULL as argument */
-void geo_parser_dispose_ptr(Geos** _C_Ptr, Weather** _W_Ptr, Forecast** _F_Ptr);
+void geo_parser_dispose_ptr(Geos** _C_Ptr);
 
 /* -------------------------------------------------------- */
 

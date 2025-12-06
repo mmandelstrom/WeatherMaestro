@@ -13,7 +13,7 @@ char* weather_parser_get_cache_filepath(float _lat, float _lon, bool _forecast);
   Returns true if file with same path and within time interval exists */
 bool weather_parser_recent_cache_exists(const char* _filepath, int _interval, bool _forecast);
 
-/* ------ Weather functions */
+/* WEATHER FUNCTIONS */
 
 /** Builds a Weather or Forecast struct using external API */
 int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI);
@@ -31,7 +31,7 @@ char* weather_parser_build_weather_json(Weather* _Weather);
  * Saves it to cache file as well */
 char* weather_parser_build_json_weather(Weather* _Weather);
 
-/* ------ Forecast functions */
+/* FORECAST FUNCTIONS */
 
 
 /* ----------------------------------------------------------------- */
@@ -55,7 +55,7 @@ int weather_parser_init_ptr(Weather** _W_Ptr, Forecast** _F_Ptr)
   }
 
   /* Init Forecast struct */
-  if (_W_Ptr != NULL)
+  if (_F_Ptr != NULL)
   {
     *_F_Ptr = malloc(sizeof(Forecast));
     if (*_F_Ptr == NULL)
@@ -208,17 +208,17 @@ void weather_parser_dispose_ptr(Weather** _W_Ptr, Forecast** _F_Ptr)
   }
 }
 
-/************************ WEATHER *************************/
+/************************ CURRENT WEATHER *************************/
 
-/** Builds a Weather or Forecast struct using cache or external API */
-int weather_parser_get_weather_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char* _json_output)
+/** Builds a Weather struct using cache or external API */
+int weather_parser_get_weather_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char** _json_output_ptr)
 {
   if (_Weather == NULL)
     return -1;
 
   int interval = 0;
 
-  if (_ExtAPI == OPEN_METEO)
+  if (_ExtAPI == OPEN_METEO_WEATHER)
   {
     interval = 900;
   }
@@ -232,17 +232,15 @@ int weather_parser_get_weather_by_coords(Weather* _Weather, float _lat, float _l
         false))
   {
     printf("Getting weather from cache\n");
-    if (weather_parser_get_weather_from_cache(_Weather, _Weather->cache_path) != 0)
-      return -2;
+    *_json_output_ptr = read_file_to_string(_Weather->cache_path);
   }
   else
   {
     printf("Getting weather from API\n");
     if (weather_parser_get_weather_from_api_by_coords(_Weather, _lat, _lon, _ExtAPI) != 0)
       return -3;
+    *_json_output_ptr = weather_parser_build_json_weather(_Weather);
   }
-
-  _json_output = weather_parser_build_json_weather(_Weather);
 
   return 0;
 }
@@ -252,7 +250,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
   int result;
   int interval;
 
-  if (_ExtAPI == OPEN_METEO)
+  if (_ExtAPI == OPEN_METEO_WEATHER)
   {
     /* Init meteo */
     Meteo_Weather* MW;
@@ -292,6 +290,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
   return -1;
 }
 
+/* This will probably never be needed */
 int weather_parser_get_weather_from_cache(Weather* _Weather, const char* _filepath)
 {
   const char* weather_json = read_file_to_string(_filepath);
@@ -435,3 +434,4 @@ char* weather_parser_build_json_weather(Weather* _Weather)
 }
 
 /************************ FORECAST *************************/
+

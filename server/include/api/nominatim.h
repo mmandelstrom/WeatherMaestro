@@ -20,18 +20,18 @@
 
 typedef struct
 {
+  const char* display_name;
   const char* country;
   const char* county;
   const char* city;
   const char* postcode;
-  const char* street;
+  const char* road;
+  const char* house_number;
 
   /* const char* timezone; // local timezone, ex: "Europe/Stockholm" */
   
   double      lat;
   double      lon;
-
-  int         house_number;
 
   char        country_code[3]; // two-char country code, ex: "SE"
 
@@ -41,8 +41,9 @@ typedef struct
 
 int nominatim_init_ptr(Nominatim_Geo** _NOM_Geo_Ptr);
 
-/* _geo_count will return how many array items will be in Nominatim_Geo pointer */
-int nominatim_get_geo_by_query(Nominatim_Geo* _NOM_Geo, int _geo_count, const char* _query);
+/* *_geo_count will return how many Nominatim_Geo structs will be in pointer */
+int nominatim_get_geo_by_query(Nominatim_Geo* _NOM_Geo, int* _geo_count, const char* _query);
+// int nominatim_get_geo_by_coords(Nominatim_Geo* _NOM_Geo, int* _geo_count, float _lat, float _lon);
 
 void nominatim_dispose_ptr(Nominatim_Geo** _NOM_Geo_Ptr);
 

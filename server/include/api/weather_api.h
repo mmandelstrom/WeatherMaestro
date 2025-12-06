@@ -7,6 +7,7 @@
 /* ******************************************************************* */
 
 #include "../http/http_parser.h"
+#include "geo_parser.h"
 #include "weather_parser.h"
 
 #include <errno.h>
@@ -40,7 +41,7 @@ typedef struct
   HTTP_Request*       http_request;
   HTTP_Response*      http_response;
 
-  Location*           location; // This contains the weather structs as well
+  Geos*               geos; // This contains the weather structs as well
 
   WeatherAPIEndpoint  endpoint;
 
