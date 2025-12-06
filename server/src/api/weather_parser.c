@@ -262,7 +262,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
     }
 
     /* Get fresh Meteo_Weather struct from API */
-    result = meteo_get_weather(MW, _lat, _lon, false);
+    result = meteo_get_weather(MW, _lat, _lon);
     if (result != 0)
     {
       perror("meteo_get_weather");
@@ -383,7 +383,7 @@ int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weat
   /* _Weather->winddirection_cardinal = strdup(weather_parser_get_cardinal_direction(_M_Weather->wind_direction_10m)); */
   
   _Weather->winddirection_azimuth  = _M_Weather->wind_direction_10m;
-  _Weather->wmo_code               = _M_Weather->weathercode;
+  _Weather->wmo_code               = _M_Weather->weather_code;
 
   printf("_M_Weather->latitude: %f", _M_Weather->latitude);
   printf("_Weather->latitude: %f", _Weather->latitude);
@@ -435,3 +435,9 @@ char* weather_parser_build_json_weather(Weather* _Weather)
 
 /************************ FORECAST *************************/
 
+int weather_parser_get_forecast_by_coords(Forecast* _Foracast, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char** _json_output_ptr)
+{
+
+
+  return SUCCESS;
+}

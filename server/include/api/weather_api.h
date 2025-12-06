@@ -13,6 +13,7 @@
 #include <errno.h>
 
 #define API_ENDPOINT_ROOT "/api/v1"
+#define MAX_GEO_RESULTS   8
 
 typedef enum
 {

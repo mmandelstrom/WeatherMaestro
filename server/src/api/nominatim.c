@@ -188,7 +188,7 @@ int nominatim_parse_geocode_json(Nominatim_Geo** _NOM_Geo_Ptr, int* _geo_count, 
   return 0;
 }
 
-void nominatim_dispose_ptr(Nominatim_Geo** _NOM_Geo_Ptr)
+void nominatim_dispose_ptr(Nominatim_Geo** _NOM_Geo_Ptr, int _count)
 {
 
   if (_NOM_Geo_Ptr == NULL)
@@ -200,35 +200,38 @@ void nominatim_dispose_ptr(Nominatim_Geo** _NOM_Geo_Ptr)
     return;
   }
 
-  if ((*_NOM_Geo_Ptr)->country != NULL)
+  for (int i = 0; i < _count; i++)
   {
-    free((void*)(*_NOM_Geo_Ptr)->country);
-    (*_NOM_Geo_Ptr)->country = NULL;
-  }
-  if ((*_NOM_Geo_Ptr)->city != NULL)
-  {
-    free((void*)(*_NOM_Geo_Ptr)->city);
-    (*_NOM_Geo_Ptr)->city = NULL;
-  }
-  if ((*_NOM_Geo_Ptr)->county != NULL)
-  {
-    free((void*)(*_NOM_Geo_Ptr)->county);
-    (*_NOM_Geo_Ptr)->county = NULL;
-  }
-  if ((*_NOM_Geo_Ptr)->postcode != NULL)
-  {
-    free((void*)(*_NOM_Geo_Ptr)->postcode);
-    (*_NOM_Geo_Ptr)->postcode = NULL;
-  }
-  if ((*_NOM_Geo_Ptr)->road != NULL)
-  {
-    free((void*)(*_NOM_Geo_Ptr)->road);
-    (*_NOM_Geo_Ptr)->road = NULL;
-  }
-  if ((*_NOM_Geo_Ptr)->house_number != NULL)
-  {
-    free((void*)(*_NOM_Geo_Ptr)->house_number);
-    (*_NOM_Geo_Ptr)->house_number = NULL;
+    if ((*_NOM_Geo_Ptr)[i].country != NULL)
+    {
+      free((void*)(*_NOM_Geo_Ptr)[i].country);
+      (*_NOM_Geo_Ptr)[i].country = NULL;
+    }
+    if ((*_NOM_Geo_Ptr)[i].city != NULL)
+    {
+      free((void*)(*_NOM_Geo_Ptr)[i].city);
+      (*_NOM_Geo_Ptr)[i].city = NULL;
+    }
+    if ((*_NOM_Geo_Ptr)[i].county != NULL)
+    {
+      free((void*)(*_NOM_Geo_Ptr)[i].county);
+      (*_NOM_Geo_Ptr)[i].county = NULL;
+    }
+    if ((*_NOM_Geo_Ptr)[i].postcode != NULL)
+    {
+      free((void*)(*_NOM_Geo_Ptr)[i].postcode);
+      (*_NOM_Geo_Ptr)[i].postcode = NULL;
+    }
+    if ((*_NOM_Geo_Ptr)[i].road != NULL)
+    {
+      free((void*)(*_NOM_Geo_Ptr)[i].road);
+      (*_NOM_Geo_Ptr)[i].road = NULL;
+    }
+    if ((*_NOM_Geo_Ptr)[i].house_number != NULL)
+    {
+      free((void*)(*_NOM_Geo_Ptr)[i].house_number);
+      (*_NOM_Geo_Ptr)[i].house_number = NULL;
+    }
   }
 
   free(*_NOM_Geo_Ptr);

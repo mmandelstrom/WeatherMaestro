@@ -163,7 +163,12 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
       }
       if (strcmp(Param->key, "count") == 0)
       {
-        // Implement to reassign geos_count
+        int c = 0;
+        if (parse_string_to_int(Param->value, &c) == 0)
+        {
+          if (geos_count <= MAX_GEO_RESULTS)
+            geos_count = c;
+        }
       }
     }
   }

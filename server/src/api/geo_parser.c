@@ -187,7 +187,7 @@ int geo_parser_get_geo_from_api_by_query(Geos* _Geos, ExternalGeoAPI _ExtAPI)
     if (result != 0)
     {
       perror("nominatim_get_weather");
-      nominatim_dispose_ptr(&NOM_Geo);
+      nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
       return -3;
     }
 
@@ -199,10 +199,10 @@ int geo_parser_get_geo_from_api_by_query(Geos* _Geos, ExternalGeoAPI _ExtAPI)
     if (result != 0)
     {
       perror("weather_parser_parse_nominatim_weather");
-      nominatim_dispose_ptr(&NOM_Geo);
+      nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
       return -4;
     }
-    nominatim_dispose_ptr(&NOM_Geo);
+    nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
 
   }
   else 
@@ -235,7 +235,7 @@ int geo_parser_get_geo_from_api_by_coords(Geos* _Geos, ExternalGeoAPI _ExtAPI)
     if (result != 0)
     {
       perror("nominatim_get_geo_by_coords");
-      nominatim_dispose_ptr(&NOM_Geo);
+      nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
       return -3;
     }
     
@@ -245,10 +245,10 @@ int geo_parser_get_geo_from_api_by_coords(Geos* _Geos, ExternalGeoAPI _ExtAPI)
     if (result != 0)
     {
       perror("geo_parser_parse_nominatim_geo");
-      nominatim_dispose_ptr(&NOM_Geo);
+      nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
       return -4;
     }
-    nominatim_dispose_ptr(&NOM_Geo);
+    nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
 
   }
   else if (_ExtAPI == BIGDATACLOUD_GEO)
@@ -621,6 +621,11 @@ void geo_parser_dispose_ptr(Geos** _Gs_Ptr)
         {
           free((void*)(*_Gs_Ptr)->geo[i]->street);
           (*_Gs_Ptr)->geo[i]->street = NULL;
+        }
+        if ((*_Gs_Ptr)->geo[i]->house_number != NULL)
+        {
+          free((void*)(*_Gs_Ptr)->geo[i]->house_number);
+          (*_Gs_Ptr)->geo[i]->house_number = NULL;
         }
         free((*_Gs_Ptr)->geo[i]);
         (*_Gs_Ptr)->geo[i] = NULL;

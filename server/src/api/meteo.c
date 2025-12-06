@@ -26,10 +26,10 @@ int meteo_init_ptr(Meteo_Weather** _MW_Ptr)
   return 0;
 }
 
-int meteo_get_weather(Meteo_Weather* _MW, float _lat, float _lon, bool _forecast)
+int meteo_get_weather(Meteo_Weather* _MW, float _lat, float _lon)
 {
   /* GET meteo weather json */
-  const char* meteo_json = meteo_get_weather_json(_lat, _lon, _forecast);
+  const char* meteo_json = meteo_get_weather_json(_lat, _lon, false);
   if (meteo_json == NULL)
   {
     perror("meteo_get_weather_json");
@@ -149,7 +149,7 @@ int meteo_parse_json(Meteo_Weather* _MW, const char* _json)
   _MW->utc_offset_seconds      = json_get_int(Cur_Weather, "utc_offset_seconds");
   _MW->interval                = json_get_int(Cur_Weather, "interval");
   _MW->is_day                  = json_get_int(Cur_Weather, "is_day");
-  _MW->weathercode             = json_get_int(Cur_Weather, "weathercode");
+  _MW->weather_code            = json_get_int(Cur_Weather, "weather_code");
 
   /* Heap allocations */
   _MW->timezone_abbreviation   = strdup(json_get_string(Json_Root, "timezone_abbreviation"));
