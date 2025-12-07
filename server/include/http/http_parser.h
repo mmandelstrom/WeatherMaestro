@@ -11,11 +11,10 @@
 #include <string.h>
 #include <errno.h>
 #include "../../../libs/include/HTTPStatusCodes.h"
-#include "../../../libs/include/yuarel.h"
 #include "../../../utils/include/misc_utils.h"
 #include "../../../utils/include/linked_list.h"
 #include "../error.h"
-
+#include <ctype.h>
 #define HTTP_REQUEST_MAX_PARAMS 10
 #define HTTP_RESPONSE_FIRSTLINE_TEMPLATE "HTTP/1.1 %i %s\r\n"
 
@@ -40,6 +39,7 @@ typedef struct
   char*                version;
   char*                reason_phrase;
   char*                status_code_string;
+
   enum HttpStatus_Code status_code;
 
 } HTTP_Response;
@@ -62,6 +62,8 @@ typedef struct
   int             headers_len;
   int             bode_len;
 
+
+
 } HTTP_Request;
 
 typedef struct {
@@ -80,5 +82,6 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
 void http_parser_dispose_linked_list(Linked_List *_list);
 int http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value);
 int http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Response* _Resp);
+int http_parser_url(const char* _URL, void* _Context);
 
 #endif 

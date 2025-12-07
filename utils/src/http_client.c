@@ -32,16 +32,27 @@ int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _met
     free(req);
     return ERR_BUSY;
   }
+  printf("URL in init: %s\n", _URL);
+
+  char* url_copy = strdup(_URL);
+    if (!url_copy) {
+        scheduler_destroy_task(_Client->task);
+        _Client->task = NULL;
+        free(req);
+        free(resp);
+        return ERR_NO_MEMORY;
+    }
   _Client->resp = resp;
   _Client->req = req;
-  _Client->URL = _URL;
+  _Client->URL = url_copy;
   _Client->method = _method;
   _Client->state = HTTP_CLIENT_CONNECTING;
   _Client->request_length = 0;
   _Client->bytes_sent = 0;
   _Client->retries = 0;
   _Client->next_retry_at = SystemMonotonicMS();
-
+  URL_Parts url_parts = {0};
+  _Client->url_parts = url_parts;
 
   //Check url for http/https 
   _Client->tls = false;
@@ -55,14 +66,24 @@ HTTPClientState http_client_worktask_connecting(HTTP_Client* _Client) {
     return HTTP_CLIENT_ERROR;
   }
 
+
+  http_parser_url(_Client->URL, (void*)&_Client->url_parts);
+
+  printf("Scheme: %s\n", _Client->url_parts.scheme);
+  printf("Host: %s\n", _Client->url_parts.host);
+  printf("path: %s\n", _Client->url_parts.path);
+  printf("PorT: %s\n", _Client->url_parts.port);
+
   if (_Client->tls == false) {
     const char* PORT = "443";
     TCP_Client* TCPC = calloc(1, sizeof(TCP_Client));
     _Client->tcp_client = TCPC;
-
-    int result = tcp_client_init(_Client->tcp_client, _Client->URL, PORT); 
+    printf("URL: %s\n", _Client->url_parts.host);
+    printf("Pprt: %s\n", PORT);
+    int result = tcp_client_init(_Client->tcp_client, _Client->url_parts.host, PORT); 
 
     if (result != SUCCESS) {
+      printf("TCP_Client init failed\n");
       return HTTP_CLIENT_ERROR;
     }
 
@@ -76,24 +97,37 @@ HTTPClientState http_client_worktask_connecting(HTTP_Client* _Client) {
 }
 
 HTTPClientState http_client_worktask_build_request(HTTP_Client* _Client) {
-  if (!_Client) {
-    return HTTP_CLIENT_ERROR;
-  }
-  _Client->request_buffer = malloc(256);
-  if (!_Client->request_buffer) {
-    return HTTP_CLIENT_ERROR;
-  }
-
-  if (_Client->method == HTTP_GET) {
-  _Client->request_length = snprintf((char*)_Client->request_buffer, 256, "GET %s HTTP/1.1\r\nHost: stockholm2.onvo.se\r\nAgent: httpclient\r\nConnection: close\r\n\r\n", _Client->URL);
-  if (_Client->request_length < 0){
-
-      return HTTP_CLIENT_ERROR;
+     if (!_Client) {
+        return HTTP_CLIENT_ERROR;
     }
+
+    const char* method_str = "GET";
+
+    size_t base_len = 92;
+    size_t max_len = strlen(_Client->URL) + base_len;
+    _Client->request_buffer = malloc(max_len);
+    if (!_Client->request_buffer) {
+        return HTTP_CLIENT_ERROR;
+    }
+
+    _Client->request_length = snprintf(
+        (char*)_Client->request_buffer, 
+        max_len,
+        "%s %s HTTP/1.1\r\n"
+        "Host: stockholm2.onvo.se\r\n"
+        "User-Agent: httpclient\r\n"
+        "Connection: close\r\n\r\n",
+        method_str, _Client->URL
+    );
+
+    if (_Client->request_length < 0 || (size_t)_Client->request_length >= max_len) {
+        free(_Client->request_buffer);
+        _Client->request_buffer = NULL;
+        return HTTP_CLIENT_ERROR;
+    }
+
+    return HTTP_CLIENT_SEND_REQUEST;
   }
-  
-  return HTTP_CLIENT_SEND_REQUEST;
-}
 
 HTTPClientState http_client_worktask_send_request(HTTP_Client* _Client) {
 
@@ -388,50 +422,66 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
       break;
     }
     case HTTP_CLIENT_CONNECTING: {
+      printf("http_client_connecting\n");
       client->state = http_client_worktask_connecting(client);
       break;
     }
     case HTTP_CLIENT_BUILD_REQUEST: {
+      printf("http_client_build_request\n");
       client->state = http_client_worktask_build_request(client);
       break;
     }
     case HTTP_CLIENT_SEND_REQUEST: {
+      printf("http_client_send_request before retry check\n");
       if (now >= client->next_retry_at) {
+        printf("http_client_send_request after retry check\n");
         client->state = http_client_worktask_send_request(client);
         break;
       }
       break;
     }
     case HTTP_CLIENT_READ_FIRSTLINE: {
+      printf("http_client_read_firstline before retry check\n");
       if (now >= client->next_retry_at) {
+        printf("http_client_read_firstline after check\n");
         client->state = http_client_worktask_read_firstline(client);
         break;
       }
       break;
     }
     case HTTP_CLIENT_READ_HEADERS: {
+      printf("http_client_read_header before retry check\n");
        if (now >= client->next_retry_at) {
+        printf("http_client_read_headers after check\n");
         client->state = http_client_worktask_read_headers(client);
         break;
       }
       break;
     }
     case HTTP_CLIENT_READ_BODY: {
+      printf("http_client_read_body before retry check\n");
       if (now >= client->next_retry_at) {
+        printf("http_client_read_body after retry check\n");
         client->state = http_client_worktask_read_body(client);
         break;
       }
       break;
     }
      case HTTP_CLIENT_RETURNING: {
+      printf("http_client_returning\n");
       client->state = http_client_worktask_returning(client);
       break;
     }
     case HTTP_CLIENT_ERROR: {
       printf("Error\n");
+      client->state = HTTP_CLIENT_DISPOSING;
       break;
     }
     case HTTP_CLIENT_DISPOSING: {
+      if (client->task) {
+        scheduler_destroy_task(client->task);
+        client->task = NULL;
+      }
       printf("Disposing\n");
       break;
     }
@@ -441,5 +491,16 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
     }
   }
 }
-void http_client_dispose(HTTP_Client* _Client);
+void http_client_dispose(HTTP_Client* _Client)
+{
+    if (!_Client) return;
+
+    _Client->request_length = 0;
+    _Client->bytes_sent = 0;
+    _Client->bytes_received = 0;
+    _Client->params_count = 0;
+    _Client->content_length = 0;
+    _Client->state = 0;
+    _Client->URL = NULL;
+}
 

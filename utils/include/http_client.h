@@ -29,6 +29,14 @@ typedef enum
 
 typedef const char (*http_client_on_success)();
 
+typedef struct {
+  char        scheme[6];
+  char        host[128];
+  char        port[6];
+  char        path[512];
+} URL_Parts;
+
+
 typedef struct
 {
   http_client_on_success    on_success;
@@ -51,6 +59,7 @@ typedef struct
   int                       content_length;
   HTTP_Request*             req;
   HTTP_Response*            resp;
+  URL_Parts                 url_parts;
 } HTTP_Client;
 
 
