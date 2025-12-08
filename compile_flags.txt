@@ -1,0 +1,26 @@
+# === Client ===
+-Iclient/include
+
+# === Client C++ ===
+-Iclient_cpp/include
+
+# === Core Modules ===
+-Icore/modules/include
+
+# === Core Utils ===
+-Icore/utils/include
+
+# === External Libraries ===
+-Ilibs/include
+
+# === Server Public Includes ===
+-Iserver/include
+-Iserver/include/api
+-Iserver/include/http
+-Iserver/include/tcp
+-Iserver/include/weather
+
+# === Standarder ===
+-std=c11
+-std=c++17
+

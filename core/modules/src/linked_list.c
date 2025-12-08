@@ -1,7 +1,8 @@
-#include <stdlib.h>
-#include "../include/linked_list.h"
+#include "linked_list.h"
 
+#include <stdlib.h>
 #include <stdio.h>
+
 Linked_List* linked_list_create() 
 {
   Linked_List* New = calloc(1, sizeof(Linked_List)); /* zeroed allocation, just what we need */

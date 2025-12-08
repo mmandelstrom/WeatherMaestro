@@ -1,4 +1,4 @@
-#include "../../include/http/http_server.h"
+#include "http/http_server.h"
 
 /* -----------------Internal Functions----------------- */
 void http_server_taskwork(void* _context, uint64_t _montime);
@@ -107,7 +107,6 @@ HTTPServerState http_server_connection_handover(int _fd, void* _Context)
     Server->client_fd = -1;
     return HTTP_SERVER_IDLE;
   }
-
 
   result = Server->on_connection(Server, Connection);
   if (result != SUCCESS)

@@ -6,10 +6,10 @@
 /* ************************* WEATHER SERVER ************************** */
 /* ******************************************************************* */
 
-#include "weather_instance.h"
-#include "../http/http_server.h"
-#include "../scheduler.h"
-#include "../../../utils/include/linked_list.h"
+#include "weather/weather_instance.h"
+#include "http/http_server.h"
+#include "scheduler.h"
+#include "linked_list.h"
 
 #define DATA_DIR "data/"
 

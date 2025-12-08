@@ -1,4 +1,4 @@
-#include "../../include/api/nominatim.h"
+#include "api/nominatim.h"
 
 
 /* ---------------------- Internal functions ----------------------- */

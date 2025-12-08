@@ -5,16 +5,18 @@
 /* ************************** HTTP PARSING *************************** */
 /* ******************************************************************* */
 
+#include "HTTPStatusCodes.h"
+#include "misc_utils.h"
+#include "linked_list.h"
+#include "error.h"
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
+#include <stddef.h>
 #include <errno.h>
-#include "../../../libs/include/HTTPStatusCodes.h"
-#include "../../../libs/include/yuarel.h"
-#include "../../../utils/include/misc_utils.h"
-#include "../../../utils/include/linked_list.h"
-#include "../error.h"
+#include <ctype.h>
+
 
 #define HTTP_REQUEST_MAX_PARAMS 10
 #define HTTP_RESPONSE_FIRSTLINE_TEMPLATE "HTTP/1.1 %i %s\r\n"
@@ -37,6 +39,9 @@ typedef struct
   char*                headers;
   char*                body;  
   char*                full_response;
+  char*                version;
+  char*                reason_phrase;
+  char*                status_code_string;
 
   enum HttpStatus_Code status_code;
 
@@ -71,12 +76,13 @@ typedef struct {
 
 HTTPMethod http_method_string_to_enum(const char* _method_str);
 const char* http_method_enum_to_string(HTTPMethod _method);
-int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req, Linked_List **_params_out);
-int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len);
-int http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len);
-int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_headers_out);
+int  http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req, Linked_List **_params_out);
+int  http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len);
+int  http_parser_find_headers_end(const uint8_t *_buf, size_t _buf_len);
+int  http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_headers_out);
 void http_parser_dispose_linked_list(Linked_List *_list);
-int http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value);
-
+int  http_parser_get_header_value(Linked_List* _headers, char* _name, const char** _out_value);
+int  http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Response* _Resp);
+int  http_parser_url(const char* _URL, void* _Context);
 
 #endif 

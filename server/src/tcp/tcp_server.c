@@ -1,4 +1,4 @@
-#include "../../include/tcp/tcp_server.h"
+#include "tcp/tcp_server.h"
 
 /* -----------------Internal Functions----------------- */
 

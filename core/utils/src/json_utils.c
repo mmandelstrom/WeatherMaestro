@@ -1,4 +1,4 @@
-#include "../include/json_utils.h"
+#include "json_utils.h"
 
 double json_get_double(cJSON* _Root, const char* _Name) {
   cJSON* field = cJSON_GetObjectItemCaseSensitive(_Root, _Name);

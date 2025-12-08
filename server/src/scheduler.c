@@ -1,4 +1,4 @@
-#include "../include/scheduler.h"
+#include "scheduler.h"
 
 /* ----------------------- Global vars ----------------------- */
 

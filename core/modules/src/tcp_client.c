@@ -1,4 +1,4 @@
-#include "../../include/tcp/tcp_client.h"
+#include "tcp_client.h"
 #include <limits.h>
 #include <stdint.h>
 
@@ -124,79 +124,6 @@ ssize_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size)
 
 int tcp_client_read_simple(TCP_Client* _Client, uint8_t* _buf, int _buf_len) {
   return recv(_Client->fd, _buf, _buf_len, MSG_DONTWAIT);
-}
-
-
-int tcp_client_read(TCP_Client* _Client) {
-  if (!_Client) {
-    return ERR_INVALID_ARG;
-  }
-
-  if (_Client->fd < 0) {
-    return ERR_INVALID_ARG;
-  }
-
-  if (_Client->readData) {
-    free(_Client->readData);
-    _Client->readData = NULL;
-  }
-
-  size_t capacity = 512;
-  _Client->readData = (char*)malloc(capacity + 1);
-  if (!_Client->readData) {
-    perror("malloc");
-    return ERR_NO_MEMORY;
-  }
-  ssize_t bytesRead;
-  size_t usedSpace = 0;
-  size_t spaceLeft = capacity;
-
-  while(1) {
-
-    if (usedSpace >= capacity) {
-      size_t newCapacity = capacity * 2;
-      char* tempBuffer = (char*)realloc(_Client->readData, newCapacity + 1);
-      if (!tempBuffer) {
-        free(_Client->readData);
-        _Client->readData = NULL;
-        perror("realloc");
-        return ERR_NO_MEMORY;
-      }
-      capacity = newCapacity;
-      _Client->readData = tempBuffer;
-      spaceLeft = capacity - usedSpace;
-    }
-
-    bytesRead = recv(_Client->fd, _Client->readData + usedSpace, spaceLeft, 0);
-
-    if (bytesRead < 0) {
-      if (errno == EINTR) continue;
-      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ENOTCONN) {
-        if (usedSpace == 0) {
-          return SUCCESS;
-        }
-
-        _Client->readData[usedSpace] = '\0';
-                
-        return (int)usedSpace;
-      }
-
-      free(_Client->readData);
-      _Client->readData = NULL;
-      perror("recv");
-      return ERR_IO;
-    }
-
-    if (bytesRead == 0) {
-      _Client->readData[usedSpace] = '\0';
-      return (int)usedSpace;
-    }
-
-    if (bytesRead > 0) {
-      usedSpace += (size_t)bytesRead;
-      spaceLeft = capacity - usedSpace;
-    }
-  }
 }
 
 int tcp_client_write(TCP_Client* _Client, size_t _Length) {

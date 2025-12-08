@@ -1,4 +1,4 @@
-#include "../../include/api/geo_parser.h"
+#include "api/geo_parser.h"
 #include <unistd.h>
 
 /* Pre-hashed cache filename definitions */

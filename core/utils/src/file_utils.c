@@ -1,5 +1,4 @@
-#include "../include/file_utils.h"
-#include "../include/file_utils.h"
+#include "file_utils.h"
 
 /* Returns true or false whether directory exists */
 bool directory_exists(const char* _path) 

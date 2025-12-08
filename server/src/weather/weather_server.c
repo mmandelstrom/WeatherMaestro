@@ -1,4 +1,4 @@
-#include "../../include/weather/weather_server.h"
+#include "weather/weather_server.h"
 
 /* -----------------Internal Functions----------------- */
 
@@ -185,6 +185,7 @@ void weather_server_taskwork(void* _context, uint64_t _MonTime)
       break;
 
     case WEATHER_SERVER_DISPOSING:
+      weather_server_dispose(server);
       /*CALL DISPOSE STUFF HERE*/
       printf("WEATHER_SERVER_DISPOSE\n");
       break;

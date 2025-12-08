@@ -6,11 +6,11 @@
 /* ************************** Nominatim API ************************** */
 /* ******************************************************************* */
 
-#include "../http/http_client.h"
-#include "../../../libs/include/cJSON.h"
-#include "../../../utils/include/json_utils.h"
-#include "../../../utils/include/misc_utils.h"
-#include "../../../utils/include/curl.h"
+#include "cJSON.h"
+#include "http_client.h"
+#include "json_utils.h"
+#include "misc_utils.h"
+#include "curl.h"
 
 #include <stdio.h>
 

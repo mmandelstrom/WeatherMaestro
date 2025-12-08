@@ -8,8 +8,8 @@
 /* This is the main HTTP building block
  * It spawns the TCP Server and a scheduler task for every connection made */
 
-#include "http_connection.h"
-#include "../tcp/tcp_server.h"
+#include "http/http_connection.h"
+#include "tcp/tcp_server.h"
 
 typedef enum {
   HTTP_SERVER_ERROR_NONE = 0,
@@ -38,7 +38,7 @@ typedef struct
 	http_server_on_connection on_connection;
   void*                     context;
 	Scheduler_Task*           task;
-	TCP_Server                tcp_server;
+	TCP_Server                tcp_server; //Redo as ptr
   HTTPServerState           state;
   HTTPServerErrorState      error_state;
   int                       client_fd;

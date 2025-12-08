@@ -1,10 +1,10 @@
-#include "../../include/weather/weather_instance.h"
+#include "weather/weather_instance.h"
 
 //-----------------Internal Functions-----------------
 //
 int weather_server_instance_on_http_connection(void* _context, HTTP_Server_Connection* _Connection);
 int weather_server_instance_on_request(void* _context);
-int weather_server_instance_on_response(void* _context);
+int weather_server_instance_on_dispose(void* _context);
 
 void weather_server_instance_taskwork(void* _context, uint64_t _montime);
 WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Instance);
@@ -22,7 +22,7 @@ int weather_server_instance_init(void* _context, Weather_Server_Instance* _Insta
   _Instance->context = _context;
   _Instance->task = NULL;
   _Instance->http_connection = _Connection;
-  http_server_connection_set_callback(_Instance->http_connection, _Instance, weather_server_instance_on_request, weather_server_instance_on_response);
+  http_server_connection_set_callback(_Instance->http_connection, _Instance, weather_server_instance_on_request, weather_server_instance_on_dispose);
 
   return SUCCESS;
 }
@@ -61,7 +61,7 @@ int weather_server_instance_on_request(void* _context)
   return SUCCESS;
 }
 
-int weather_server_instance_on_response(void* _context)
+int weather_server_instance_on_dispose(void* _context)
 {
   if (!_context) {
     return ERR_INVALID_ARG;
@@ -89,6 +89,8 @@ WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Inst
     return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
   }
 
+  _Instance->http_connection->request = NULL;
+  _Instance->http_connection->response = NULL;
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING;
 }
@@ -99,7 +101,7 @@ WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Ins
     return WEATHER_SERVER_INSTANCE_ERROR;
   }
 
-  HTTP_Response* Res = _Instance->http_connection->response;
+  HTTP_Response* Res = _Instance->weather_api->http_response;
   if (Res->body != NULL && Res->status_code == 200)
   {
     size_t body_len = strlen(Res->body);
@@ -123,13 +125,13 @@ WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Ins
     char full_response[full_response_len + 1];
     snprintf(full_response, full_response_len, "%s%s%s\r\n", firstline, headers_buf, Res->body);
 
-    _Instance->http_connection->response->full_response = malloc(full_response_len);
-    if (_Instance->http_connection->response->full_response == NULL)
+    _Instance->weather_api->http_response->full_response = malloc(full_response_len);
+    if (_Instance->weather_api->http_response->full_response == NULL)
     {
       // handle
       perror("malloc");
     }
-    memcpy(_Instance->http_connection->response->full_response, full_response, full_response_len);
+    memcpy(_Instance->weather_api->http_response->full_response, full_response, full_response_len);
   }
 
   return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
@@ -169,9 +171,15 @@ void weather_server_instance_taskwork(void* _context, uint64_t _montime)
     {
       printf("WEATHER_SERVER_INSTANCE_RESPONSE_SENDING\n");
 
+      /* Hand HTTP_Response back over to HTTP_Connection */
+      _Instance->http_connection->response = _Instance->weather_api->http_response;
+      _Instance->http_connection->request = _Instance->weather_api->http_request;
+
       _Instance->http_connection->weather_done = 1;
       _Instance->http_connection->state = HTTP_SERVER_CONNECTION_RESPONDING;
-      
+
+      _Instance->weather_api->http_response = NULL;
+
       _Instance->state = WEATHER_SERVER_INSTANCE_DISPOSING;
     } break;
 

@@ -1,7 +1,7 @@
 #ifndef __JSON_UTILS_H__
 #define __JSON_UTILS_H__
 
-#include "../../libs/include/cJSON.h"
+#include "cJSON.h"
 
 int json_get_int(cJSON* _Root, const char* _Name);
 double json_get_double(cJSON* _Root, const char* _Name);

@@ -5,13 +5,13 @@
 /* ************************* WEATHER PARSER ************************** */
 /* ******************************************************************* */
 
-#include "../../../utils/include/file_utils.h"
-#include "../../../utils/include/time_utils.h"
-#include "../../../libs/include/md5.h"
+#include "file_utils.h"
+#include "time_utils.h"
+#include "md5.h"
 
-#include "meteo.h"
-#include "bigdatacloud.h"
-#include "nominatim.h"
+#include "api/meteo.h"
+#include "api/bigdatacloud.h"
+#include "api/nominatim.h"
 
 #include <stdint.h>
 #include <stdlib.h>

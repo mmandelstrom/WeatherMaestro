@@ -1,4 +1,4 @@
-#include "../../include/api/bigdatacloud.h"
+#include "api/bigdatacloud.h"
 
 
 /* ---------------------- Internal functions ----------------------- */

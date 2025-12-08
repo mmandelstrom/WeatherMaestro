@@ -1,5 +1,4 @@
-#include "../../include/api/weather_api.h"
-#include <string.h>
+#include "api/weather_api.h"
 
 /** ----------------------- INTERNAL DEFS ------------------------ */
 

@@ -6,11 +6,12 @@
 /* ************************* WEATHER API V1 ************************** */
 /* ******************************************************************* */
 
-#include "../http/http_parser.h"
-#include "geo_parser.h"
+#include "http_parser.h"
+#include "api/geo_parser.h"
 #include "weather_parser.h"
 
 #include <errno.h>
+#include <string.h>
 
 #define API_ENDPOINT_ROOT "/api/v1"
 #define MAX_GEO_RESULTS   8

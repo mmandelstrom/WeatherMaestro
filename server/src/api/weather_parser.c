@@ -1,4 +1,4 @@
-#include "../../include/api/weather_parser.h"
+#include "api/weather_parser.h"
 
 /* Pre-hashed cache filename definitions */
 #define CACHE_FILENAME_WEATHER  "lat%.3f_lon%.3f_current"
@@ -213,6 +213,7 @@ void weather_parser_dispose_ptr(Weather** _W_Ptr, Forecast** _F_Ptr)
 /** Builds a Weather struct using cache or external API */
 int weather_parser_get_weather_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char** _json_output_ptr)
 {
+  /*TODO: Implement fallback API requests in case meteo doesn't respond*/
   if (_Weather == NULL)
     return -1;
 
@@ -288,70 +289,6 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
   }
 
   return -1;
-}
-
-/* This will probably never be needed */
-int weather_parser_get_weather_from_cache(Weather* _Weather, const char* _filepath)
-{
-  const char* weather_json = read_file_to_string(_filepath);
-  if (weather_json == NULL)
-    return -1;
-
-  cJSON* Json_Root = cJSON_Parse(weather_json);
-  if (Json_Root == NULL) {
-    const char* error_pointer = cJSON_GetErrorPtr();
-    if (error_pointer != NULL){
-      fprintf(stderr,"meteo json error %s\n", error_pointer);
-    }
-    free((void*)weather_json);
-    return -2;
-  }
-  free((void*)weather_json);
-
-  cJSON* Weather = cJSON_GetObjectItemCaseSensitive(Json_Root, "weather");
-  if (Weather == NULL){
-    fprintf(stderr, "'weather' section missing in cache json\n");
-    cJSON_Delete(Json_Root);
-    return -2;
-  }
-  cJSON* Units = cJSON_GetObjectItemCaseSensitive(Json_Root, "units");
-  if (Units == NULL){
-    fprintf(stderr, "'current_units' section missing in cache json\n");
-    cJSON_Delete(Json_Root);
-    return -3;
-  }
-
-  const char* timestamp_str = json_get_string(Json_Root, "timestamp");
-
-  _Weather->timestamp              = parse_iso_datetime_string_to_epoch(timestamp_str);
-
-  _Weather->latitude               = json_get_double(Json_Root, "latitude");
-  _Weather->longitude              = json_get_double(Json_Root, "longitude");
-                                                            
-  _Weather->temperature            = json_get_int(Weather, "temperature");
-  _Weather->precipitation          = json_get_int(Weather, "precipitation");
-  _Weather->windspeed              = json_get_int(Weather, "windspeed");
-  _Weather->winddirection_azimuth  = json_get_int(Weather, "winddirection");
-  _Weather->wmo_code               = json_get_int(Weather, "wmo_code");
-
-  _Weather->temperature_unit       = strdup(json_get_string(Units, "temperature_unit")); 
-  _Weather->windspeed_unit         = strdup(json_get_string(Units, "windspeed_unit")); 
-  _Weather->precipitation_unit     = strdup(json_get_string(Units, "precipitation_unit"));
-  _Weather->winddirection_unit     = strdup(json_get_string(Units, "winddirection_unit"));
-
-  if (_Weather->temperature_unit   == NULL ||
-      _Weather->windspeed_unit     == NULL ||
-      _Weather->precipitation_unit == NULL ||
-      _Weather->winddirection_unit == NULL)
-  {
-    fprintf(stderr, "One or more strings couldn't be parsed from meteo json\n");
-    cJSON_Delete(Json_Root);
-    return -3;
-  }
-
-  cJSON_Delete(Json_Root);
-
-  return 0;
 }
 
 int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weather)

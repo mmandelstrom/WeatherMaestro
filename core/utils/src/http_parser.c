@@ -1,4 +1,5 @@
-#include "../../include/http/http_parser.h"
+#include "http_parser.h"
+#include "http_client.h"
 
 int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req, Linked_List **_params_out) {
 
@@ -127,6 +128,78 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   
   return SUCCESS;
 }
+
+int http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Response* _Resp) {
+  if (!_line || _line_len || _Resp) {
+    return ERR_INVALID_ARG;
+  }
+  
+  char* line_copy = malloc(_line_len + 1);
+  if (!line_copy) {
+    return ERR_NO_MEMORY;
+  }
+
+  memcpy(line_copy, _line, _line_len);
+  line_copy[_line_len] = '\0';
+
+  // Format: HTTP-version SP status-code SP reason-phrase
+  char *version_string = line_copy;
+  char *first_space = strchr(line_copy, ' ');
+  if (!first_space) {
+    free(line_copy);
+    return ERR_BAD_FORMAT;
+  }
+  *first_space = '\0';
+  
+  char* status_string = first_space + 1;
+  char* second_space = strchr(status_string, ' ');
+  if (!second_space) {
+    free(line_copy);
+    return ERR_BAD_FORMAT;
+  }
+  *second_space = '\0';
+  char* reason_string = second_space + 1;
+
+  _Resp->version = strdup(version_string);
+  if (!_Resp->version) {
+    free(line_copy);
+    return ERR_NO_MEMORY;
+  }
+
+  _Resp->status_code_string = strdup(status_string);
+  if (!_Resp->status_code_string) {
+    free(line_copy);
+    free(_Resp->version);
+    _Resp->version = NULL;
+    return ERR_NO_MEMORY;
+  }
+
+  _Resp->reason_phrase = strdup(reason_string);
+  if (!_Resp->reason_phrase) {
+    free(line_copy);
+    free(_Resp->version);
+    free(_Resp->status_code_string);
+    _Resp->version = NULL;
+    _Resp->status_code_string = NULL;
+    return ERR_NO_MEMORY;
+  }
+
+  int status_int = 0;
+  parse_string_to_int(_Resp->status_code_string, &status_int);
+  if (strcmp(_Resp->reason_phrase, HttpStatus_reasonPhrase(status_int)) != 0) {
+    free(line_copy);
+    free(_Resp->version);
+    free(_Resp->status_code_string);
+    _Resp->version = NULL;
+    _Resp->status_code_string = NULL;
+    return ERR_BAD_FORMAT;
+  }
+ 
+  free(line_copy);
+  return SUCCESS;
+
+}
+
 
 int http_parser_find_line_end(const uint8_t *_buf, size_t _buf_len) {
   if (_buf_len < 2) {
@@ -367,4 +440,108 @@ void http_parser_dispose_linked_list(Linked_List *_list) {
   linked_list_destroy(&_list);      
 }
 
+int http_parser_url(const char* _URL, void* _Context) {
+  if (!_URL || !_Context) {
+    return ERR_INVALID_ARG;
+  }
+  
+  URL_Parts* url_parts = (URL_Parts*)_Context;
+  
+  url_parts->scheme[0] = '\0';
+  url_parts->host[0] = '\0';
+  url_parts->port[0] = '\0';
+  url_parts->path[0] = '\0';
+
+  const char* url_ptr = _URL;
+
+  /*-----------------------SCHEME (HTTP/HTTPS)------------------------------*/
+  const char* scheme_end = strstr(url_ptr, "://");
+  if (!scheme_end) {
+    return ERR_BAD_FORMAT;
+  }
+
+  size_t scheme_len = (size_t)(scheme_end - url_ptr);
+  if (scheme_len == 0 || scheme_len >= sizeof(url_parts->scheme)) {
+    return ERR_BAD_FORMAT;
+  }
+
+  memcpy(url_parts->scheme, url_ptr, scheme_len);
+  url_parts->scheme[scheme_len] = '\0';
+
+  //move past ://
+  url_ptr = scheme_end + 3;
+
+  /*-----------------------HOST------------------------------*/
+  const char* host_start = url_ptr;
+  const char* slash = strchr(url_ptr, '/');
+  const char* colon = strchr(url_ptr, ':');
+
+  const char* host_end = NULL;
+
+  // : is only the separtor if it comes before / 
+  if (colon && (!slash || colon < slash)) {
+    host_end = colon;
+  } else if (slash) {
+    host_end = slash;
+  } else {
+    host_end = url_ptr + strlen(url_ptr);
+  }
+
+  size_t host_len = (size_t)(host_end - host_start);
+  if (host_len == 0 || host_len >= sizeof(url_parts->host)) {
+    return ERR_BAD_FORMAT;
+  }
+
+  memcpy(url_parts->host, host_start, host_len);
+  url_parts->host[host_len] = '\0';
+
+  /*---------------------PORT (if specified)---------------------------*/
+  const char* path_start = host_end;
+
+  if (host_end == colon) {
+    const char* port_start = colon + 1;
+    const char* url_end = _URL + strlen(_URL);
+    const char* port_end = slash ? slash : url_end;
+    
+    if (port_start == port_end) {
+      return ERR_BAD_FORMAT;
+    }
+    
+    size_t port_len = (size_t)(port_end - port_start);
+    if (port_len >= sizeof(url_parts->port)) {
+      return ERR_BAD_FORMAT;
+    }
+
+    /*Validate port*/
+    for (const char* ptr = port_start; ptr < port_end; ptr++) {
+      if (!isdigit((unsigned char)*ptr)) {
+        return ERR_BAD_FORMAT;
+      }
+    }
+
+    memcpy(url_parts->port, port_start, port_len);
+    url_parts->port[port_len] = '\0';
+
+    path_start = port_end;
+  }
+
+  /*-----------------PATH---------------------------------------*/
+
+  if (*path_start == '/') {
+    size_t path_len = strlen(path_start);
+    if (path_len >= sizeof(url_parts->path)) {
+      return ERR_BAD_FORMAT;
+    }
+    
+    memcpy(url_parts->path, path_start, path_len +1);
+
+  }else {
+    //No path
+    url_parts->path[0] = '/';
+    url_parts->path[1] = '\0';
+  }
+
+  return SUCCESS;
+
+}
 

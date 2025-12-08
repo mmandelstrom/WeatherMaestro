@@ -1,9 +1,10 @@
-#include "../include/weather/weather_server.h"
+#include "weather/weather_server.h"
 #include <signal.h>
 
 volatile sig_atomic_t stop = 0;
 Weather_Server Server;
 
+/* Graceful exit */
 void handle_sigint(int sig)
 {
   printf("\r\nShutting down server gracefully...\r\n");

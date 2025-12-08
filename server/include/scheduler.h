@@ -6,8 +6,9 @@
 
 #include <stdint.h>
 #include <string.h>
-#include "../../utils/include/misc_utils.h"
-#include "../../utils/include/time_utils.h"
+
+#include "misc_utils.h"
+#include "time_utils.h"
 #include "error.h"
 
 #ifndef SCHEDULER_MAX_TASKS
@@ -42,5 +43,4 @@ int scheduler_get_task_count();
 void scheduler_dispose();
 
 #endif
-
 

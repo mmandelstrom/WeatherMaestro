@@ -1,4 +1,4 @@
-#include "../../include/http/http_connection.h"
+#include "http/http_connection.h"
 
 #define RESPONSE_TEMPLATE "HTTP/1.1 %i %s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" // args: response_code, reason_phrase, response_content_len, response_body
 
@@ -88,11 +88,11 @@ int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connectio
 }
 
 /*From weatherinstance "init"*/
-void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request, http_server_connection_on_response _on_response)
+void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request, http_server_connection_on_dispose _on_dispose)
 {
   _Connection->context = _Context;
   _Connection->on_request = _on_request;
-  _Connection->on_response = _on_response;
+  _Connection->on_dispose = _on_dispose;
 }
 
 
@@ -357,7 +357,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 
   TCP_Client* TCP_C = _Connection->tcp_client;
 
-  if (_Connection->response->full_response != NULL && _Connection->response->status_code != 500) // means we already built full response as part of a valid request
+  if (_Connection->response->full_response != NULL && _Connection->response->status_code != 500 && _Connection->response->status_code != 400) // means we already built full response as part of a valid request
   {
     printf("Full response: \n%s\n", _Connection->response->full_response);
 
@@ -460,7 +460,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 
     int response_body_len = (int)strlen(response_body);
 
-    char http_response[8122];
+    char http_response[8192];
     int written = snprintf(
         http_response, sizeof(http_response),
         "HTTP/1.1 200 OK\r\n"
@@ -579,7 +579,7 @@ void http_server_connection_taskwork(void* _Context, uint64_t _montime)
     {
       printf("HTTP_SERVER_CONNECTION_DISPOSING\n");
       tcp_client_disconnect(_Connection->tcp_client);
-      _Connection->on_response(_Connection->context);
+      _Connection->on_dispose(_Connection->context);
 
     } break;
 
@@ -703,7 +703,7 @@ void http_handle_request(const uint8_t *_data, size_t _len) {
   conn.weather_done = 1;
   conn.context = NULL;
   conn.on_request = NULL;
-  conn.on_response = NULL;
+  conn.on_dispose = NULL;
   conn.task = NULL;
 
   /*Fake tcp socket*/

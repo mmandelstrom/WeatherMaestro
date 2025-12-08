@@ -6,10 +6,10 @@
 /* ******************************************************************* */
 /* Ahhh, good old open-meteo */
 
-#include "../http/http_client.h"
-#include "../../../libs/include/cJSON.h"
-#include "../../../utils/include/json_utils.h"
-#include "../../../utils/include/curl.h"
+#include "cJSON.h"
+#include "http_client.h"
+#include "json_utils.h"
+#include "curl.h"
 
 #include <stdio.h>
 #include <time.h>

@@ -9,8 +9,8 @@
  * It handles the tasks between recieving a request and send a response*/
 
 #include "http_parser.h"
-#include "../scheduler.h"
-#include "../tcp/tcp_client.h"
+#include "tcp_client.h"
+#include "scheduler.h"
 
 #define TCP_MESSAGE_BUFFER_MAX_SIZE 128 // Size of initial tcp_read buffer without reallocating more mem
 #define HTTP_SERVER_CONNECTION_FIRSTLINE_MAXLEN 1024 // Maximum length of http request's first line
@@ -21,7 +21,7 @@
 /* The usecase of the function pointer is to let the connection instance point back to a server nstance's function without knowing exactly what it is or needs */
 typedef int (*http_server_connection_on_request)(void* _context);
 /* The usecase of the function pointer is to let the instance know the response has been sent and the connection+instance should dispose */
-typedef int (*http_server_connection_on_response)(void* _context);
+typedef int (*http_server_connection_on_dispose)(void* _context);
 
 typedef enum
 {
@@ -52,7 +52,7 @@ typedef struct
   HTTP_Response*                      response;
 
 	http_server_connection_on_request   on_request;
-	http_server_connection_on_response  on_response;
+	http_server_connection_on_dispose  on_dispose;
   int                                 content_length;
   int                                 weather_done;
 
@@ -63,7 +63,7 @@ int http_server_connection_init(HTTP_Server_Connection* _Connection, int _fd);
 int http_server_connection_init_ptr(int _fd, HTTP_Server_Connection** _Connection_Ptr);
 
 /* To be called by the dependent module to define what to run when request is succesfully validated and parsed, and what when response has been sent */
-void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request, http_server_connection_on_response _on_response);
+void http_server_connection_set_callback(HTTP_Server_Connection* _Connection, void* _Context, http_server_connection_on_request _on_request, http_server_connection_on_dispose _on_dispose);
 
 void http_server_connection_dispose(HTTP_Server_Connection* _Connection);
 void http_server_connection_dispose_ptr(HTTP_Server_Connection** _Connection_Ptr);

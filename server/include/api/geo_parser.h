@@ -5,7 +5,7 @@
 /* *********************** GEOLOCATION PARSER ************************ */
 /* ******************************************************************* */
 
-#include "weather_parser.h"
+#include "api/weather_parser.h"
 
 #define CACHE_DIR "data/cache/"
 #define CITY_COORD_BUFFER_LENGTH 12 // How many max chars we take from latitude+longitude param strings. 12 will for example allow -111.111111

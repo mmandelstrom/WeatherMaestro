@@ -13,13 +13,20 @@ endif
 BUILD_DIR := build
 
 # Source files directories
-SRC_DIR   := src
+SRC_DIR   		:= src
+CORE_SRC_DIR  := core/modules/src
+UTILS_SRC_DIR := core/utils/src
+LIBS_SRC_DIR  := libs/src
 
-# libs and utils source files to build
-UTILS_SRC := ../utils/src/misc_utils.c ../utils/src/time_utils.c ../utils/src/json_utils.c ../utils/src/file_utils.c ../utils/src/linked_list.c ../utils/src/curl.c
-LIBS_SRC := ../libs/src/HTTPStatusCodes.c ../libs/src/yuarel.c ../libs/src/cJSON.c ../libs/src/md5.c
+# Source files to build
+SRC       := $(shell find -L $(SRC_DIR) 	-type f -name '*.c')
+CORE_SRC  := $(shell find -L ../$(CORE_SRC_DIR)  -type f -name '*.c')
+UTILS_SRC := $(shell find -L ../$(UTILS_SRC_DIR) -type f -name '*.c')
+LIBS_SRC  := ../libs/src/HTTPStatusCodes.c ../libs/src/cJSON.c ../libs/src/md5.c
 
-ALL_SRC := $(SRC) $(UTILS_SRC) $(LIBS_SRC)
+ALL_SRC := $(SRC) $(CORE_SRC) $(UTILS_SRC) $(LIBS_SRC)
+
+# Find all .c source files recursively
 
 # Temp dirs to be deleted on clean
 CACHE_DIR := data/cache
@@ -27,7 +34,7 @@ CACHE_DIR := data/cache
 # Compilation flags
 # CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Werror -Wfatal-errors -Wno-format-truncation -I../libs
 # CFLAGS := -std=c99 -MMD -MP -g -I../libs -I../utils
-CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Wfatal-errors -g -I../libs -I../utils
+CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Wfatal-errors -g -Iinclude -I../libs/include -I../core/utils/include -I../core/modules/include
 
 # Linker flags (auto-detect platform)
 ifeq ($(UNAME_S),Darwin)
@@ -62,22 +69,19 @@ FUZZ_SOURCES = \
     ../libs/src/HTTPStatusCodes.c \
     ../fuzz_http.c
 
-
-
 #Asan flags for fsanitize=address on Arch
 ASAN_CC     ?= gcc
 ASAN_CFLAGS ?= -fsanitize=address,undefined -g -DHTTP_FUZZ_MODE
 ASAN_OUT    ?= ../fuzz_http_asan
 
 
-# Find all .c source files recursively
-SRC := $(shell find -L $(SRC_DIR) -type f -name '*.c')
+# Map .c → .o
+SRC_OBJ   := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/$(SRC_DIR)/%.o,$(SRC))
+CORE_OBJ  := $(patsubst ../$(CORE_SRC_DIR)/%.c,$(BUILD_DIR)/$(CORE_SRC_DIR)/%.o,$(CORE_SRC))
+UTILS_OBJ := $(patsubst ../$(UTILS_SRC_DIR)/%.c,$(BUILD_DIR)/$(UTILS_SRC_DIR)/%.o,$(UTILS_SRC))
+LIBS_OBJ  := $(patsubst ../$(LIBS_SRC_DIR)/%.c,$(BUILD_DIR)/$(LIBS_SRC_DIR)/%.o,$(LIBS_SRC))
 
-# Map .c → .o in the build directory, combining module-specific, libs and utils files
-UTILS_OBJ := $(patsubst ../utils/src/%.c,$(BUILD_DIR)/utils/%.o,$(UTILS_SRC))
-LIBS_OBJ := $(patsubst ../libs/src/%.c,$(BUILD_DIR)/libs/%.o,$(LIBS_SRC))
-SRC_OBJ := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRC))
-OBJ := $(SRC_OBJ) $(UTILS_OBJ) $(LIBS_OBJ)
+OBJ := $(SRC_OBJ) $(CORE_OBJ) $(UTILS_OBJ) $(LIBS_OBJ)
 
 # Dependency files (.d)
 DEP := $(OBJ:.o=.d)
@@ -94,17 +98,22 @@ $(BIN): $(OBJ)
 	@echo "Linking..."
 	@$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
 
-$(BUILD_DIR)/utils/%.o: ../utils/src/%.c
+$(BUILD_DIR)/$(CORE_SRC_DIR)/%.o: ../$(CORE_SRC_DIR)/%.c
 	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/libs/%.o: ../libs/src/%.c
+$(BUILD_DIR)/$(UTILS_SRC_DIR)/%.o: ../$(UTILS_SRC_DIR)/%.c
 	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
+$(BUILD_DIR)/$(LIBS_SRC_DIR)/%.o: ../$(LIBS_SRC_DIR)/%.c
+	@echo "Compiling $<..."
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/$(SRC_DIR)/%.o: $(SRC_DIR)/%.c
 	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -c $< -o $@

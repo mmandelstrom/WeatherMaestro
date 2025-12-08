@@ -18,7 +18,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#include "../scheduler.h"
+#include "scheduler.h"
 
 #define BACKLOG 10000
 #define MAX_CLIENTS 10000

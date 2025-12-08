@@ -5,8 +5,8 @@
 /* ******************** WEATHER SERVER INSTANCE ********************** */
 /* ******************************************************************* */
 
-#include "../http/http_connection.h"
-#include "../api/weather_api.h"
+#include "http/http_connection.h"
+#include "api/weather_api.h"
 
 typedef int (*weather_server_instance_on_finish)(void* _context, void* _instance);
 

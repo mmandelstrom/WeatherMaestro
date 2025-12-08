@@ -1,5 +1,5 @@
 #define _POSIX_C_SOURCE 199309L
-#include "../include/time_utils.h"
+#include "time_utils.h"
 
 void ms_sleep(uint64_t ms) {
 #ifdef _WIN32
