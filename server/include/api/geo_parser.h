@@ -48,8 +48,8 @@ typedef struct
   const char* query;
   const char* cache_path;
 
-  Geo**  geo;
-  int   count;
+  Geo**       geo;
+  int         count;
 
 } Geos; // wrapper for Geo structs
 

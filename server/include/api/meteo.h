@@ -49,7 +49,16 @@ typedef struct
 
 typedef struct
 {
-  Meteo_Weather*  weathers;
+  const char* temperature_2m_unit; 
+  const char* wind_speed_10m_unit;
+  const char* precipitation_unit;
+  const char* elevation_unit;
+  const char* wind_direction_10m_unit;
+
+  float       latitude;
+  float       longitude;
+
+  Meteo_Weather** weathers;
   unsigned short  count;
 
 } Meteo_Forecast;
@@ -63,14 +72,15 @@ typedef struct
 
 /* ---------------------- Interface ----------------------- */
 
-int meteo_init_ptr(Meteo_Weather** _M_W_Ptr);
+/* Only init the one you need, pass NULL to the others*/
+int meteo_init_ptr(Meteo_Geo** _MG_Ptr, Meteo_Weather** _MW_Ptr, Meteo_Forecast** _MF_Ptr);
 
 int meteo_get_weather(Meteo_Weather* _MW, float _lat, float _lon);
 int meteo_get_forecast(Meteo_Forecast* _MF, float _lat, float _lon);
 
 int meteo_get_geo(Meteo_Geo* _MF, float _lat, float _lon, int _count);
 
-void meteo_dispose_ptr(Meteo_Weather** _MW_Ptr);
+int meteo_init_ptr(Meteo_Geo** MG_Ptr, Meteo_Weather** _MW_Ptr, Meteo_Forecast** _MF_Ptr);
 
 /* -------------------------------------------------------- */
 
