@@ -9,6 +9,8 @@ Linked_List* linked_list_create()
   if (!New)
     return NULL;
 
+  New->count = 0;
+
   return New;
 }
 
@@ -35,8 +37,11 @@ int linked_list_item_add(Linked_List* _List, Linked_Item** _Item_Ptr, void* _ite
     _List->tail = New_Item;
   }
 
+  /* If caller wants to specify the pointer */
   if (_Item_Ptr != NULL)
     *_Item_Ptr = New_Item;
+
+  _List->count++;
 
   return 0;
 }
@@ -68,6 +73,8 @@ void linked_list_item_remove(Linked_List* _List, Linked_Item* _Item)
 	/* Free the Item-related memory and null it */
   free(_Item);
   _Item = NULL;
+
+  _List->count--;
 
 }
 

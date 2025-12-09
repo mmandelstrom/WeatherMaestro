@@ -1,4 +1,5 @@
 #include "http/http_connection.h"
+#include <stdio.h>
 
 #define RESPONSE_TEMPLATE "HTTP/1.1 %i %s\r\nContent-Type: text/plain\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s" // args: response_code, reason_phrase, response_content_len, response_body
 
@@ -349,7 +350,7 @@ HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Con
   _Connection->response->status_code = 200;
   _Connection->on_request(_Connection->context);
   return HTTP_SERVER_CONNECTION_WEATHER_HANDOVER;
- }
+}
 
 
 HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
@@ -360,17 +361,6 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
   if (_Connection->response->full_response != NULL && _Connection->response->status_code != 500 && _Connection->response->status_code != 400) // means we already built full response as part of a valid request
   {
     printf("Full response: \n%s\n", _Connection->response->full_response);
-
-    /* size_t full_response_len = strlen(Res->firstline) + 
-                          strlen(Res->headers) + 
-                          strlen(Res->body) + 
-                          6 + // newlines
-                          1; // nullterm
-    char full_response[full_response_len];
-
-    written = snprintf(full_response, full_response_len, 
-             "%s\r\n"   "%s\r\n\r\n"  "%s",
-             Res->firstline, Res->headers, Res->body); */
 
     size_t full_response_len = strlen(_Connection->response->full_response);
 
@@ -388,9 +378,9 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     int result = tcp_client_write(TCP_C, full_response_len);
     printf("tcp result: %i\n", result);
   } 
-  else if (strcmp(_Connection->request->path, "/echo") == 0) 
+  else if (strcmp(_Connection->request->path, "/echo") == 0) // echo
   {
-    HTTP_Request *req = _Connection->request;
+    HTTP_Request* req = _Connection->request;
 
     char* body_ptr = NULL;
     int body_len = 0;
@@ -407,15 +397,24 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     queries_json[0] = '\0';
 
     if (req->params) {
+      int node_index = 0;
       linked_list_foreach(req->params, node) {
-        HTTP_Key_Value *p = (HTTP_Key_Value*)node->item;
+        HTTP_Key_Value* p = (HTTP_Key_Value*)node->item;
         char temp[128];
+
+        const char* keyvalue_string;
+        node_index++;
+        if (node_index < req->params->count)
+          keyvalue_string = "{ \"key\": \"%s\", \"value\": \"%s\" }, \n";
+        else // remove trailing comma
+          keyvalue_string = "{ \"key\": \"%s\", \"value\": \"%s\" } \n";
+
         snprintf(temp, sizeof(temp),
-                      "{ \"key\": \"%s\", \"value\": \"%s\" }, \n",
+                      keyvalue_string,
                       p->key, p->value);
         strncat(queries_json, temp,
                     sizeof(queries_json) - strlen(queries_json) - 1);
-        }
+      }
     }
 
     /*Write headers*/
@@ -423,15 +422,24 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     headers_json[0] = '\0';
 
     if (req->headers) {
+      int node_index = 0;
       linked_list_foreach(req->headers, node) {
-        HTTP_Key_Value *h = (HTTP_Key_Value*)node->item;
+        HTTP_Key_Value* h = (HTTP_Key_Value*)node->item;
         char temp[128];
+
+        const char* keyvalue_string;
+        node_index++;
+        if (node_index < req->headers->count)
+          keyvalue_string = "    { \"key\": \"%s\", \"value\": \"%s\" }, \n";
+        else // remove trailing comma
+          keyvalue_string = "    { \"key\": \"%s\", \"value\": \"%s\" } \n";
+
         snprintf(temp, sizeof(temp),
-                  "    { \"key\": \"%s\", \"value\": \"%s\" }, \n",
+                  keyvalue_string,
                   h->key, h->value);
         strncat(headers_json, temp,
                     sizeof(headers_json) - strlen(headers_json) - 1);
-        }
+      }
     }
 
     /*Remove trailing ,*/
@@ -485,7 +493,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     printf("Writedata:\n%s\n", (char*)TCP_C->writeData);
     tcp_client_write(TCP_C, written);
   }
-  else
+  else // error/invalid request
   {
     const char* reason_phrase = HttpStatus_reasonPhrase(_Connection->response->status_code);
     int reason_phrase_len = strlen(reason_phrase);

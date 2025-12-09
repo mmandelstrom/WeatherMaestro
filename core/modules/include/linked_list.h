@@ -20,6 +20,8 @@ typedef struct
   Linked_Item* head;
   Linked_Item* tail;
 
+  unsigned int count;
+
 } Linked_List;
 
 #define linked_list_foreach(list, node) \
