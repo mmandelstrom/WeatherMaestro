@@ -1,6 +1,5 @@
 #include "http_client.h"
 
-#include <stdio.h>
 
 void http_client_taskwork(void* _context, uint64_t _montime);
 HTTPClientState http_client_worktask_connecting(HTTP_Client* _Client);
@@ -76,7 +75,7 @@ HTTPClientState http_client_worktask_connecting(HTTP_Client* _Client) {
   printf("PorT: %s\n", _Client->url_parts.port);
 
   if (_Client->tls == false) {
-    const char* PORT = "443";
+    const char* PORT = "80";
     TCP_Client* TCPC = calloc(1, sizeof(TCP_Client));
     _Client->tcp_client = TCPC;
     printf("URL: %s\n", _Client->url_parts.host);
@@ -111,15 +110,16 @@ HTTPClientState http_client_worktask_build_request(HTTP_Client* _Client) {
         return HTTP_CLIENT_ERROR;
     }
 
-    _Client->request_length = snprintf(
-        (char*)_Client->request_buffer, 
+     _Client->request_length = snprintf(
+        (char*)_Client->request_buffer,
         max_len,
         "%s %s HTTP/1.1\r\n"
-        "Host: stockholm2.onvo.se\r\n"
+        "Host: %s\r\n"
         "User-Agent: httpclient\r\n"
         "Connection: close\r\n\r\n",
-        method_str, _Client->URL
+        method_str, _Client->url_parts.path, _Client->url_parts.host
     );
+
 
     if (_Client->request_length < 0 || (size_t)_Client->request_length >= max_len) {
         free(_Client->request_buffer);
@@ -183,27 +183,33 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
   }
-  if (_Client->retries++ > 3) {
-    /*Create internal error enum and set here*/
-    return HTTP_CLIENT_ERROR;
-  }
 
   TCP_Client* TCP_C = _Client->tcp_client;
 
   uint8_t tcp_buf[1024];
-  int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, 1024);
+  int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, sizeof(tcp_buf));
   printf("Bytes read: %d\n", bytes_read);
 
-  if (bytes_read > 0) {
-    ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data, tcp_buf, (size_t)bytes_read);
-    if (bytes_stored < 0) {
-      /*Add internal error*/
-      return HTTP_CLIENT_ERROR;
+  if (bytes_read < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+      return HTTP_CLIENT_READ_FIRSTLINE;
     }
+    perror("recv firstline");
+    return HTTP_CLIENT_ERROR;
+  }
+
+  if (bytes_read == 0) {
+    printf("Connection closed by peer\n");
+    return HTTP_CLIENT_ERROR;
+  }
+
+  ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data, tcp_buf, (size_t)bytes_read);
+  
+  if (bytes_stored < 0) {
+    return HTTP_CLIENT_ERROR;
   }
 
   if (TCP_C->data.size == 0) {
-    /*No data yet, try again on next work call*/
     return HTTP_CLIENT_READ_FIRSTLINE;
   }
 
@@ -227,7 +233,7 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
     return HTTP_CLIENT_ERROR;
   }
   
-  if (http_parser_response_firstline((const char*)TCP_C->data.addr, TCP_C->data.size, _Client->resp) != SUCCESS) {
+  if (http_parser_response_firstline((const char*)TCP_C->data.addr, line_len, _Client->resp) != SUCCESS) {
     /*Add internal error*/
     return HTTP_CLIENT_ERROR;
   }
@@ -256,33 +262,33 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
 
 
 HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client) {
-  if (_Client->retries++ > 3) {
-    /*Add internal error*/
-    return HTTP_CLIENT_ERROR; 
+  if (!_Client) {
+    return HTTP_CLIENT_ERROR;
   }
-
-
-  if (_Client->req->params != NULL) {
-    printf("Printing params...\n");
-    linked_list_foreach(_Client->req->params, node) {
-      HTTP_Key_Value *p = (HTTP_Key_Value*)node->item;
-      printf("ParamKey: %s\nParamValue: %s\n", p->key, p->value);
-    }
-  }
-
-  
+   
   TCP_Client* TCP_C = _Client->tcp_client;
 
   uint8_t tcp_buf[1024];
   int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, 1024);
   
+  if (bytes_read < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+      return HTTP_CLIENT_READ_HEADERS;
+    }
+    perror("recv headers");
+    return HTTP_CLIENT_ERROR;
+  }
+
+  if (bytes_read == 0 && TCP_C->data.size == 0) {
+    printf("Connection closed while reading headers\r\n");
+    return HTTP_CLIENT_ERROR;
+  }
+ 
   if (bytes_read > 0) {
-    ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data,
-                                                  tcp_buf,
-                                                  (size_t)bytes_read);
+    
+    ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data, tcp_buf, (size_t)bytes_read);
 
     if (bytes_stored < 0) {
-      /*add internal error*/
       return HTTP_CLIENT_ERROR;
     }
   }
@@ -369,29 +375,36 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) {
     return HTTP_CLIENT_ERROR;
   }
   
-  if (_Client->retries++ > 3)
-    return HTTP_CLIENT_ERROR;
   
   TCP_Client* TCP_C = _Client->tcp_client;
 
   uint8_t tcp_buf[1024];
   int bytes_read = tcp_client_read_simple(TCP_C,
                                           tcp_buf,
-                                          1024);
+                                          sizeof(tcp_buf));
+
+  if (bytes_read < 0) {
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+      return HTTP_CLIENT_READ_BODY;
+    }
+    perror("recv body");
+    return HTTP_CLIENT_ERROR;
+  }
+
+  if (bytes_read == 0 && TCP_C->data.size < (size_t)_Client->content_length) {
+    printf("Connection closed before full body was recieved\r\n");
+    return HTTP_CLIENT_ERROR;
+  }
 
   if (bytes_read > 0) {
-    ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data,
-                                                  tcp_buf,
-                                                  (size_t)bytes_read);
-                                                  
+    ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data, tcp_buf, (size_t)bytes_read);
 
     if (bytes_stored < 0) {
-      /*Add internal error*/
       return HTTP_CLIENT_ERROR;
     }
   }
 
-  if (TCP_C->data.size < (size_t)_Client->content_length) {
+   if (TCP_C->data.size < (size_t)_Client->content_length) {
     /*Keep reading body on next work call*/
     return HTTP_CLIENT_READ_BODY;
   }
@@ -419,6 +432,7 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
   uint64_t now = SystemMonotonicMS();
 
   switch(client->state) {
+
     case HTTP_CLIENT_INITIALIZING: {
       printf("init state\n");
       break;

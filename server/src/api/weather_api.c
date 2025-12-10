@@ -3,6 +3,8 @@
 /** ----------------------- INTERNAL DEFS ------------------------ */
 
 /** Defines the API endpoints' paths and methods */
+
+/*Funktionspekare kan användas istället för switch + endpoint*/
 const Weather_API_Endpoint Endpoints[ENDPOINT_INVALID] = {
   { 
     "/weather",

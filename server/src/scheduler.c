@@ -7,6 +7,9 @@ Scheduler Global_Scheduler;
 
 /* ----------------------------------------------------------- */
 
+/*Check connections and change timeout depending on amount*/
+
+
 int scheduler_init()
 {
 	memset(&Global_Scheduler, 0, sizeof(Global_Scheduler));
