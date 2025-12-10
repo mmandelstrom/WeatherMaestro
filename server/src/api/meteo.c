@@ -98,7 +98,6 @@ const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast)
   }
   HTTPMethod method = 1;
 
-  int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method);
 
   if (http_client_initiate(c, (const char*)url, method) != SUCCESS) {
     return NULL;
