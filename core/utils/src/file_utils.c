@@ -84,8 +84,6 @@ char* read_file_to_string(const char* _filename)
 
   fclose(file); /* Done with file, close it */
 
-  printf("read_file_to_string result: \n%s\n", string);
-
   return string;
 }
 

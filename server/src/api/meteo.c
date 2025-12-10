@@ -95,7 +95,7 @@ int meteo_get_forecast(Meteo_Forecast* _MF, float _lat, float _lon)
     return -1;
   }
 
-  int result = meteo_parse_json_weather_forecast(_MF, meteo_json);
+  int result = meteo_parse_json_weather_hourly(_MF, meteo_json);
   if (result != 0)
   {
     perror("meteo_parse_json");
@@ -174,7 +174,7 @@ const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast)
   return NULL;
 }
 
-int meteo_parse_weather_json(Meteo_Weather* _MW, const char* _json)
+int meteo_parse_json_weather_current(Meteo_Weather* _MW, const char* _json)
 {
   cJSON* Json_Root = cJSON_Parse(_json);
   if (Json_Root == NULL) {
@@ -260,7 +260,7 @@ int meteo_parse_json_weather_hourly(Meteo_Forecast* _MF, const char* _json)
     cJSON_Delete(Json_Root);
     return -2;
   }
-  cJSON* Hourly_Weather_Units = cJSON_GetObjectItemCaseSensitive(Json_Root, "current_units");
+  cJSON* Hourly_Weather_Units = cJSON_GetObjectItemCaseSensitive(Json_Root, "hourly_units");
   if (Hourly_Weather_Units == NULL){
     fprintf(stderr, "'hourly_units' section missing in meteo json\n");
     cJSON_Delete(Json_Root);
@@ -272,20 +272,51 @@ int meteo_parse_json_weather_hourly(Meteo_Forecast* _MF, const char* _json)
   int count = cJSON_GetArraySize(Time);
   _MF->count = count;
   
-  _MF->weathers = realloc(_MF->weathers, count * sizeof(Meteo_Weather));
+  /* _MF = realloc(_MF->, count * sizeof(Meteo_Weather));
   if (!_MF->weathers)
   {
     perror("realloc");
     cJSON_Delete(Json_Root);
     return -4;
-  }
+  } */
 
-  cJSON* Temperature = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "temperature_2m");
-  cJSON* Windspeed = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "wind_speed_10m");
+  cJSON* Temperature   = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "temperature_2m");
+  cJSON* Windspeed     = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "wind_speed_10m");
   cJSON* Winddirection = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "wind_direction_10m");
   cJSON* Precipitation = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "precipitation");
-  cJSON* Weathercode = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "weather_code");
-  cJSON* Isday = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "is_day");
+  cJSON* Weathercode   = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "weather_code");
+  cJSON* Isday         = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "is_day");
+
+  if (Temperature   == NULL ||
+      Windspeed     == NULL ||
+      Winddirection == NULL ||
+      Precipitation == NULL ||
+      Weathercode   == NULL ||
+      Isday         == NULL)
+  {
+    fprintf(stderr, "Hourly weather fields missing in meteo json\n");
+    cJSON_Delete(Json_Root);
+    return -4;
+  }
+
+
+
+  _MF->temperature_2m     = realloc(_MF->temperature_2m, sizeof(double) * _MF->count);
+  _MF->wind_speed_10m     = realloc(_MF->wind_speed_10m, sizeof(double) * _MF->count);
+  _MF->precipitation      = realloc(_MF->precipitation, sizeof(double) * _MF->count);
+  _MF->elevation          = realloc(_MF->elevation, sizeof(double) * _MF->count);
+  _MF->generationtime_ms  = realloc(_MF->generationtime_ms, sizeof(double) * _MF->count);
+
+  _MF->latitude           = realloc(_MF->latitude, sizeof(float) * _MF->count);
+  _MF->longitude          = realloc(_MF->longitude, sizeof(float) * _MF->count);
+
+  _MF->utc_offset_seconds = realloc(_MF->utc_offset_seconds, sizeof(int) * _MF->count);
+  _MF->interval           = realloc(_MF->interval, sizeof(int) * _MF->count);
+  _MF->is_day             = realloc(_MF->is_day, sizeof(int) * _MF->count);
+  _MF->weather_code       = realloc(_MF->weather_code, sizeof(int) * _MF->count);
+  _MF->wind_direction_10m = realloc(_MF->wind_direction_10m, sizeof(int) * _MF->count);
+
+  
 
   for (int i = 0; i < count; i++)
   {
@@ -337,7 +368,7 @@ int meteo_parse_json_weather_hourly(Meteo_Forecast* _MF, const char* _json)
   return 0;
 }
 
-void meteo_dispose_ptr(Meteo_Forecast** _MF_Ptr, Meteo_Weather** _MW_Ptr)
+void meteo_dispose_ptr(Meteo_Geo** _MG_Ptr, Meteo_Weather** _MW_Ptr, Meteo_Forecast** _MF_Ptr)
 {
   /* Dispose of Forecast */
   if (_MF_Ptr != NULL)
@@ -347,7 +378,7 @@ void meteo_dispose_ptr(Meteo_Forecast** _MF_Ptr, Meteo_Weather** _MW_Ptr)
       if ((*_MF_Ptr)->weathers != NULL)
       {
         for (int i = 0; i < (*_MF_Ptr)->count; i++)
-          meteo_dispose_ptr(NULL, &(*_MF_Ptr)->weathers[i]);
+          meteo_dispose_ptr(NULL, &(*_MF_Ptr)->weathers[i], NULL);
 
         free((*_MF_Ptr)->weathers);
         (*_MF_Ptr)->weathers = NULL;

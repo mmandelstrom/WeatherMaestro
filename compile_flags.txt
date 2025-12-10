@@ -20,7 +20,7 @@
 -Iserver/include/tcp
 -Iserver/include/weather
 
-# === Standarder ===
--std=c11
+# === Standards ===
+-std=c99
 -std=c++17
 

@@ -49,17 +49,32 @@ typedef struct
 
 typedef struct
 {
+  char*       timestamp[17];
+
+  const char* timezone_abbreviation;
+
   const char* temperature_2m_unit; 
   const char* wind_speed_10m_unit;
   const char* precipitation_unit;
   const char* elevation_unit;
   const char* wind_direction_10m_unit;
 
-  float       latitude;
-  float       longitude;
+  double*     temperature_2m; 
+  double*     wind_speed_10m; 
+  double*     precipitation;
+  double*     elevation;
+  double*     generationtime_ms;
 
-  Meteo_Weather** weathers;
-  unsigned short  count;
+  float*      latitude;
+  float*      longitude;
+
+  int*        utc_offset_seconds;
+  int*        interval;
+  int*        is_day;
+  int*        weather_code;
+  int*        wind_direction_10m;
+
+  uint8_t     count;
 
 } Meteo_Forecast;
 
@@ -80,7 +95,7 @@ int meteo_get_forecast(Meteo_Forecast* _MF, float _lat, float _lon);
 
 int meteo_get_geo(Meteo_Geo* _MF, float _lat, float _lon, int _count);
 
-int meteo_init_ptr(Meteo_Geo** MG_Ptr, Meteo_Weather** _MW_Ptr, Meteo_Forecast** _MF_Ptr);
+void meteo_dispose_ptr(Meteo_Geo** _MG_Ptr, Meteo_Weather** _MW_Ptr, Meteo_Forecast** _MF_Ptr);
 
 /* -------------------------------------------------------- */
 

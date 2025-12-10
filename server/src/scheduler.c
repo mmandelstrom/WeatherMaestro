@@ -70,6 +70,8 @@ void scheduler_work(uint64_t _montime)
       if (elapsed < MIN_LOOP_MS) {
         ms_sleep(MIN_LOOP_MS - elapsed);
       }
+      /* TODO: dynamic MIN_LOOP_MS depending on amount of connections */
+      
     }
 	}
 

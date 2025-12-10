@@ -257,7 +257,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
   {
     /* Init meteo */
     Meteo_Weather* MW;
-    result = meteo_init_ptr(&MW);
+    result = meteo_init_ptr(NULL, &MW, NULL);
     if (result != 0)
     {
       perror("meteo_init");
@@ -269,7 +269,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
     if (result != 0)
     {
       perror("meteo_get_weather");
-      meteo_dispose_ptr(&MW);
+      meteo_dispose_ptr(NULL, &MW, NULL);
       return -3;
     }
 
@@ -281,11 +281,11 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
     if (result != 0)
     {
       perror("weather_parser_parse_meteo_weather");
-      meteo_dispose_ptr(&MW);
+      meteo_dispose_ptr(NULL, &MW, NULL);
       return -4;
     }
 
-    meteo_dispose_ptr(&MW);
+    meteo_dispose_ptr(NULL, &MW, NULL);
 
     return 0;
   }
@@ -329,6 +329,49 @@ int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weat
 
   return SUCCESS;
 }
+
+/* int weather_parser_parse_meteo_forecast(Forecast* _Forecast, Meteo_Forecast* _M_Forecast)
+{
+
+  if (_M_Forecast->count > _Forecast->count)
+  {
+    _Forecast->weather = realloc(_Forecast->weather, sizeof(Weather*) * _M_Forecast->count);
+
+  }
+  
+  for (int i = 0; i < _Forecast->count; i++)
+
+  _Weather->temperature_unit       = strdup(_M_Weather->temperature_2m_unit);
+  _Weather->windspeed_unit         = strdup(_M_Weather->wind_speed_10m_unit);
+  _Weather->precipitation_unit     = strdup(_M_Weather->precipitation_unit);
+  _Weather->winddirection_unit     = strdup(_M_Weather->wind_direction_10m_unit);
+
+  if (_Weather->temperature_unit   == NULL || 
+      _Weather->windspeed_unit     == NULL || 
+      _Weather->precipitation_unit == NULL || 
+      _Weather->winddirection_unit == NULL)
+  {
+    perror("Failed to duplicate meteo strings to weather struct");
+    return ERR_INTERNAL;
+  }
+
+  _Weather->timestamp              = parse_iso_datetime_string_to_epoch(_M_Weather->timestamp);
+
+  _Weather->latitude               = _M_Weather->latitude;
+  _Weather->longitude              = _M_Weather->longitude;
+  _Weather->temperature            = _M_Weather->temperature_2m;
+  _Weather->precipitation          = _M_Weather->precipitation;
+  _Weather->windspeed              = _M_Weather->wind_speed_10m; 
+  
+  
+  _Weather->winddirection_azimuth  = _M_Weather->wind_direction_10m;
+  _Weather->wmo_code               = _M_Weather->weather_code;
+
+  printf("_M_Weather->latitude: %f", _M_Weather->latitude);
+  printf("_Weather->latitude: %f", _Weather->latitude);
+
+  return SUCCESS;
+} */
 
 char* weather_parser_build_json_weather(Weather* _Weather)
 {
@@ -401,7 +444,7 @@ int weather_parser_get_forecast_by_coords(Forecast* _Forecast, float _lat, float
     printf("Getting weather from API\n");
     if (weather_parser_get_forecast_from_api_by_coords(_Forecast, _lat, _lon, _ExtAPI) != 0)
       return -3;
-    *_json_output_ptr = weather_parser_build_json_weather(_Forecast);
+    *_json_output_ptr = weather_parser_build_json_forecast(_Forecast);
   }
 
 

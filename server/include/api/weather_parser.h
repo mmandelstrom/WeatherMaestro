@@ -26,12 +26,6 @@ typedef enum
 
 typedef struct
 {
-  const char*     cache_path;
-  const char*     temperature_unit; 
-  const char*     windspeed_unit;
-  const char*     precipitation_unit;
-  const char*     winddirection_unit;
-
   time_t          timestamp;
   time_t          update_interval;
   
@@ -51,19 +45,24 @@ typedef struct
 
 typedef struct
 {
-  const char* cache_path;
-  Weather*    weather;
-  int         count;
+  const char*     cache_path;
+  const char*     temperature_unit; 
+  const char*     windspeed_unit;
+  const char*     precipitation_unit;
+  const char*     winddirection_unit;
+
+  Weather*        weather;
+  int             count;
 
 } Forecast;
 
 /* ---------------------- Interface ----------------------- */
 
 /** Heap init for data structs. Pass NULL if you don't want one or the other */
-int weather_parser_init_ptr(Weather** _W_Ptr, Forecast** _F_Ptr);
+int weather_parser_init_ptr(Forecast** _F_Ptr);
 
 /** Builds a Weather or Forecast struct using cache or external API */
-int weather_parser_get_weather_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char** _json_output_ptr);
+int weather_parser_get_weather_by_coords(Forecast* _Foracast, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char** _json_output_ptr);
 int weather_parser_get_forecast_by_coords(Forecast* _Foracast, float _lat, float _lon, ExternalWeatherAPI _ExtAPI, char** _json_output_ptr);
 
 /** Heap dispose for data structs. To skip one, pass NULL as argument */
