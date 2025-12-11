@@ -25,8 +25,6 @@ int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _met
     return ERR_NO_MEMORY;
   }
 
-
-
   _Client->task = scheduler_create_task(_Client, http_client_taskwork);
   if (!_Client->task) {
     free(req);
@@ -42,6 +40,7 @@ int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _met
         free(resp);
         return ERR_NO_MEMORY;
     }
+
   _Client->resp = resp;
   _Client->req = req;
   _Client->URL = url_copy;

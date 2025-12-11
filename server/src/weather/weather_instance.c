@@ -1,4 +1,6 @@
 #include "weather/weather_instance.h"
+#include "weather_parser.h"
+#include <stdio.h>
 
 //-----------------Internal Functions-----------------
 //
@@ -76,6 +78,18 @@ int weather_server_instance_on_dispose(void* _context)
   return SUCCESS;
 }
 
+int weather_instance_on_api_finish(void* _Context)
+{
+  if (!_Context) {
+    return ERR_INVALID_ARG;
+  }
+  
+  Weather_Server_Instance* _Instance = (Weather_Server_Instance*)_Context;
+  printf("weather instance api on finish\n");
+  _Instance->state = WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING;
+
+	return SUCCESS;
+}
 
 WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Instance)
 {
@@ -83,16 +97,20 @@ WeatherServerInstanceState worktask_request_parse(Weather_Server_Instance* _Inst
     return WEATHER_SERVER_INSTANCE_ERROR;
   }
 
-  if (weather_api_init_ptr(&_Instance->weather_api, _Instance->http_connection->request, _Instance->http_connection->response) != 0 || weather_api_handle_endpoint(_Instance->weather_api) != 0)
+  if (weather_api_init_ptr(&_Instance->weather_api,_Instance->http_connection->request,_Instance->http_connection->response, weather_instance_on_api_finish) != 0)
   {
     _Instance->http_connection->response->status_code = 500;
     return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
   }
-
   _Instance->http_connection->request = NULL;
   _Instance->http_connection->response = NULL;
 
-  return WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING;
+  if (weather_api_handle_endpoint(_Instance->weather_api) != 0) {
+    /*STATUS Code needs to be set where it fails*/
+    return WEATHER_SERVER_INSTANCE_RESPONSE_SENDING;
+  }
+
+  return WEATHER_SERVER_INSTANCE_IDLING;
 }
 
 WeatherServerInstanceState worktask_response_build(Weather_Server_Instance* _Instance)
@@ -154,12 +172,15 @@ void weather_server_instance_taskwork(void* _context, uint64_t _montime)
       printf("WEATHER_SERVER_INSTANCE_INITIALIZING\n");
       _Instance->state = WEATHER_SERVER_INSTANCE_REQUEST_PARSING; 
     } break;
-
+   
     case WEATHER_SERVER_INSTANCE_REQUEST_PARSING:
-    {
-      printf("WEATHER_SERVER_INSTANCE_REQUEST_PARSING\n");
-      _Instance->state = worktask_request_parse(_Instance);
-    } break;
+      {
+        printf("WEATHER_SERVER_INSTANCE_REQUEST_PARSING\n");
+        _Instance->state = worktask_request_parse(_Instance);
+      } break;
+
+    case WEATHER_SERVER_INSTANCE_IDLING:
+     break;
 
     case WEATHER_SERVER_INSTANCE_RESPONSE_BUILDING:
     {
@@ -197,6 +218,10 @@ void weather_server_instance_taskwork(void* _context, uint64_t _montime)
     } break;
   }
 }
+
+
+
+
 
 void weather_server_instance_dispose(Weather_Server_Instance* _Instance)
 {

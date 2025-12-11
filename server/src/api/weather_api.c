@@ -1,52 +1,57 @@
 #include "api/weather_api.h"
+#include "HTTPStatusCodes.h"
+#include "error.h"
+#include <string.h>
 
 /** ----------------------- INTERNAL DEFS ------------------------ */
 
 /** Defines the API endpoints' paths and methods */
 
+int weather_api_handle_endpoint_weather_get(Weather_API* _API);
+int weather_api_handle_endpoint_geo_get(Weather_API* _API);
+int weather_api_handle_endpoint_not_found(Weather_API* _API);
+
 /*Funktionspekare kan användas istället för switch + endpoint*/
-const Weather_API_Endpoint Endpoints[ENDPOINT_INVALID] = {
+
+#define ENDPOINTS_COUNT 6
+
+const Weather_API_Endpoint Endpoints[ENDPOINTS_COUNT] = {
   { 
     "/weather",
     HTTP_GET, 
-    ENDPOINT_WEATHER_GET, 
+    weather_api_handle_endpoint_weather_get, 
   },
   { 
     "/forecast", 
     HTTP_GET, 
-    ENDPOINT_FORECAST_GET, 
+     weather_api_handle_endpoint_not_found,
   },
   { 
     "/geo/list",
     HTTP_GET, 
-    ENDPOINT_GEO_LIST, 
+    weather_api_handle_endpoint_not_found, 
   },
   { 
     "/geo",
     HTTP_GET, 
-    ENDPOINT_GEO_GET, 
+    weather_api_handle_endpoint_geo_get, 
   },
   { 
     "/cities/add",
-    HTTP_POST, 
-    ENDPOINT_GEO_ADD, // Should not be public, i.e should have an auth of some kind 
+    HTTP_POST,
+    weather_api_handle_endpoint_not_found, // Should not be public, i.e should have an auth of some kind 
   },
   { 
     "/cities/remove",
     HTTP_DELETE, 
-    ENDPOINT_GEO_REMOVE, // Same as cities_add
+    weather_api_handle_endpoint_not_found, 
   },
 };
-
-WeatherAPIEndpoint weather_api_get_endpoint(const char* _request_path);
-
-int weather_api_handle_endpoint_weather_get(Weather_API* _Request);
-int weather_api_handle_endpoint_geo_get(Weather_API* _API);
 
 /** -------------------------------------------------------------- */
 
 /** Heap init Weather_API struct and family */
-int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req, HTTP_Response* _HTTP_Res)
+int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req, HTTP_Response* _HTTP_Res, instance_on_api_finish _on_finish)
 
 {
   if (_Weather_API_Ptr == NULL) {
@@ -64,81 +69,27 @@ int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req
 
   (*_Weather_API_Ptr)->http_request = _HTTP_Req;
   (*_Weather_API_Ptr)->http_response = _HTTP_Res;
+  (*_Weather_API_Ptr)->on_api_finish = _on_finish;
 
   return SUCCESS;
 }
 
 /** Return endpoint enum from path string */
-WeatherAPIEndpoint weather_api_get_endpoint(const char* _request_path)
-{
-  int root_ep_len = strlen(API_ENDPOINT_ROOT);
-  /* Check if req path is larger than root path and then if first part of it is identical to root path */
-  if ((strlen(_request_path) > (size_t)root_ep_len) &&
-      strncmp(_request_path, API_ENDPOINT_ROOT, root_ep_len) == 0)
-  {
-    for (int i = 0; i < (int)ENDPOINT_INVALID; i++)
-    {
-      if (strcmp(_request_path + root_ep_len, Endpoints[i].path) == 0)
-        return Endpoints[i].endpoint;
-    }
-    // no endpoint for given path
-    return ENDPOINT_INVALID;
-  }
-  else
-  {
-    // root api path not valid
-    return ENDPOINT_INVALID;
-  }
-}
 
 /** ---------------------- ENDPOINTS HANDLING -------------------- */
 
 int weather_api_handle_endpoint(Weather_API* _API)
 {
-  WeatherAPIEndpoint endpoint = weather_api_get_endpoint(_API->http_request->path);
+  const char* request_path = _API->http_request->path;
 
-  int result;
-  switch(endpoint)
-  {
-    case ENDPOINT_WEATHER_GET:
-      {
-        printf("ENDPOINT_WEATHER      \n");
-        result = weather_api_handle_endpoint_weather_get(_API);
-
-      } break;
-    case ENDPOINT_FORECAST_GET:
-      {
-        printf("ENDPOINT_FORECAST_GET \n");
-        _API->http_response->status_code = 404; // replace with actual implementation
-      } break;
-    case ENDPOINT_GEO_LIST:
-      {
-        printf("ENDPOINT_GEO_LIST  \n");
-        _API->http_response->status_code = 404; // replace with actual implementation
-      } break;
-    case ENDPOINT_GEO_GET:
-      {
-        printf("ENDPOINT_GEO_GET\n");
-        result = weather_api_handle_endpoint_geo_get(_API); 
-      } break;
-    case ENDPOINT_GEO_ADD:
-      {
-        printf("ENDPOINT_GEO_ADD   \n");
-        _API->http_response->status_code = 404; // replace with actual implementation
-      } break;
-    case ENDPOINT_GEO_REMOVE:
-      {
-        printf("ENDPOINT_CITIES_REMOVE\n");
-        _API->http_response->status_code = 404; // replace with actual implementation
-      } break;
-    case ENDPOINT_INVALID:
-      {
-        printf("ENDPOINT_INVALID      \n");
-        _API->http_response->status_code = 404;
-      } break;
+  int i;
+  for (i = 0; i < ENDPOINTS_COUNT; i++) {
+    const char* endpoint_path = Endpoints[i].path;
+    if (strcmp(request_path, endpoint_path) == 0) {
+      return Endpoints[i].endpoint_func(_API);
+    }
   }
-
-  return SUCCESS;
+  return weather_api_handle_endpoint_not_found(_API);
 }
 
 int weather_api_handle_endpoint_geo_get(Weather_API* _API)

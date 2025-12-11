@@ -16,7 +16,7 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
 
   _HTTPServer->context = _ContextServer;
   _HTTPServer->on_connection = _Callback;
-  _HTTPServer->state = HTTP_SERVER_INIT;
+  _HTTPServer->state = HTTP_SERVER_INITIALIZING;
   _HTTPServer->error_state = HTTP_SERVER_ERROR_NONE;
   _HTTPServer->task = NULL;
   _HTTPServer->client_fd = -1;
@@ -60,7 +60,7 @@ int http_server_init(HTTP_Server* _HTTPServer, http_server_on_connection _Callba
     return ERR_FATAL;
   }
 
-  _HTTPServer->state = HTTP_SERVER_IDLE;
+  _HTTPServer->state = HTTP_SERVER_IDLING;
 	return SUCCESS;
 }
 
@@ -105,7 +105,7 @@ HTTPServerState http_server_connection_handover(int _fd, void* _Context)
     perror("http_server_connection_init_ptr");
     close(_fd);
     Server->client_fd = -1;
-    return HTTP_SERVER_IDLE;
+    return HTTP_SERVER_IDLING;
   }
 
   result = Server->on_connection(Server, Connection);
@@ -115,7 +115,7 @@ HTTPServerState http_server_connection_handover(int _fd, void* _Context)
     close(_fd);
 
     Server->client_fd = -1;
-    return HTTP_SERVER_IDLE;
+    return HTTP_SERVER_IDLING;
   }
 
   /*IF httpserverconnection is initialized succesfully*/
@@ -147,10 +147,10 @@ void http_server_taskwork(void* _context, uint64_t _montime)
   HTTPServerState next_state = server->state;
 
   switch (server->state) {
-    case HTTP_SERVER_INIT:
+    case HTTP_SERVER_INITIALIZING:
       break;
 
-    case HTTP_SERVER_IDLE: {
+    case HTTP_SERVER_IDLING: {
       break;        
     }
       
@@ -162,7 +162,7 @@ void http_server_taskwork(void* _context, uint64_t _montime)
     case HTTP_SERVER_CONNECTED: 
     {
       printf("HTTP_SERVER_CONNECTED\n");
-      next_state = HTTP_SERVER_IDLE;
+      next_state = HTTP_SERVER_IDLING;
       break;
     }
     case HTTP_SERVER_ERROR:
@@ -194,7 +194,7 @@ HTTPServerState http_server_error_work(HTTP_Server* _Server) {
   switch(_Server->error_state) {
 
     case HTTP_SERVER_ERROR_NONE:
-      return HTTP_SERVER_IDLE;
+      return HTTP_SERVER_IDLING;
 
     case HTTP_SERVER_ERROR_INVALID_ARGUMENT:
     /*Errors not solved by retry*/
@@ -237,7 +237,7 @@ HTTPServerState http_server_retry_work(HTTP_Server* _Server) {
     _Server->retry_function = NULL;
     _Server->error_state = HTTP_SERVER_ERROR_NONE;
     _Server->error_retries = 0;
-    return HTTP_SERVER_IDLE;
+    return HTTP_SERVER_IDLING;
 
   } else {
     _Server->error_retries++;
