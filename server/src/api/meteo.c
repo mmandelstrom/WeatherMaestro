@@ -150,28 +150,25 @@ const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast)
   }
   HTTPMethod method = 1;
 
-  int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method);
 
   if (http_client_initiate(c, (const char*)url, method) != SUCCESS) {
     return NULL;
   }
 
 
-  // char* response = malloc(C_Data.size + 1);
-  // if (response == NULL)
-  // {
-  //   perror("malloc");
-  // curl_dispose(&C_Data);
-  // return NULL;
-  // }
-  //
-  // memcpy(response, C_Data.addr, C_Data.size);
-  // response[C_Data.size] = '\0';
-  // curl_dispose(&C_Data);
-  //
-  // printf("===== Meteo Response JSON =====\n\n%s\n\n", response);
+  char* response = malloc(c->tcp_client->data.size + 1);
+  if (response == NULL)
+    {
+      perror("malloc");
+      return NULL;
+    }
+  
+   memcpy(response, c->tcp_client->data.addr, c->tcp_client->data.size);
+   response[c->tcp_client->data.size] = '\0';
+  
+   printf("===== Meteo Response JSON =====\n\n%s\n\n", response);
 
-  return NULL;
+  return response;
 }
 
 int meteo_parse_json_weather_current(Meteo_Weather* _MW, const char* _json)

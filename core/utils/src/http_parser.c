@@ -130,7 +130,7 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
 }
 
 int http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Response* _Resp) {
-  if (!_line || _line_len || _Resp) {
+  if (!_line || _line_len == 0 || !_Resp) {
     return ERR_INVALID_ARG;
   }
   
@@ -544,4 +544,3 @@ int http_parser_url(const char* _URL, void* _Context) {
   return SUCCESS;
 
 }
-

@@ -29,7 +29,7 @@ int tcp_server_init(TCP_Server* _Server, const char* _port, tcp_server_on_accept
   _Server->context = _context;
   _Server->fd = -1;
   _Server->port = _port;
-  _Server->state = TCP_SERVER_INIT;
+  _Server->state = TCP_SERVER_INITIALIZING;
   _Server->task = NULL;
 
   struct addrinfo addresses;
@@ -152,7 +152,7 @@ void tcp_server_taskwork(void* _Context, uint64_t _MonTime)
   TCPServerState next_state = server->state;
 
   switch(server->state) {
-    case TCP_SERVER_INIT:
+    case TCP_SERVER_INITIALIZING:
       break;
     case TCP_SERVER_LISTENING:
       next_state = tcp_server_handle_listening(server, _MonTime);

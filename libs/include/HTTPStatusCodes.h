@@ -15,7 +15,7 @@
 
 /*! Enum for the HTTP status codes.
  */
-enum HttpStatus_Code
+typedef enum 
 {
 	HttpStatus_Invalid = -1, //!< An invalid status code.
 
@@ -111,7 +111,7 @@ enum HttpStatus_Code
 	HttpStatus_NetworkAuthenticationRequired = 511, /*!< Indicates that the client needs to authenticate to gain network access. */
 
 	HttpStatus_xxx_max = 1023
-};
+}HttpStatus_Code;
 
 char HttpStatus_isInformational(int code); /*!< \returns \c true if the given \p code is an informational code. */
 char HttpStatus_isSuccessful(int code)   ; /*!< \returns \c true if the given \p code is a successful code. */

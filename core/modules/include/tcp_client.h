@@ -14,15 +14,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <errno.h>
 #include <netdb.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
-
 #include "error.h"
+#include <errno.h>
 
 typedef enum {
   CLIENT_STATE_INIT, 

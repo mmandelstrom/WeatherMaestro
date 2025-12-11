@@ -43,7 +43,7 @@ typedef struct
   char*                reason_phrase;
   char*                status_code_string;
 
-  enum HttpStatus_Code status_code;
+  HttpStatus_Code status_code;
 
 } HTTP_Response;
 
