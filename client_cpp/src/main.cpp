@@ -15,6 +15,8 @@ int main() {
   c.add(c3);
 
   c.listCities();
+  c.getCity("Sune");
+  c.getCity("Sundbyberg");
   
   return 0; 
 }
