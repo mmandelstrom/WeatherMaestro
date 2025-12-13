@@ -42,7 +42,7 @@ typedef struct
   int         utc_offset_seconds;
   int         interval;
   int         is_day;
-  int         weathercode;
+  int         weather_code;
   int         wind_direction_10m;
 
 } Meteo_Weather;
@@ -54,11 +54,21 @@ typedef struct
 
 } Meteo_Forecast;
 
+typedef struct
+{
+
+} Meteo_Geo;
+
+/* TODO: overlook forecast saving for interface function, maybe remove Forecast struct and instead use pointers in all Weather struct values, then save count and just loop through them all as arrays... Or simply add a new function for saving forecast */
+
 /* ---------------------- Interface ----------------------- */
 
 int meteo_init_ptr(Meteo_Weather** _M_W_Ptr);
 
-int meteo_get_weather(Meteo_Weather* _MW, float _lat, float _lon, bool _forecast);
+int meteo_get_weather(Meteo_Weather* _MW, float _lat, float _lon);
+int meteo_get_forecast(Meteo_Forecast* _MF, float _lat, float _lon);
+
+int meteo_get_geo(Meteo_Geo* _MF, float _lat, float _lon, int _count);
 
 void meteo_dispose_ptr(Meteo_Weather** _MW_Ptr);
 

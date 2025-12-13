@@ -23,7 +23,6 @@ ALL_SRC := $(SRC) $(UTILS_SRC) $(LIBS_SRC)
 
 # Temp dirs to be deleted on clean
 CACHE_DIR := data/cache
-CITIES_DIR := data/cities
 
 # Compilation flags
 # CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Werror -Wfatal-errors -Wno-format-truncation -I../libs
@@ -116,7 +115,12 @@ run: $(BIN)
 
 clean:
 	@echo "Cleaning build files..."
-	@rm -rf $(BUILD_DIR) $(CACHE_DIR) $(CITIES_DIR) $(BIN)
+	@rm -rf $(BUILD_DIR) $(BIN)
+	@echo "Clean complete."
+
+full-clean:
+	@echo "Cleaning build files..."
+	@rm -rf $(BUILD_DIR) $(CACHE_DIR) $(BIN)
 	@echo "Clean complete."
 
 valgrind: $(BIN)

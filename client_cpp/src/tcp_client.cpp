@@ -1,4 +1,5 @@
 #include "../include/tcp_client.hpp"
+#include "../include/tcp_client.hpp"
 
 TCP_Client::TCP_Client() 
     : fd(-1), transmit_length(0), ready(false)
@@ -32,6 +33,7 @@ TCP_Client::TCP_Client()
           std::cout << "in progress" << std::endl;
           break; //Nonblocking connection in progess (SOCKcess)
         }
+        
         
         close(fd);
         fd = -1;

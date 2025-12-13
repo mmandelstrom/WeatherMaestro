@@ -195,7 +195,7 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
     return HTTP_SERVER_CONNECTION_ERROR; 
   }
 
-
+/*
   if (_Connection->request->params != NULL) {
     printf("Printing params...\n");
     linked_list_foreach(_Connection->request->params, node) {
@@ -203,7 +203,7 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
       printf("ParamKey: %s\nParamValue: %s\n", p->key, p->value);
     }
   }
-
+*/
   
   TCP_Client *TCP_C = _Connection->tcp_client;
 
@@ -233,7 +233,7 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
     if (TCP_C->data.size > 2) {
       memmove(TCP_C->data.addr, TCP_C->data.addr + 2, TCP_C->data.size -2);
     }
-    TCP_C->data.size -= 2;
+    /* TCP_C->data.size -= 2; */
 
     /*Create empty header so we can dispose without crash*/
     _Connection->request->headers = linked_list_create();
@@ -249,10 +249,13 @@ HTTPServerConnectionState worktask_request_read_headers(HTTP_Server_Connection* 
   int headers_end = http_parser_find_headers_end(TCP_C->data.addr,
                                                  TCP_C->data.size);
 
+  printf("headers_end: %i\n", headers_end);
+
   if (headers_end < 0) {
     /*Continue reading on next work call*/
     return HTTP_SERVER_CONNECTION_READING_HEADERS;
   }
+
 
   /*headers_end is the index of the first \r parser will ignore last line*/
   size_t header_len = (size_t)headers_end + 4;

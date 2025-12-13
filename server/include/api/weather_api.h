@@ -6,21 +6,24 @@
 /* ************************* WEATHER API V1 ************************** */
 /* ******************************************************************* */
 
+#include "../http/http_parser.h"
+#include "geo_parser.h"
 #include "weather_parser.h"
 
 #include <errno.h>
 
 #define API_ENDPOINT_ROOT "/api/v1"
+#define MAX_GEO_RESULTS   8
 
 typedef enum
 {
   ENDPOINT_WEATHER_GET,
   ENDPOINT_FORECAST_GET,
 
-  ENDPOINT_CITIES_LIST,
-  ENDPOINT_CITIES_COORDS,
-  ENDPOINT_CITIES_ADD,
-  ENDPOINT_CITIES_REMOVE,
+  ENDPOINT_GEO_LIST,
+  ENDPOINT_GEO_GET,
+  ENDPOINT_GEO_ADD,
+  ENDPOINT_GEO_REMOVE,
 
   ENDPOINT_INVALID, // This must be last (defines count)
 
@@ -39,7 +42,7 @@ typedef struct
   HTTP_Request*       http_request;
   HTTP_Response*      http_response;
 
-  Location*           location; // This contains the weather structs as well
+  Geos*               geos; // This contains the weather structs as well
 
   WeatherAPIEndpoint  endpoint;
 

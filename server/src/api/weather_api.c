@@ -3,7 +3,7 @@
 
 /** ----------------------- INTERNAL DEFS ------------------------ */
 
-/* Defines the API endpoints' paths and methods */
+/** Defines the API endpoints' paths and methods */
 const Weather_API_Endpoint Endpoints[ENDPOINT_INVALID] = {
   { 
     "/weather",
@@ -16,30 +16,31 @@ const Weather_API_Endpoint Endpoints[ENDPOINT_INVALID] = {
     ENDPOINT_FORECAST_GET, 
   },
   { 
-    "/cities",
+    "/geo/list",
     HTTP_GET, 
-    ENDPOINT_CITIES_LIST, 
+    ENDPOINT_GEO_LIST, 
   },
   { 
-    "/cities/geo",
+    "/geo",
     HTTP_GET, 
-    ENDPOINT_CITIES_COORDS, 
+    ENDPOINT_GEO_GET, 
   },
   { 
     "/cities/add",
     HTTP_POST, 
-    ENDPOINT_CITIES_ADD, // Should not be public, i.e should have an auth of some kind 
+    ENDPOINT_GEO_ADD, // Should not be public, i.e should have an auth of some kind 
   },
   { 
     "/cities/remove",
     HTTP_DELETE, 
-    ENDPOINT_CITIES_REMOVE, // Same as cities_add
+    ENDPOINT_GEO_REMOVE, // Same as cities_add
   },
 };
 
 WeatherAPIEndpoint weather_api_get_endpoint(const char* _request_path);
 
 int weather_api_handle_endpoint_weather_get(Weather_API* _Request);
+int weather_api_handle_endpoint_geo_get(Weather_API* _API);
 
 /** -------------------------------------------------------------- */
 
@@ -109,22 +110,22 @@ int weather_api_handle_endpoint(Weather_API* _API)
         printf("ENDPOINT_FORECAST_GET \n");
         _API->http_response->status_code = 404; // replace with actual implementation
       } break;
-    case ENDPOINT_CITIES_LIST:
+    case ENDPOINT_GEO_LIST:
       {
-        printf("ENDPOINT_CITIES_LIST  \n");
+        printf("ENDPOINT_GEO_LIST  \n");
         _API->http_response->status_code = 404; // replace with actual implementation
       } break;
-    case ENDPOINT_CITIES_COORDS:
+    case ENDPOINT_GEO_GET:
       {
-        printf("ENDPOINT_CITIES_COORDS\n");
+        printf("ENDPOINT_GEO_GET\n");
+        result = weather_api_handle_endpoint_geo_get(_API); 
+      } break;
+    case ENDPOINT_GEO_ADD:
+      {
+        printf("ENDPOINT_GEO_ADD   \n");
         _API->http_response->status_code = 404; // replace with actual implementation
       } break;
-    case ENDPOINT_CITIES_ADD:
-      {
-        printf("ENDPOINT_CITIES_ADD   \n");
-        _API->http_response->status_code = 404; // replace with actual implementation
-      } break;
-    case ENDPOINT_CITIES_REMOVE:
+    case ENDPOINT_GEO_REMOVE:
       {
         printf("ENDPOINT_CITIES_REMOVE\n");
         _API->http_response->status_code = 404; // replace with actual implementation
@@ -139,6 +140,72 @@ int weather_api_handle_endpoint(Weather_API* _API)
   return SUCCESS;
 }
 
+int weather_api_handle_endpoint_geo_get(Weather_API* _API)
+{
+  if (_API->http_request->params_count < 1)
+  {
+    _API->http_response->status_code = 400;
+    return ERR_INVALID_ARG;
+  }
+
+  char* query;
+  int geos_count = 3; // default amount of geos (max) to get
+  int query_found = 0;
+  linked_list_foreach(_API->http_request->params, node)
+  {
+    HTTP_Key_Value* Param = (HTTP_Key_Value*)node->item;
+    if (Param->key != NULL && Param->value != NULL)
+    {
+      if ((strcmp(Param->key, "q") == 0 || strcmp(Param->key, "city") == 0) && query_found < 1)
+      {
+        query = strdup(Param->value);
+        query_found++;
+      }
+      if (strcmp(Param->key, "count") == 0)
+      {
+        int c = 0;
+        if (parse_string_to_int(Param->value, &c) == 0)
+        {
+          if (geos_count <= MAX_GEO_RESULTS)
+            geos_count = c;
+        }
+      }
+    }
+  }
+
+  if (query_found > 0)
+  {
+
+    /* Init Location without weather or forecast*/
+    if (geo_parser_init_ptr(&_API->geos, geos_count, false, false) != 0)
+    {
+      perror("weather_parser_init_ptr");
+      _API->http_response->status_code = 500;
+      free(query);
+      return ERR_INTERNAL;
+    }
+
+    if (geo_parser_get_geo_by_query(_API->geos, query, &_API->http_response->body) != 0)
+    {
+      perror("geo_parser_get_geo_by_query");
+      geo_parser_dispose_ptr(&_API->geos);
+      _API->http_response->status_code = 500;
+      return ERR_INTERNAL;
+    }
+    geo_parser_dispose_ptr(&_API->geos);
+  }
+  else
+  {
+    _API->http_response->status_code = 400;
+    free(query);
+    return ERR_INVALID_ARG;
+  }
+
+  _API->http_response->status_code = 200;
+
+  return SUCCESS;
+}
+
 int weather_api_handle_endpoint_weather_get(Weather_API* _API)
 {
   if (_API->http_request->params_count < 1)
@@ -148,90 +215,55 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   }
 
   /* Find and validate latitude and longitude params */
-  float lat, lon = 0;
-  int lat_found, lon_found = 0;
-  int city_found = 0;
+  float lat = 0, lon = 0;
+  int lat_found = 0, lon_found = 0;
+  /* int city_found = 0; */
   linked_list_foreach(_API->http_request->params, node)
   {
     HTTP_Key_Value* Param = (HTTP_Key_Value*)node->item;
     if (Param->key != NULL && Param->value != NULL)
     {
       if (strcmp(Param->key, "latitude") == 0 || strcmp(Param->key, "lat") == 0)
-        lat_found += weather_parser_lat_lon(Param->value, &lat);
+        lat_found += geo_parser_lat_lon(Param->value, &lat);
 
       if (strcmp(Param->key, "longitude") == 0 || strcmp(Param->key, "lon") == 0)
-        lon_found += weather_parser_lat_lon(Param->value, &lon);
+        lon_found += geo_parser_lat_lon(Param->value, &lon);
 
       /* if (strcmp(Param->key, "city") == 0 || strcmp(Param->key, "cityname") == 0)
         city_found += weather_parser_city() */
 
-      // Potential to add "city=" param here to get lat+lon in the same request
-      // Then we should have Location cache as well to look for previously searched cities
+      // Potential to add "q=" param here to get weather from query
     }
   }
 
   /* Parse found query params and identify location */
-  if ((lat_found > 0 && lon_found > 0)) // Could add an if else for city->name != NULL and let parser find coords for that city then
+  if (lat_found > 0 && lon_found > 0) // Could add an if else for city->name != NULL and let parser find coords for that city then
   {
-    if (weather_parser_init_ptr(&_API->location, true, false) != 0)
+    Weather* W; // fuck it, skip the geo struct here
+    if (weather_parser_init_ptr(&W, NULL) != 0)
     {
       perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;
       return -2;
     }
-    printf("_Location: %p, _Location->weather: %p\n", _API->location, _API->location->weather); 
 
-    _API->location->lat = lat;
-    _API->location->lon = lon;
-
-    if (weather_parser_get_location_by_coords(_API->location, lat, lon) != 0)
+    if (weather_parser_get_weather_by_coords(W, lat, lon, OPEN_METEO_WEATHER, &_API->http_response->body) != 0)
     {
       perror("weather_parser_get_location_by_coords");
+      weather_parser_dispose_ptr(&W, NULL);
       _API->http_response->status_code = 500;
       return -3;
 
     }
-  }
-  else if (city_found > 0)
-  {
-    if (weather_parser_init_ptr(&_API->location, true, false) != 0)
-    {
-      perror("weather_parser_init_ptr");
-      _API->http_response->status_code = 500;
-      return ERR_NO_MEMORY;
-    }
-
-    /* if (weather_parser_get_location_by_names(_API->location, Http_Data* _Query_Params) != 0)
-    {
-      perror("weather_parser_get_location_by_coords");
-      _API->http_response->status_code = 500;
-      return -3;
-
-    } */
-
+    weather_parser_dispose_ptr(&W, NULL);
   }
   else
   {
     _API->http_response->status_code = 400;
-    weather_parser_dispose_ptr(&_API->location, &_API->location->weather, NULL);
     return 0;
   }
 
-  /* Build Location Weather from external API response */
-  if (weather_parser_get_weather(_API->location, false, OPEN_METEO) != 0)
-  {
-    perror("weather_parser_get_weather");
-    _API->http_response->status_code = 500;
-    return -4;
-  }
-
-  char* json_response = weather_parser_build_json_weather(_API->location->weather, _API->location->weather->cache_path);
-
-  _API->http_response->body = json_response;
   _API->http_response->status_code = 200;
-
-  weather_parser_dispose_ptr(&_API->location, NULL, NULL);
-  _API->location = NULL;
 
   return SUCCESS;
 }
@@ -241,9 +273,11 @@ void weather_api_dispose_ptr(Weather_API** _API_Ptr)
 
   if (*_API_Ptr != NULL)
   {
+    if ((*_API_Ptr)->geos != NULL)
+      geo_parser_dispose_ptr(&(*_API_Ptr)->geos);
+
     free(*_API_Ptr);
     *_API_Ptr = NULL;
   }
   _API_Ptr = NULL;
-
 }
