@@ -6,10 +6,10 @@
 /* ---------------------- Internal functions ----------------------- */
 
 /* WEATHER/FORECAST */
-const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast);
+int meteo_get_weather_json(float _lat, float _lon, bool _forecast);
 int meteo_parse_json_weather_current(Meteo_Current* _MW, const char* _json);
 int meteo_parse_json_weather_hourly(Meteo_Hourly* _MF, const char* _json);
-
+void meteo_on_http_client_finish(void* _context, const char** _response);
 /* GEO */
 // const char* meteo_get_geo_json(float _lat, float _lon);
 // int meteo_parse_json_geo(Meteo_Geo* _MG, const char* _json);
@@ -67,7 +67,7 @@ int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr,
   return 0;
 }
 
-void on_http_client_finish(void* _context, const char** _response)
+void meteo_on_http_client_finish(void* _context, const char** _response)
 {
   Meteo* M = (Meteo*)_context;
   /* if (M->geo != NULL)
@@ -83,62 +83,8 @@ void on_http_client_finish(void* _context, const char** _response)
 
 }
 
-int meteo_get_weather_current(Meteo* _M, float _lat, float _lon)
-{
-  if (_M->current == NULL)
-    return ERR_INTERNAL;
 
-  /* GET meteo weather json */
-  const char* meteo_json = meteo_get_weather_json(_lat, _lon, false);
-  if (meteo_json == NULL)
-  {
-    perror("meteo_get_weather_json");
-    return -1;
-  }
-
-  /* int json_len = strlen(meteo_json);
-  for (int i = 0; i < json_len; i++)
-    printf("meteo_json[%i]: %i\n", i, (int)meteo_json[i]);
-  printf("meteo_json: %s\n\n", meteo_json); */
-
-  /* Parse meteo json to Meteo_Current struct */
-  int result = meteo_parse_json_weather_current(_M->current, meteo_json);
-  if (result != 0)
-  {
-    perror("meteo_parse_json");
-    free((void*)meteo_json);
-    return result;
-  }
-  free((void*)meteo_json);
-
-  return 0;
-}
-
-int meteo_get_weather_hourly(Meteo* _M, float _lat, float _lon)
-{
-  if (_M->hourly == NULL)
-    return ERR_INTERNAL;
-
-  const char* meteo_json = meteo_get_weather_json(_lat, _lon, true);
-  if (meteo_json == NULL)
-  {
-    perror("meteo_get_weather_json");
-    return -1;
-  }
-
-  int result = meteo_parse_json_weather_hourly(_M->hourly, meteo_json);
-  if (result != 0)
-  {
-    perror("meteo_parse_json");
-    free((void*)meteo_json);
-    return result;
-  }
-  free((void*)meteo_json);
-
-  return SUCCESS;
-}
-
-int meteo_get_weather_json(Meteo* _M, float _lat, float _lon, bool _forecast)
+int meteo_get_weather_json(float _lat, float _lon, bool _forecast)
 {
   char url[512];
 
@@ -163,67 +109,67 @@ int meteo_get_weather_json(Meteo* _M, float _lat, float _lon, bool _forecast)
   
   HTTP_Client* c = calloc(1, sizeof(HTTP_Client));
   if (!c) {
-    return -1;
+    return ERR_NO_MEMORY;
   }
   HTTPMethod method = HTTP_GET;
 
-  if (http_client_initiate(c, (const char*)url, method, _M->on_finish) != SUCCESS) 
+  if (http_client_initiate(c, (const char*)url, method, meteo_on_http_client_finish) != SUCCESS) 
   {
-    return -2;
+    return ERR_INTERNAL;
   }
 
-  return 0;
+  return SUCCESS;
 }
-const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast)
-{
-  char url[512];
-
-  if (_forecast)
-  {
-    int url_len = snprintf(url, 512, 
-             METEO_BASE_URL,
-             _lat, 
-             _lon,
-             METEO_FORECAST_WEATHER_QUERY);
-    url[url_len] = '\0';
-  }
-  else
-  {
-    int url_len = snprintf(url, 512, 
-             METEO_BASE_URL,
-             _lat, 
-             _lon,
-             METEO_CURRENT_WEATHER_QUERY);
-    url[url_len] = '\0';
-  }
-  
-  HTTP_Client* c = calloc(1, sizeof(HTTP_Client));
-  if (!c) {
-    return NULL;
-  }
-  HTTPMethod method = 1;
-
-  if (http_client_initiate(c, (const char*)url, method) != SUCCESS) {
-    return NULL;
-  }
-
-
-
-  /* char* response = malloc(c->tcp_client->data.size + 1);
-  if (response == NULL)
-    {
-      perror("malloc");
-      return NULL;
-    }
-  
-   memcpy(response, c->tcp_client->data.addr, c->tcp_client->data.size);
-   response[c->tcp_client->data.size] = '\0';
-  
-   printf("===== Meteo Response JSON =====\n\n%s\n\n", response); */
-
-  return response;
-}
-
+// const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast)
+// {
+//   char url[512];
+//
+//   if (_forecast)
+//   {
+//     int url_len = snprintf(url, 512, 
+//              METEO_BASE_URL,
+//              _lat, 
+//              _lon,
+//              METEO_FORECAST_WEATHER_QUERY);
+//     url[url_len] = '\0';
+//   }
+//   else
+//   {
+//     int url_len = snprintf(url, 512, 
+//              METEO_BASE_URL,
+//              _lat, 
+//              _lon,
+//              METEO_CURRENT_WEATHER_QUERY);
+//     url[url_len] = '\0';
+//   }
+//
+//   HTTP_Client* c = calloc(1, sizeof(HTTP_Client));
+//   if (!c) {
+//     return NULL;
+//   }
+//   HTTPMethod method = 1;
+//
+//   if (http_client_initiate(c, (const char*)url, method) != SUCCESS) {
+//     return NULL;
+//   }
+//
+//
+//
+//   /* char* response = malloc(c->tcp_client->data.size + 1);
+//   if (response == NULL)
+//     {
+//       perror("malloc");
+//       return NULL;
+//     }
+//
+//    memcpy(response, c->tcp_client->data.addr, c->tcp_client->data.size);
+//    response[c->tcp_client->data.size] = '\0';
+//
+//    printf("===== Meteo Response JSON =====\n\n%s\n\n", response); */
+//
+//   return response;
+// }
+//
 int meteo_parse_json_weather_current(Meteo_Current* _MW, const char* _json)
 {
   cJSON* Json_Root = cJSON_Parse(_json);

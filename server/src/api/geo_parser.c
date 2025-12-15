@@ -62,38 +62,7 @@ int geo_parser_init_ptr(Geos** _Gs_Ptr, int _count, bool _weather, bool _forecas
         return ERR_NO_MEMORY;
       }
       memset((*_Gs_Ptr)->geo[i], 0, sizeof(Geo));
-
-      /* Init Weather/Forecast structs */
-      if (_weather && _forecast)
-      {
-        result = weather_parser_init_ptr(&(*_Gs_Ptr)->geo[i]->weather, &(*_Gs_Ptr)->geo[i]->forecast);
-        if (result != SUCCESS)
-        {
-          perror("weather_parser_init_ptr");
-          geo_parser_dispose_ptr(_Gs_Ptr);
-          return result;
-        }
-      }
-      else if (_weather)
-      {
-        weather_parser_init_ptr(&(*_Gs_Ptr)->geo[i]->weather, NULL);
-        if (result != SUCCESS)
-        {
-          perror("weather_parser_init_ptr");
-          geo_parser_dispose_ptr(_Gs_Ptr);
-          return result;
-        }
-      }
-      else if (_forecast)
-      {
-        weather_parser_init_ptr(NULL, &(*_Gs_Ptr)->geo[i]->forecast);
-        if (result != SUCCESS)
-        {
-          perror("weather_parser_init_ptr");
-          geo_parser_dispose_ptr(_Gs_Ptr);
-          return result;
-        }
-      }
+      
     }
   }
   return SUCCESS; // none initialized
@@ -582,10 +551,8 @@ void geo_parser_dispose_ptr(Geos** _Gs_Ptr)
     {
       if ((*_Gs_Ptr)->geo[i] != NULL)
       {
-        if ((*_Gs_Ptr)->geo[i]->forecast != NULL)
-          weather_parser_dispose_ptr(NULL, &(*_Gs_Ptr)->geo[i]->forecast);
         if ((*_Gs_Ptr)->geo[i]->weather != NULL)
-          weather_parser_dispose_ptr(&(*_Gs_Ptr)->geo[i]->weather, NULL);
+          weather_parser_dispose_weather_ptr(&(*_Gs_Ptr)->geo[i]->weather);
 
         if ((*_Gs_Ptr)->geo[i]->locality != NULL)
         {

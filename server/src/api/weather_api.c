@@ -2,7 +2,7 @@
 #include "HTTPStatusCodes.h"
 #include "error.h"
 #include "scheduler.h"
-#include "weather_parser.h"
+#include "api/weather_parser.h"
 #include <string.h>
 
 /** ----------------------- INTERNAL DEFS ------------------------ */
@@ -128,8 +128,9 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
 
   if (query_found > 0)
   {
+    Geos* geos;
     /* Init Location without weather or forecast*/
-    if (geo_parser_init_ptr(&_API->geos, geos_count, false, false) != 0)
+    if (geo_parser_init_ptr(&geos, geos_count, false, false) != 0)
     {
       perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;
@@ -137,14 +138,14 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
       return ERR_INTERNAL;
     }
 
-    if (geo_parser_get_geo_by_query(_API->geos, query, &_API->http_response->body) != 0)
+    if (geo_parser_get_geo_by_query(geos, query, &_API->http_response->body) != 0)
     {
       perror("geo_parser_get_geo_by_query");
-      geo_parser_dispose_ptr(&_API->geos);
+      geo_parser_dispose_ptr(&geos);
       _API->http_response->status_code = 500;
       return ERR_INTERNAL;
     }
-    geo_parser_dispose_ptr(&_API->geos);
+    geo_parser_dispose_ptr(&geos);
   }
   else
   {
@@ -192,7 +193,7 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   if (lat_found > 0 && lon_found > 0) // Could add an if else for city->name != NULL and let parser find coords for that city then
   {
     Weather* W; // fuck it, skip the geo struct here
-    if (weather_parser_init_ptr(&W, NULL) != 0)
+    if (weather_parser_init_ptr() != 0)
     {
       perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;

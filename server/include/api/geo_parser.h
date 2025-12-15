@@ -22,7 +22,6 @@ typedef enum
 typedef struct
 {
   Weather*    weather;
-  Forecast*   forecast;
 
   const char* country;
   const char* county;
