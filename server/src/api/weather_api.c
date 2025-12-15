@@ -243,7 +243,7 @@ WeatherApiState worktask_validate_endpoint(Weather_API* _API)
 {
   if (_API->endpoint_func(_API) != SUCCESS)
   {
-
+    
   }
 
   // Start parser taskwork with promise of callback when done
@@ -321,10 +321,10 @@ void weather_api_dispose_ptr(Weather_API** _API_Ptr)
 
   if (*_API_Ptr != NULL)
   {
-    if ((*_API_Ptr)->geos != NULL)
+    /* if ((*_API_Ptr)->geos != NULL)
       geo_parser_dispose_ptr(&(*_API_Ptr)->geos);
     if ((*_API_Ptr)->forecast != NULL)
-      weather_parser_dispose_ptr(NULL, &(*_API_Ptr)->forecast);
+      weather_parser_dispose_ptr(NULL, &(*_API_Ptr)->forecast); */
 
     scheduler_destroy_task((*_API_Ptr)->task);
     (*_API_Ptr)->task = NULL;

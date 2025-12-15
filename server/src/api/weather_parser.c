@@ -1,4 +1,5 @@
 #include "api/weather_parser.h"
+#include "meteo.h"
 #include "scheduler.h"
 #include <error.h>
 
@@ -15,7 +16,7 @@ bool weather_parser_recent_cache_exists(const char* _filepath, int _interval, bo
 /** Builds a Weather or Weather struct using external API */
 int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI);
 /** Parses an open-meteo struct to our Weather struct */
-int weather_parser_parse_meteo_current(Weather* _Weather, Meteo_Weather* _M_Weather);
+int weather_parser_parse_meteo_current(Weather* _Weather, Meteo_Current* _M_Weather);
 /** Builds a json formatted string from struct members 
  * Saves it to cache file as well */
 char* weather_parser_build_json_weather(Weather* _Weather);
@@ -23,10 +24,12 @@ char* weather_parser_build_json_weather(Weather* _Weather);
 /* FORECAST WEATHER */
 
 int weather_parser_get_forecast_from_api_by_coords(Weather* _Weather, float _lat, float _lon, ExternalWeatherAPI _ExtAPI);
-int weather_parser_parse_meteo_hourly(Weather* _Weather, Meteo_Weather* _M_Weather);
+int weather_parser_parse_meteo_hourly(Weather* _Weather, Meteo_Hourly* _M_Weather);
 char* weather_parser_build_json_forecast(Weather* _Weather);
 
 /* TASKWORK */
+
+void weather_parser_on_ext_api_finish(void* _context, void* _ext_api);
 
 void weather_parser_taskwork(void* _context, uint64_t _montime);
 WeatherParserState weather_parser_worktask_check_cache(Weather_Parser* _Parser);
@@ -35,7 +38,7 @@ WeatherParserState weather_parser_worktask_parse_api_response(Weather_Parser* _P
 
 /* ----------------------------------------------------------------- */
 
-int weather_parser_init_ptr(Weather_Parser** _Parser_Ptr, void* _context, parser_on_finish _on_finish, bool _current)
+int weather_parser_init_ptr(Weather_Parser** _Parser_Ptr, void* _context, parser_on_finish _on_finish, float _lat, float _lon, bool _forecast)
 {
   if (!_Parser_Ptr)
   {
@@ -49,8 +52,11 @@ int weather_parser_init_ptr(Weather_Parser** _Parser_Ptr, void* _context, parser
     return ERR_NO_MEMORY;
   }
 
+  (*_Parser_Ptr)->latitude = _lat;
+  (*_Parser_Ptr)->longitude = _lon;
   (*_Parser_Ptr)->context = _context;
   (*_Parser_Ptr)->on_finish = _on_finish;
+  (*_Parser_Ptr)->forecast = _forecast;
   (*_Parser_Ptr)->state = WEATHER_PARSER_INITIALIZING;
   (*_Parser_Ptr)->task = scheduler_create_task(*_Parser_Ptr, weather_parser_taskwork);
   if (!(*_Parser_Ptr)->task) 
@@ -60,6 +66,14 @@ int weather_parser_init_ptr(Weather_Parser** _Parser_Ptr, void* _context, parser
   }
 
   return SUCCESS;
+}
+
+void weather_parser_on_ext_api_finish(void* _context, void* _ext_api)
+{
+  Weather_Parser* Parser = (Weather_Parser*)_context;
+  Parser->meteo = (Meteo*)_ext_api;
+
+  Parser->state = WEATHER_PARSER_PARSING;
 }
 
 void weather_parser_taskwork(void* _context, uint64_t _montime)
@@ -138,15 +152,15 @@ WeatherParserState weather_parser_worktask_check_cache(Weather_Parser* _Parser)
     }
     else
     {
-      return ERR_INVALID_ARG;
+      return WEATHER_PARSER_ERROR;
     }
 
-    const char* cache_path = weather_parser_get_cache_filepath(_lat, _lon, false);
+    const char* cache_path = weather_parser_get_cache_filepath(_Parser->latitude, _Parser->longitude, false);
 
     if (cache_path == NULL)
     {
       perror("weather_parser_get_cache_filepath");
-      return ERR_INTERNAL;
+      return WEATHER_PARSER_ERROR;
     }
     else if (weather_parser_recent_cache_exists(cache_path, interval, false))
     {
@@ -157,34 +171,94 @@ WeatherParserState weather_parser_worktask_check_cache(Weather_Parser* _Parser)
       if (json_output == NULL)
       {
         perror("read_file_to_string");
-        return ERR_INTERNAL;
+        return WEATHER_PARSER_ERROR;
       }
       else
       {
-        _on_finish(_context, &json_output);
+        _Parser->on_finish(_Parser->context, &json_output);
       }
     }
     else
     {
       printf("Getting weather from API\n");
-      if (weather_parser_get_weather_from_api_by_coords(_Weather, _lat, _lon, _ExtAPI) != 0)
 
-         
-      *_json_output_ptr = weather_parser_build_json_weather(_Weather);
+      return WEATHER_PARSER_CALLING_EXT_API;
     }
   }
-
-  return 0;
+  return WEATHER_PARSER_ERROR;
 }
-WeatherParserState weather_parser_worktask_call_ext_api(Weather_Parser* _Parser, ExternalWeatherAPI _Ext_API)
+WeatherParserState weather_parser_worktask_call_ext_api(Weather_Parser* _Parser)
+{
+  int result;
+  int interval;
+
+  int count = 0;
+  if (_Parser->forecast)
+    count = 7 * 24;
+
+  Weather* W;
+  if (weather_parser_init_weather_ptr(&W, count))
+    return WEATHER_PARSER_ERROR;
+
+  if (_Parser->external_api == OPEN_METEO_WEATHER)
+  {
+    /* Init meteo */
+    Meteo* M;
+    Meteo_Current* MC;
+    result = meteo_init_ptr(&M, NULL, &MC, NULL, weather_parser_on_ext_api_finish, _Parser);
+    if (result != 0)
+    {
+      perror("meteo_init");
+      return -2;
+    }
+
+    /* Get fresh Meteo_Current struct from API */
+    /* result = meteo_get_weather(MC, _Parser->latitude, _Parser->longitude);
+    if (result != 0)
+    {
+      perror("meteo_get_weather");
+      meteo_dispose_ptr(NULL, &MC, NULL);
+      return WEATHER_PARSER_ERROR;
+    } */
+
+    return WEATHER_PARSER_IDLING;
+  }
+  else
+  {
+    return WEATHER_PARSER_ERROR;
+  }
+
+}
+WeatherParserState weather_parser_worktask_parse_api_response(Weather_Parser* _Parser)
 {
 
+  int result = ERR_INTERNAL;
+  if (_Parser->external_api == OPEN_METEO_WEATHER)
+  {
+    if (_Parser->meteo->current != NULL)
+      result = weather_parser_parse_meteo_current(_Parser->weather, _Parser->meteo->current);
+
+    if (_Parser->meteo->hourly != NULL)
+      result = weather_parser_parse_meteo_hourly(_Parser->weather, _Parser->meteo->hourly);
+  }
+  else
+  {
+    return WEATHER_PARSER_ERROR;
+  }
+
+  meteo_dispose_ptr(NULL, &MW, NULL);
+
+  return WEATHER_PARSER_RESPONDING; 
 }
-WeatherParserState weather_parser_worktask_parse_api_response(Weather_Parser* _Parser, ExternalWeatherAPI _Ext_API)
+
+WeatherParserState weather_parser_worktask_parse_respond(Weather_Parser* _Parser)
 {
+  const char* response;
 
+  if (
+    response = weather_parser_build_json_weather(_Parser->weather);
+  _Parser->on_finish()
 }
-
 /* ********************** CURRENT & FORECAST *********************** */
 
 /** Heap init for Weather and Weather_Values structs. 
@@ -405,7 +479,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
   if (_ExtAPI == OPEN_METEO_WEATHER)
   {
     /* Init meteo */
-    Meteo_Weather* MW;
+    Meteo_Current* MW;
     result = meteo_init_ptr(NULL, &MW, NULL);
     if (result != 0)
     {
@@ -413,7 +487,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
       return -2;
     }
 
-    /* Get fresh Meteo_Weather struct from API */
+    /* Get fresh Meteo_Current struct from API */
     result = meteo_get_weather(MW, _lat, _lon);
     if (result != 0)
     {
@@ -422,7 +496,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
       return -3;
     }
 
-    printf("---Meteo_Weather---\ntemperature: %f %s\n", MW->temperature_2m, MW->temperature_2m_unit);
+    printf("---Meteo_Current---\ntemperature: %f %s\n", MW->temperature_2m, MW->temperature_2m_unit);
     printf("latitude: %f\n", MW->latitude);
     printf("windspeed: %f %s\n", MW->wind_speed_10m, MW->wind_speed_10m_unit);
 
@@ -442,7 +516,7 @@ int weather_parser_get_weather_from_api_by_coords(Weather* _Weather, float _lat,
   return -1;
 }
 
-int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weather)
+int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Current* _M_Weather)
 {
 
   /* Assign string members */
@@ -479,7 +553,7 @@ int weather_parser_parse_meteo_weather(Weather* _Weather, Meteo_Weather* _M_Weat
   return SUCCESS;
 }
 
-/* int weather_parser_parse_meteo_forecast(Weather* _Weather, Meteo_Weather* _M_Weather)
+/* int weather_parser_parse_meteo_forecast(Weather* _Weather, Meteo_Current* _M_Weather)
 {
 
   if (_M_Weather->count > _Weather->count)
@@ -609,7 +683,7 @@ int weather_parser_get_forecast_from_api_by_coords(Weather* _Weather, float _lat
 
   return SUCCESS;
 }
-int weather_parser_parse_meteo_forecast(Weather* _Weather, Meteo_Weather* _M_Weather)
+int weather_parser_parse_meteo_forecast(Weather* _Weather, Meteo_Current* _M_Weather)
 {
 
   return SUCCESS;

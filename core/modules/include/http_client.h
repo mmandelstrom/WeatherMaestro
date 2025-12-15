@@ -18,18 +18,18 @@ typedef enum
 {
   HTTP_CLIENT_INITIALIZING,
   HTTP_CLIENT_CONNECTING,
-  HTTP_CLIENT_BUILD_REQUEST,
-  HTTP_CLIENT_SEND_REQUEST,
-  HTTP_CLIENT_READ_FIRSTLINE,
-  HTTP_CLIENT_READ_HEADERS,
-  HTTP_CLIENT_READ_BODY,
+  HTTP_CLIENT_BUILDING_REQUEST,
+  HTTP_CLIENT_SENDING_REQUEST,
+  HTTP_CLIENT_READING_FIRSTLINE,
+  HTTP_CLIENT_READING_HEADERS,
+  HTTP_CLIENT_READING_BODY,
   HTTP_CLIENT_RETURNING,
   HTTP_CLIENT_DISPOSING,
   HTTP_CLIENT_ERROR,
 
 } HTTPClientState;
 
-typedef const char (*http_client_on_success)();
+typedef void (*http_client_on_success)(const char** _response);
 
 typedef struct {
   char        scheme[6]; // http/https
@@ -62,10 +62,11 @@ typedef struct
   HTTP_Request*             req;
   HTTP_Response*            resp;
   URL_Parts                 url_parts;
+  const char*               response_out;
 } HTTP_Client;
 
 
-int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method);
+int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method, http_client_on_success _on_success, const char* _response_out);
 void http_client_dispose(HTTP_Client* _Client);
 
 #endif //HTTPClient_h

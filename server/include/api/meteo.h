@@ -45,57 +45,72 @@ typedef struct
   int         weather_code;
   int         wind_direction_10m;
 
-} Meteo_Weather;
+} Meteo_Current;
+
 
 typedef struct
 {
-  char*       timestamp[17];
+  char*           timestamp[17];
 
-  const char* timezone_abbreviation;
+  const char*     timezone_abbreviation;
 
-  const char* temperature_2m_unit; 
-  const char* wind_speed_10m_unit;
-  const char* precipitation_unit;
-  const char* elevation_unit;
-  const char* wind_direction_10m_unit;
+  const char*     temperature_2m_unit; 
+  const char*     wind_speed_10m_unit;
+  const char*     precipitation_unit;
+  const char*     elevation_unit;
+  const char*     wind_direction_10m_unit;
 
-  double*     temperature_2m; 
-  double*     wind_speed_10m; 
-  double*     precipitation;
-  double*     elevation;
-  double*     generationtime_ms;
+  double*         temperature_2m; 
+  double*         wind_speed_10m; 
+  double*         precipitation;
+  double*         elevation;
+  double*         generationtime_ms;
 
-  float*      latitude;
-  float*      longitude;
+  float*          latitude;
+  float*          longitude;
 
-  int*        utc_offset_seconds;
-  int*        interval;
-  int*        is_day;
-  int*        weather_code;
-  int*        wind_direction_10m;
+  int*            utc_offset_seconds;
+  int*            interval;
+  int*            is_day;
+  int*            weather_code;
+  int*            wind_direction_10m;
 
-  uint8_t     count;
+  unsigned int    count;
 
-} Meteo_Forecast;
+} Meteo_Hourly;
 
 typedef struct
 {
 
 } Meteo_Geo;
 
+typedef struct Meteo Meteo;
+
+typedef void (*on_ext_api_finish)(void* _context, void* _ext_api);
+
+typedef struct Meteo
+{
+  void*             context;
+  on_ext_api_finish on_finish;
+
+  Meteo_Geo*        geo;
+  Meteo_Current*    current;
+  Meteo_Hourly*   hourly;
+
+} Meteo;
+
 /* TODO: overlook forecast saving for interface function, maybe remove Forecast struct and instead use pointers in all Weather struct values, then save count and just loop through them all as arrays... Or simply add a new function for saving forecast */
 
 /* ---------------------- Interface ----------------------- */
 
 /* Only init the one you need, pass NULL to the others*/
-int meteo_init_ptr(Meteo_Geo** _MG_Ptr, Meteo_Weather** _MW_Ptr, Meteo_Forecast** _MF_Ptr);
+int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr, on_ext_api_finish _on_finish, void* _context);
 
-int meteo_get_weather(Meteo_Weather* _MW, float _lat, float _lon);
-int meteo_get_forecast(Meteo_Forecast* _MF, float _lat, float _lon);
+int meteo_get_geo(Meteo* _M, float _lat, float _lon, int _count);
+int meteo_get_weather_current(Meteo* _M, float _lat, float _lon);
+int meteo_get_weather_hourly(Meteo* _M, float _lat, float _lon);
 
-int meteo_get_geo(Meteo_Geo* _MF, float _lat, float _lon, int _count);
-
-void meteo_dispose_ptr(Meteo_Geo** _MG_Ptr, Meteo_Weather** _MW_Ptr, Meteo_Forecast** _MF_Ptr);
+void meteo_dispose_ptr(Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr);
 
 /* -------------------------------------------------------- */
 

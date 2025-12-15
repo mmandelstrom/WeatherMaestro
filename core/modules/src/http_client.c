@@ -11,7 +11,8 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_returning(HTTP_Client* _Client);
 
 
-int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method) {
+int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method, http_client_on_success _on_success, const char* _response_out) 
+{
   if (!_Client) {
     return ERR_INVALID_ARG;
   }
@@ -33,14 +34,15 @@ int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _met
   printf("URL in init: %s\n", _URL);
 
   char* url_copy = strdup(_URL);
-    if (!url_copy) {
-        scheduler_destroy_task(_Client->task);
-        _Client->task = NULL;
-        free(req);
-        free(resp);
-        return ERR_NO_MEMORY;
-    }
+  if (!url_copy) {
+    scheduler_destroy_task(_Client->task);
+    _Client->task = NULL;
+    free(req);
+    free(resp);
+    return ERR_NO_MEMORY;
+  }
 
+  _Client->on_success = _on_success;
   _Client->resp = resp;
   _Client->req = req;
   _Client->URL = url_copy;
@@ -52,6 +54,7 @@ int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _met
   _Client->next_retry_at = SystemMonotonicMS();
   URL_Parts url_parts = {0};
   _Client->url_parts = url_parts;
+  _Client->response_out = _response_out;
 
   //Check url for http/https 
   _Client->tls = false;
@@ -86,13 +89,13 @@ HTTPClientState http_client_worktask_connecting(HTTP_Client* _Client) {
       return HTTP_CLIENT_ERROR;
     }
 
-    return HTTP_CLIENT_BUILD_REQUEST;
+    return HTTP_CLIENT_BUILDING_REQUEST;
   } else {
     //init tls client etc
-    return HTTP_CLIENT_BUILD_REQUEST;
+    return HTTP_CLIENT_BUILDING_REQUEST;
   }
  
-  return HTTP_CLIENT_BUILD_REQUEST;
+  return HTTP_CLIENT_BUILDING_REQUEST;
 }
 
 HTTPClientState http_client_worktask_build_request(HTTP_Client* _Client) {
@@ -126,7 +129,7 @@ HTTPClientState http_client_worktask_build_request(HTTP_Client* _Client) {
         return HTTP_CLIENT_ERROR;
     }
 
-    return HTTP_CLIENT_SEND_REQUEST;
+    return HTTP_CLIENT_SENDING_REQUEST;
   }
 
 HTTPClientState http_client_worktask_send_request(HTTP_Client* _Client) {
@@ -145,37 +148,37 @@ HTTPClientState http_client_worktask_send_request(HTTP_Client* _Client) {
       if (_Client->bytes_sent >= _Client->request_length) {
 
         _Client->retries = 0;
-        return HTTP_CLIENT_READ_FIRSTLINE;
+        return HTTP_CLIENT_READING_FIRSTLINE;
       }
 
       _Client->next_retry_at = SystemMonotonicMS() + 100;
-      return HTTP_CLIENT_SEND_REQUEST;
+      return HTTP_CLIENT_SENDING_REQUEST;
 
     }else if (written == 0) {
       _Client->retries++;
       _Client->next_retry_at = SystemMonotonicMS() + 1000;
 
-      return HTTP_CLIENT_SEND_REQUEST;
+      return HTTP_CLIENT_SENDING_REQUEST;
 
     } else {
       if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
         _Client->next_retry_at = SystemMonotonicMS() + 100;
-        return HTTP_CLIENT_SEND_REQUEST;
+        return HTTP_CLIENT_SENDING_REQUEST;
       }
       if (_Client->retries < 3) {
         _Client->retries++;
         _Client->next_retry_at = SystemMonotonicMS() + 1000;
-        return HTTP_CLIENT_SEND_REQUEST;
+        return HTTP_CLIENT_SENDING_REQUEST;
       }
       return HTTP_CLIENT_ERROR;
     }
   } else {
     //implement tls read here
-    return HTTP_CLIENT_READ_FIRSTLINE;
+    return HTTP_CLIENT_READING_FIRSTLINE;
   }
 
   _Client->retries = 0;
-  return HTTP_CLIENT_READ_FIRSTLINE;
+  return HTTP_CLIENT_READING_FIRSTLINE;
 }
 
 HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
@@ -191,7 +194,7 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
 
   if (bytes_read < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-      return HTTP_CLIENT_READ_FIRSTLINE;
+      return HTTP_CLIENT_READING_FIRSTLINE;
     }
     perror("recv firstline");
     return HTTP_CLIENT_ERROR;
@@ -209,7 +212,7 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
   }
 
   if (TCP_C->data.size == 0) {
-    return HTTP_CLIENT_READ_FIRSTLINE;
+    return HTTP_CLIENT_READING_FIRSTLINE;
   }
 
   int line_end = http_parser_find_line_end(TCP_C->data.addr, TCP_C->data.size);
@@ -221,7 +224,7 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
       return HTTP_CLIENT_ERROR;
     }
     /*Keep looking for line end on next work call*/
-    return HTTP_CLIENT_READ_FIRSTLINE;
+    return HTTP_CLIENT_READING_FIRSTLINE;
   }
 
   /*line_end is the index of the first \r*/
@@ -255,7 +258,7 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
   /*Remove first line by shrinking the buffer*/
   TCP_C->data.size -= parsed;
 
-  return HTTP_CLIENT_READ_HEADERS;
+  return HTTP_CLIENT_READING_HEADERS;
 
 }
 
@@ -272,7 +275,7 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client) {
   
   if (bytes_read < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-      return HTTP_CLIENT_READ_HEADERS;
+      return HTTP_CLIENT_READING_HEADERS;
     }
     perror("recv headers");
     return HTTP_CLIENT_ERROR;
@@ -294,7 +297,7 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client) {
 
   if (TCP_C->data.size == 0) {
     /*No data, try again on next work call*/
-    return HTTP_CLIENT_READ_HEADERS;
+    return HTTP_CLIENT_READING_HEADERS;
   }
 
   /*Edgecase no headers*/
@@ -322,7 +325,7 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client) {
 
   if (headers_end < 0) {
     /*Continue reading on next work call*/
-    return HTTP_CLIENT_READ_HEADERS;
+    return HTTP_CLIENT_READING_HEADERS;
   }
 
   /*headers_end is the index of the first \r parser will ignore last line*/
@@ -362,7 +365,7 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client) {
 
   if (content_length > 0) {
     /*There is a body to read*/
-    return HTTP_CLIENT_READ_BODY;
+    return HTTP_CLIENT_READING_BODY;
   }
 
   return HTTP_CLIENT_RETURNING;
@@ -384,7 +387,7 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) {
 
   if (bytes_read < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
-      return HTTP_CLIENT_READ_BODY;
+      return HTTP_CLIENT_READING_BODY;
     }
     perror("recv body");
     return HTTP_CLIENT_ERROR;
@@ -405,7 +408,7 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) {
 
    if (TCP_C->data.size < (size_t)_Client->content_length) {
     /*Keep reading body on next work call*/
-    return HTTP_CLIENT_READ_BODY;
+    return HTTP_CLIENT_READING_BODY;
   }
 
   printf("EXPECTED: %d, HAVE: %zu\n", _Client->content_length, TCP_C->data.size);
@@ -415,7 +418,9 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) {
 
 HTTPClientState http_client_worktask_returning(HTTP_Client* _Client) {
   printf("print from worktask returning: %s\n", _Client->tcp_client->data.addr);
-
+  
+  
+  _Client->on_success(&_Client->tcp_client->data.addr);
   return HTTP_CLIENT_DISPOSING;
 }
 
@@ -441,12 +446,12 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
       client->state = http_client_worktask_connecting(client);
       break;
     }
-    case HTTP_CLIENT_BUILD_REQUEST: {
+    case HTTP_CLIENT_BUILDING_REQUEST: {
       printf("http_client_build_request\n");
       client->state = http_client_worktask_build_request(client);
       break;
     }
-    case HTTP_CLIENT_SEND_REQUEST: {
+    case HTTP_CLIENT_SENDING_REQUEST: {
       printf("http_client_send_request before retry check\n");
       if (now >= client->next_retry_at) {
         printf("http_client_send_request after retry check\n");
@@ -455,7 +460,7 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
       }
       break;
     }
-    case HTTP_CLIENT_READ_FIRSTLINE: {
+    case HTTP_CLIENT_READING_FIRSTLINE: {
       printf("http_client_read_firstline before retry check\n");
       if (now >= client->next_retry_at) {
         printf("http_client_read_firstline after check\n");
@@ -464,7 +469,7 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
       }
       break;
     }
-    case HTTP_CLIENT_READ_HEADERS: {
+    case HTTP_CLIENT_READING_HEADERS: {
       printf("http_client_read_header before retry check\n");
        if (now >= client->next_retry_at) {
         printf("http_client_read_headers after check\n");
@@ -473,7 +478,7 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
       }
       break;
     }
-    case HTTP_CLIENT_READ_BODY: {
+    case HTTP_CLIENT_READING_BODY: {
       printf("http_client_read_body before retry check\n");
       if (now >= client->next_retry_at) {
         printf("http_client_read_body after retry check\n");

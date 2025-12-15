@@ -32,6 +32,7 @@ typedef enum
   WEATHER_PARSER_CALLING_EXT_API,
   WEATHER_PARSER_IDLING,
   WEATHER_PARSER_PARSING,
+  WEATHER_PARSER_RESPONDING,
   WEATHER_PARSER_DISPOSING,
   WEATHER_PARSER_ERROR
 
@@ -70,10 +71,6 @@ typedef struct
   const char*     winddirection_unit;
 
   Weather_Values* values;
-
-  float           latitude; 
-  float           longitude;
-
   unsigned int    count;
 
 } Weather;
@@ -93,6 +90,10 @@ typedef struct
   Scheduler_Task*     task;
 
   Weather*            weather;
+  Meteo*              meteo;
+
+  float               latitude;
+  float               longitude;
 
   WeatherParserState  state;
   ExternalWeatherAPI  external_api;
@@ -104,7 +105,7 @@ typedef struct
 /* ---------------------- Interface ----------------------- */
 
 /** Taskwork starter, _forecast=false gets current weather */
-int weather_parser_init_ptr(Weather_Parser** _WP_Ptr, void* _context, parser_on_finish _on_finish, bool _forecast);
+int weather_parser_init_ptr(Weather_Parser** _WP_Ptr, void* _context, parser_on_finish _on_finish, float _lat, float _lon, bool _forecast);
 /** Heap init for data structs */
 int weather_parser_init_weather_ptr(Weather** _W_Ptr, unsigned int _count);
 
