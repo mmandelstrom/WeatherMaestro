@@ -52,8 +52,7 @@ struct Weather_API
   HTTP_Request*           http_request;
   HTTP_Response*          http_response;
 
-  Geos*                   geos;
-  Forecast*               forecast;
+  Weather_Parser*         weather_parser;
 
   Scheduler_Task*         task;
   on_api_finish           on_api_finish; 

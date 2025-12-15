@@ -2,14 +2,6 @@
 # ======= 🌤WeatherMaestro Server Makefile ========
 # =================================================
 
-# Compiler (use clang on macOS, gcc otherwise)
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-	CC := clang
-else
-	CC := gcc
-endif
-
 BUILD_DIR := build
 
 # Source files directories
@@ -22,7 +14,7 @@ LIBS_SRC_DIR  := libs/src
 SRC       := $(shell find -L $(SRC_DIR) 	-type f -name '*.c')
 CORE_SRC  := $(shell find -L ../$(CORE_SRC_DIR)  -type f -name '*.c')
 UTILS_SRC := $(shell find -L ../$(UTILS_SRC_DIR) -type f -name '*.c')
-LIBS_SRC  := ../libs/src/HTTPStatusCodes.c ../libs/src/cJSON.c ../libs/src/md5.c
+LIBS_SRC  := ../libs/src/HTTPStatusCodes.c ../libs/src/cJSON.c
 
 ALL_SRC := $(SRC) $(CORE_SRC) $(UTILS_SRC) $(LIBS_SRC)
 
@@ -34,46 +26,10 @@ CACHE_DIR := data/cache
 # Compilation flags
 # CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Werror -Wfatal-errors -Wno-format-truncation -I../libs
 # CFLAGS := -std=c99 -MMD -MP -g -I../libs -I../utils
-CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Wfatal-errors -g -Iinclude -I../libs/include -I../core/utils/include -I../core/modules/include
-
-# Linker flags (auto-detect platform)
-ifeq ($(UNAME_S),Darwin)
-	LDFLAGS := -flto
-else
-	LDFLAGS := -flto -Wl,--gc-sections
-endif
+CFLAGS := -std=c89 -MMD -MP -Wall -Wextra -Wfatal-errors -g -Iinclude -I../libs/include -I../core/utils/include -I../core/modules/include
 
 # Linked libraries
 LIBS := -lcurl
-
-#Fuzzing build
-FUZZ_CC     ?= afl-gcc-fast
-FUZZ_CFLAGS ?= -fsanitize=undefined -g -DHTTP_FUZZ_MODE
-FUZZ_OUT    ?= ../fuzz_http
-
-FUZZ_SOURCES = \
-    src/http/http_connection.c \
-    src/http/http_parser.c \
-    src/http/http_server.c \
-    src/tcp/tcp_client.c \
-    src/tcp/tcp_server.c \
-    src/scheduler.c \
-    src/weather/weather_instance.c \
-    src/weather/weather_server.c \
-    ../utils/src/linked_list.c \
-		../utils/src/misc_utils.c \
-    ../utils/src/file_utils.c \
-    ../utils/src/json_utils.c \
-    ../utils/src/time_utils.c \
-    ../libs/src/yuarel.c \
-    ../libs/src/HTTPStatusCodes.c \
-    ../fuzz_http.c
-
-#Asan flags for fsanitize=address on Arch
-ASAN_CC     ?= gcc
-ASAN_CFLAGS ?= -fsanitize=address,undefined -g -DHTTP_FUZZ_MODE
-ASAN_OUT    ?= ../fuzz_http_asan
-
 
 # Map .c → .o
 SRC_OBJ   := $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/$(SRC_DIR)/%.o,$(SRC))
@@ -139,24 +95,6 @@ valgrind: $(BIN)
 gdb: $(BIN)
 	@echo "Debugging $< using gdb..."
 	@gdb ./$(BIN)
-
-fuzz:
-	$(FUZZ_CC) $(FUZZ_CFLAGS) $(FUZZ_SOURCES) \
-	    -Iinclude \
-	    -I../utils/include \
-	    -I../libs/include \
-	    -o $(FUZZ_OUT)
-	cd .. && afl-fuzz -i ./tests/inputs -o ./tests/findings -- ./fuzz_http
-
-fuzz-asan:
-	$(ASAN_CC) $(ASAN_CFLAGS) $(FUZZ_SOURCES) \
-	    -Iinclude \
-	    -I../utils/include \
-	    -I../libs/include \
-	    -o $(ASAN_OUT)
-	@echo ""
-	@echo "Built ASan binary: $(ASAN_OUT)"
-	@echo "Exempel: ./fuzz_http_asan < findings/default/crashes/ID_FILE"
 
 print:
 	@echo "Source files: $(SRC)"
