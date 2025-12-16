@@ -1,5 +1,4 @@
 #include "weather/weather_instance.h"
-#include "weather_parser.h"
 #include <stdio.h>
 
 //-----------------Internal Functions-----------------
@@ -208,6 +207,7 @@ void weather_server_instance_taskwork(void* _context, uint64_t _montime)
     case WEATHER_SERVER_INSTANCE_DISPOSING:
     {
       printf("WEATHER_SERVER_INSTANCE_DISPOSING (%p)\n", Instance);
+      weather_api_dispose_ptr(&Instance->weather_api);
       scheduler_destroy_task(Instance->task);
 
     } break;

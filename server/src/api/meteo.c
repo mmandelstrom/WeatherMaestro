@@ -1,22 +1,67 @@
 #include "api/meteo.h"
+#include "cJSON.h"
 #include "http_parser.h"
 #include <error.h>
 
 
 /* ---------------------- Internal functions ----------------------- */
 
+/* Only init the one you need, pass NULL to the others*/
+int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr);
+
 /* WEATHER/FORECAST */
-int meteo_get_weather_json(float _lat, float _lon, bool _forecast);
+int meteo_get_weather_json(Meteo* _M, float _lat, float _lon, bool _forecast);
 int meteo_parse_json_weather_current(Meteo_Current* _MW, const char* _json);
 int meteo_parse_json_weather_hourly(Meteo_Hourly* _MF, const char* _json);
-void meteo_on_http_client_finish(void* _context, const char** _response);
+void meteo_on_http_client_finish(void* _context, char** _response);
 /* GEO */
 // const char* meteo_get_geo_json(float _lat, float _lon);
 // int meteo_parse_json_geo(Meteo_Geo* _MG, const char* _json);
 
+void meteo_dispose_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr);
+
 /* ----------------------------------------------------------------- */
 
-int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr, on_ext_api_finish _on_finish, void* _context)
+int meteo_get_geo(Meteo** _M_Ptr, float _lat, float _lon, int _count, on_ext_api_finish _on_finish, void* _context)
+{
+  Meteo_Geo* Geo;
+  meteo_init_ptr(_M_Ptr, &Geo, NULL, NULL);
+  (*_M_Ptr)->geo = Geo;
+  (*_M_Ptr)->on_finish = _on_finish;
+  (*_M_Ptr)->context = _context;
+
+
+  return SUCCESS;
+}
+int meteo_get_weather_current(Meteo** _M_Ptr, float _lat, float _lon, on_ext_api_finish _on_finish, void* _context)
+{
+
+  Meteo_Current* Current;
+  meteo_init_ptr(_M_Ptr, NULL, &Current, NULL);
+  (*_M_Ptr)->current = Current;
+
+  (*_M_Ptr)->on_finish = _on_finish;
+  (*_M_Ptr)->context = _context;
+
+  int result = meteo_get_weather_json(*_M_Ptr, _lat, _lon, false);
+
+  return result;
+}
+int meteo_get_weather_hourly(Meteo** _M_Ptr, float _lat, float _lon, on_ext_api_finish _on_finish, void* _context)
+{
+  Meteo_Hourly* Hourly;
+  meteo_init_ptr(_M_Ptr, NULL, NULL, &Hourly);
+  (*_M_Ptr)->hourly = Hourly;
+
+  (*_M_Ptr)->on_finish = _on_finish;
+  (*_M_Ptr)->context = _context;
+
+  int result = meteo_get_weather_json(*_M_Ptr, _lat, _lon, true);
+
+  return result;
+}
+
+int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr)
 {
   /* Module struct */
   if (_M_Ptr != NULL)
@@ -27,8 +72,6 @@ int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr,
       perror("malloc");
       return ERR_NO_MEMORY;
     }
-    (*_M_Ptr)->on_finish = _on_finish;
-    (*_M_Ptr)->context = _context;
   }
 
   /* Geo */
@@ -38,6 +81,7 @@ int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr,
     if (*_MG_Ptr == NULL)
     {
       perror("malloc");
+      meteo_dispose_ptr(_M_Ptr, _MG_Ptr, _MW_Ptr, _MF_Ptr);
       return ERR_NO_MEMORY;
     }
   }
@@ -49,6 +93,7 @@ int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr,
     if (*_MF_Ptr == NULL)
     {
       perror("malloc");
+      meteo_dispose_ptr(_M_Ptr, _MG_Ptr, _MW_Ptr, _MF_Ptr);
       return ERR_NO_MEMORY;
     }
   }
@@ -60,6 +105,14 @@ int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr,
     if (*_MW_Ptr == NULL)
     {
       perror("malloc");
+      meteo_dispose_ptr(_M_Ptr, _MG_Ptr, _MW_Ptr, _MF_Ptr);
+      return ERR_NO_MEMORY;
+    }
+    (*_MW_Ptr)->values = realloc((*_MW_Ptr)->values, sizeof(Meteo_Weather_Values));
+    if ((*_MW_Ptr)->values == NULL)
+    {
+      perror("malloc");
+      meteo_dispose_ptr(_M_Ptr, _MG_Ptr, _MW_Ptr, _MF_Ptr);
       return ERR_NO_MEMORY;
     }
   }
@@ -67,7 +120,7 @@ int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr,
   return 0;
 }
 
-void meteo_on_http_client_finish(void* _context, const char** _response)
+void meteo_on_http_client_finish(void* _context, char** _response)
 {
   Meteo* M = (Meteo*)_context;
   /* if (M->geo != NULL)
@@ -83,8 +136,7 @@ void meteo_on_http_client_finish(void* _context, const char** _response)
 
 }
 
-
-int meteo_get_weather_json(float _lat, float _lon, bool _forecast)
+int meteo_get_weather_json(Meteo* _M, float _lat, float _lon, bool _forecast)
 {
   char url[512];
 
@@ -113,63 +165,14 @@ int meteo_get_weather_json(float _lat, float _lon, bool _forecast)
   }
   HTTPMethod method = HTTP_GET;
 
-  if (http_client_initiate(c, (const char*)url, method, meteo_on_http_client_finish) != SUCCESS) 
+  if (http_client_initiate(c, (const char*)url, method, meteo_on_http_client_finish, _M, &_M->http_response) != SUCCESS) 
   {
     return ERR_INTERNAL;
   }
 
   return SUCCESS;
 }
-// const char* meteo_get_weather_json(float _lat, float _lon, bool _forecast)
-// {
-//   char url[512];
-//
-//   if (_forecast)
-//   {
-//     int url_len = snprintf(url, 512, 
-//              METEO_BASE_URL,
-//              _lat, 
-//              _lon,
-//              METEO_FORECAST_WEATHER_QUERY);
-//     url[url_len] = '\0';
-//   }
-//   else
-//   {
-//     int url_len = snprintf(url, 512, 
-//              METEO_BASE_URL,
-//              _lat, 
-//              _lon,
-//              METEO_CURRENT_WEATHER_QUERY);
-//     url[url_len] = '\0';
-//   }
-//
-//   HTTP_Client* c = calloc(1, sizeof(HTTP_Client));
-//   if (!c) {
-//     return NULL;
-//   }
-//   HTTPMethod method = 1;
-//
-//   if (http_client_initiate(c, (const char*)url, method) != SUCCESS) {
-//     return NULL;
-//   }
-//
-//
-//
-//   /* char* response = malloc(c->tcp_client->data.size + 1);
-//   if (response == NULL)
-//     {
-//       perror("malloc");
-//       return NULL;
-//     }
-//
-//    memcpy(response, c->tcp_client->data.addr, c->tcp_client->data.size);
-//    response[c->tcp_client->data.size] = '\0';
-//
-//    printf("===== Meteo Response JSON =====\n\n%s\n\n", response); */
-//
-//   return response;
-// }
-//
+
 int meteo_parse_json_weather_current(Meteo_Current* _MW, const char* _json)
 {
   cJSON* Json_Root = cJSON_Parse(_json);
@@ -178,40 +181,40 @@ int meteo_parse_json_weather_current(Meteo_Current* _MW, const char* _json)
     if (error_pointer != NULL){
       fprintf(stderr,"meteo json error %s\n", error_pointer);
     }
-    return -1;
+    return ERR_JSON_PARSE;
   }
 
   cJSON* Cur_Weather = cJSON_GetObjectItemCaseSensitive(Json_Root, "current");
   if (Cur_Weather == NULL){
     fprintf(stderr, "'current' section missing in meteo json\n");
     cJSON_Delete(Json_Root);
-    return -2;
+    return ERR_JSON_OBJ_NOT_FOUND;
   }
   cJSON* Cur_Weather_Units = cJSON_GetObjectItemCaseSensitive(Json_Root, "current_units");
   if (Cur_Weather_Units == NULL){
     fprintf(stderr, "'current_units' section missing in meteo json\n");
     cJSON_Delete(Json_Root);
-    return -3;
+    return ERR_JSON_OBJ_NOT_FOUND;
   }
 
   /* Parse data from json */
-  memcpy(_MW->timestamp, json_get_string(Cur_Weather, "time"), 16);
-  _MW->timestamp[16] = '\0';
+  memcpy(_MW->values->timestamp, json_get_string(Cur_Weather, "time"), 16);
+  _MW->values->timestamp[16] = '\0';
 
   _MW->latitude                = json_get_double(Json_Root, "latitude");
   _MW->longitude               = json_get_double(Json_Root, "longitude");
   _MW->generationtime_ms       = json_get_double(Json_Root, "generationtime_ms");
   _MW->elevation               = json_get_double(Json_Root, "elevation");
 
-  _MW->precipitation           = json_get_double(Cur_Weather, "precipitation");
-  _MW->temperature_2m          = json_get_double(Cur_Weather, "temperature_2m");
-  _MW->wind_speed_10m          = json_get_double(Cur_Weather, "wind_speed_10m");
+  _MW->values->precipitation      = json_get_double(Cur_Weather, "precipitation");
+  _MW->values->temperature_2m     = json_get_double(Cur_Weather, "temperature_2m");
+  _MW->values->wind_speed_10m     = json_get_double(Cur_Weather, "wind_speed_10m");
+  _MW->values->wind_direction_10m = json_get_int(Cur_Weather, "wind_direction_10m");
+  _MW->values->is_day             = json_get_int(Cur_Weather, "is_day");
+  _MW->values->weather_code       = json_get_int(Cur_Weather, "weather_code");
 
-  _MW->wind_direction_10m      = json_get_int(Cur_Weather, "wind_direction_10m");
   _MW->utc_offset_seconds      = json_get_int(Cur_Weather, "utc_offset_seconds");
   _MW->interval                = json_get_int(Cur_Weather, "interval");
-  _MW->is_day                  = json_get_int(Cur_Weather, "is_day");
-  _MW->weather_code            = json_get_int(Cur_Weather, "weather_code");
 
   /* Heap allocations */
   _MW->timezone_abbreviation   = strdup(json_get_string(Json_Root, "timezone_abbreviation"));
@@ -229,12 +232,12 @@ int meteo_parse_json_weather_current(Meteo_Current* _MW, const char* _json)
   {
     fprintf(stderr, "One or more strings couldn't be parsed from meteo json\n");
     cJSON_Delete(Json_Root);
-    return -4;
+    return ERR_JSON_PARSE;
   }
 
   cJSON_Delete(Json_Root);
 
-  printf("meteo parsed temperature: %f %s\n", _MW->temperature_2m, _MW->temperature_2m_unit);
+  printf("meteo parsed temperature: %f %s\n", _MW->values->temperature_2m, _MW->temperature_2m_unit);
 
   return 0;
 }
@@ -247,34 +250,34 @@ int meteo_parse_json_weather_hourly(Meteo_Hourly* _MF, const char* _json)
     if (error_pointer != NULL){
       fprintf(stderr,"meteo json error %s\n", error_pointer);
     }
-    return -1;
+    return ERR_JSON_PARSE;
   }
 
   cJSON* Hourly_Weather = cJSON_GetObjectItemCaseSensitive(Json_Root, "hourly");
   if (Hourly_Weather == NULL){
     fprintf(stderr, "'hourly' section missing in meteo json\n");
     cJSON_Delete(Json_Root);
-    return -2;
+    return ERR_JSON_OBJ_NOT_FOUND;
   }
   cJSON* Hourly_Weather_Units = cJSON_GetObjectItemCaseSensitive(Json_Root, "hourly_units");
   if (Hourly_Weather_Units == NULL){
     fprintf(stderr, "'hourly_units' section missing in meteo json\n");
     cJSON_Delete(Json_Root);
-    return -3;
+    return ERR_JSON_OBJ_NOT_FOUND;
   }
   
   /* Parse the the first array to get count*/
   cJSON* Time = cJSON_GetObjectItemCaseSensitive(Hourly_Weather, "time");
   int count = cJSON_GetArraySize(Time);
+  
+  _MF->values = realloc(_MF->values, ((size_t)count * sizeof(Meteo_Weather_Values)));
+  if (_MF->values == NULL){
+    perror("realloc");
+    cJSON_Delete(Json_Root);
+    return ERR_NO_MEMORY;
+  }
   _MF->count = count;
 
-  if (count != _MF->count)
-  {
-    printf("Meteo forecast count is different than allocated!\n");
-    cJSON_Delete(Json_Root);
-    return -4;
-  }
-  
   /* _MF = realloc(_MF->, count * sizeof(Meteo_Current));
   if (!_MF->weathers)
   {
@@ -299,92 +302,80 @@ int meteo_parse_json_weather_hourly(Meteo_Hourly* _MF, const char* _json)
   {
     fprintf(stderr, "Hourly weather fields missing in meteo json\n");
     cJSON_Delete(Json_Root);
-    return -5;
+    return ERR_JSON_OBJ_NOT_FOUND;
   }
-
-  _MF->temperature_2m     = realloc(_MF->temperature_2m, sizeof(double) * _MF->count);
-  _MF->wind_speed_10m     = realloc(_MF->wind_speed_10m, sizeof(double) * _MF->count);
-  _MF->precipitation      = realloc(_MF->precipitation, sizeof(double) * _MF->count);
-  _MF->elevation          = realloc(_MF->elevation, sizeof(double) * _MF->count);
-  _MF->generationtime_ms  = realloc(_MF->generationtime_ms, sizeof(double) * _MF->count);
-
-  _MF->latitude           = realloc(_MF->latitude, sizeof(float) * _MF->count);
-  _MF->longitude          = realloc(_MF->longitude, sizeof(float) * _MF->count);
-
-  _MF->utc_offset_seconds = realloc(_MF->utc_offset_seconds, sizeof(int) * _MF->count);
-  _MF->interval           = realloc(_MF->interval, sizeof(int) * _MF->count);
-  _MF->is_day             = realloc(_MF->is_day, sizeof(int) * _MF->count);
-  _MF->weather_code       = realloc(_MF->weather_code, sizeof(int) * _MF->count);
-  _MF->wind_direction_10m = realloc(_MF->wind_direction_10m, sizeof(int) * _MF->count);
-
   
+  _MF->latitude  = json_get_double(Json_Root, "latitude");
+  _MF->longitude = json_get_double(Json_Root, "longitude");
+
+  _MF->utc_offset_seconds = json_get_int(Hourly_Weather, "utc_offset_seconds");
+  _MF->interval           = json_get_int(Hourly_Weather, "interval");
+  _MF->generationtime_ms  = json_get_double(Json_Root, "generationtime_ms");
+  _MF->elevation          = json_get_double(Json_Root, "elevation");
+
+  _MF->timezone_abbreviation   = strdup(json_get_string(Json_Root, "timezone_abbreviation"));
+  _MF->temperature_2m_unit     = strdup(json_get_string(Hourly_Weather_Units, "temperature_2m"));
+  _MF->elevation_unit          = strdup(json_get_string(Hourly_Weather_Units, "elevation"));
+  _MF->precipitation_unit      = strdup(json_get_string(Hourly_Weather_Units, "precipitation"));
+  _MF->wind_speed_10m_unit     = strdup(json_get_string(Hourly_Weather_Units, "wind_speed_10m"));
+  _MF->wind_direction_10m_unit = strdup(json_get_string(Hourly_Weather_Units, "wind_direction_10m"));
+
+  /* Heap allocations */
+  if (_MF->timezone_abbreviation   == NULL ||
+      _MF->temperature_2m_unit     == NULL ||
+      _MF->elevation_unit          == NULL ||
+      _MF->precipitation_unit      == NULL ||
+      _MF->wind_speed_10m_unit     == NULL ||
+      _MF->wind_direction_10m_unit == NULL)
+  {
+    fprintf(stderr, "One or more strings couldn't be parsed from meteo json\n");
+    cJSON_Delete(Json_Root);
+    return ERR_JSON_PARSE;
+  }
 
   for (int i = 0; i < count; i++)
   {
 
-    /* Parse data from json */
-    memcpy(_MF[i].timestamp, json_get_string(Hourly_Weather, "time"), 16);
-    _MF->timestamp[i][16] = '\0';
-                                
-    _MF->latitude              [i]  = json_get_double(Json_Root, "latitude");
-    _MF->longitude             [i]  = json_get_double(Json_Root, "longitude");
-    _MF->generationtime_ms     [i]  = json_get_double(Json_Root, "generationtime_ms");
-    _MF->elevation             [i]  = json_get_double(Json_Root, "elevation");
-                                
-    _MF->precipitation         [i]  = json_get_double(Hourly_Weather, "precipitation");
-    _MF->temperature_2m        [i]  = json_get_double(Hourly_Weather, "temperature_2m");
-    _MF->wind_speed_10m        [i]  = json_get_double(Hourly_Weather, "wind_speed_10m");
-                                
-    _MF->wind_direction_10m    [i]  = json_get_int(Hourly_Weather, "wind_direction_10m");
-    _MF->utc_offset_seconds    [i]  = json_get_int(Hourly_Weather, "utc_offset_seconds");
-    _MF->interval              [i]  = json_get_int(Hourly_Weather, "interval");
-    _MF->is_day                [i]  = json_get_int(Hourly_Weather, "is_day");
-    _MF->weather_code          [i]  = json_get_int(Hourly_Weather, "weather_code");
+    cJSON_GetArrayItem(Temperature  , i);
+    cJSON_GetArrayItem(Windspeed    , i);
+    cJSON_GetArrayItem(Winddirection, i);
+    cJSON_GetArrayItem(Precipitation, i);
+    cJSON_GetArrayItem(Weathercode  , i);
+    cJSON_GetArrayItem(Isday        , i);
 
-    /* Heap allocations */
-    _MF[i].timezone_abbreviation   = strdup(json_get_string(Json_Root, "timezone_abbreviation"));
-    _MF[i].temperature_2m_unit     = strdup(json_get_string(Hourly_Weather_Units, "temperature_2m"));
-    _MF[i].elevation_unit          = strdup(json_get_string(Hourly_Weather_Units, "elevation"));
-    _MF[i].precipitation_unit      = strdup(json_get_string(Hourly_Weather_Units, "precipitation"));
-    _MF[i].wind_speed_10m_unit     = strdup(json_get_string(Hourly_Weather_Units, "wind_speed_10m"));
-    _MF[i].wind_direction_10m_unit = strdup(json_get_string(Hourly_Weather_Units, "wind_direction_10m"));
-    if (_MF[i].timezone_abbreviation   == NULL ||
-        _MF[i].temperature_2m_unit     == NULL ||
-        _MF[i].elevation_unit          == NULL ||
-        _MF[i].precipitation_unit      == NULL ||
-        _MF[i].wind_speed_10m_unit     == NULL ||
-        _MF[i].wind_direction_10m_unit == NULL)
-    {
-      fprintf(stderr, "One or more strings couldn't be parsed from meteo json\n");
-      cJSON_Delete(Json_Root);
-      return -6;
-    }
+    memcpy(_MF->values[i].timestamp, json_get_string(Hourly_Weather, "time"), 16);
+
+    _MF->values[i].timestamp[16] = '\0';
+                               
+    _MF->values[i].precipitation      = json_get_double(Hourly_Weather, "precipitation");
+    _MF->values[i].temperature_2m     = json_get_double(Hourly_Weather, "temperature_2m");
+    _MF->values[i].wind_speed_10m     = json_get_double(Hourly_Weather, "wind_speed_10m");
+    _MF->values[i].wind_direction_10m = json_get_int(Hourly_Weather, "wind_direction_10m");
+    _MF->values[i].is_day             = json_get_int(Hourly_Weather, "is_day");
+    _MF->values[i].weather_code       = json_get_int(Hourly_Weather, "weather_code");
+
   }
-  
 
   cJSON_Delete(Json_Root);
-
 
   return 0;
 }
 
-void meteo_dispose_ptr(Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr)
+void meteo_dispose_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr)
 {
-  /* Dispose of Forecast */
+
+  /* Dispose of Hourly */
   if (_MF_Ptr != NULL)
   {
     if (*_MF_Ptr != NULL)
     {
-      /* if ((*_MF_Ptr)->weathers != NULL)
+      if ((*_MF_Ptr)->values != NULL)
       {
-        for (int i = 0; i < (*_MF_Ptr)->count; i++)
-          meteo_dispose_ptr(NULL, &(*_MF_Ptr)->weathers[i], NULL);
-
-        free((*_MF_Ptr)->weathers);
-        (*_MF_Ptr)->weathers = NULL;
+        free((*_MF_Ptr)->values);
+        (*_MF_Ptr)->values = NULL;
       }
       free(*_MF_Ptr);
-      *_MF_Ptr = NULL; */
+      *_MF_Ptr = NULL;
     }
     _MF_Ptr = NULL;
   }
@@ -435,5 +426,23 @@ void meteo_dispose_ptr(Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourl
       *_MW_Ptr = NULL;
     }
     _MW_Ptr = NULL;
+  }
+
+  /* Dispose of Module */
+  if (_M_Ptr != NULL)
+  {
+    if (*_M_Ptr != NULL)
+    {
+      if ((*_M_Ptr)->geo != NULL)
+        meteo_dispose_ptr(NULL, &(*_M_Ptr)->geo, NULL, NULL);
+      if ((*_M_Ptr)->current != NULL)
+        meteo_dispose_ptr(NULL, NULL, &(*_M_Ptr)->current, NULL);
+      if ((*_M_Ptr)->hourly != NULL)
+        meteo_dispose_ptr(NULL, NULL, NULL, &(*_M_Ptr)->hourly);
+
+      free(*_M_Ptr);
+      *_M_Ptr = NULL;
+    }
+    _M_Ptr = NULL;
   }
 }

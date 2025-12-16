@@ -29,7 +29,7 @@ typedef enum
 
 } HTTPClientState;
 
-typedef void (*http_client_on_success)(const char** _response);
+typedef void (*http_client_on_success)(void* _context, char** _response);
 
 typedef struct {
   char        scheme[6]; // http/https
@@ -62,11 +62,13 @@ typedef struct
   HTTP_Request*             req;
   HTTP_Response*            resp;
   URL_Parts                 url_parts;
-  const char*               response_out;
+
+  void*                     context;
+  char**                    response_out;
 } HTTP_Client;
 
 
-int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method, http_client_on_success _on_success, const char* _response_out);
+int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method, http_client_on_success _on_success, void* _context, char** _response_out);
 void http_client_dispose(HTTP_Client* _Client);
 
 #endif //HTTPClient_h

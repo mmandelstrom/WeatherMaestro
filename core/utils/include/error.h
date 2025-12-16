@@ -45,7 +45,9 @@ typedef enum {
     /* ------------------------------------------------------------
      * Parse / Protocol Errors     (-30 to -39)
      * ------------------------------------------------------------ */
-    ERR_PARSE            = -30,    /**< Failed to parse input or message */
+    ERR_PARSE              = -30,    /**< Failed to parse input or message */
+    ERR_JSON_PARSE         = -31,    /**< Failed to parse input or message */
+    ERR_JSON_OBJ_NOT_FOUND = -32,    /**< Failed to parse input or message */
 
 
     /* ------------------------------------------------------------

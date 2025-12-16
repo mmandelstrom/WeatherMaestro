@@ -67,7 +67,7 @@ FUZZ_SOURCES = \
     ../utils/src/time_utils.c \
     ../libs/src/yuarel.c \
     ../libs/src/HTTPStatusCodes.c \
-    ../fuzz_http.c
+    ./tests/fuzz_http.c
 
 #Asan flags for fsanitize=address on Arch
 ASAN_CC     ?= gcc
@@ -146,7 +146,7 @@ fuzz:
 	    -I../utils/include \
 	    -I../libs/include \
 	    -o $(FUZZ_OUT)
-	cd .. && afl-fuzz -i ./tests/inputs -o ./tests/findings -- ./fuzz_http
+	cd .. && afl-fuzz -i ./tests/inputs -o ./tests/findings -- ../fuzz_http
 
 fuzz-asan:
 	$(ASAN_CC) $(ASAN_CFLAGS) $(FUZZ_SOURCES) \

@@ -11,7 +11,7 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_returning(HTTP_Client* _Client);
 
 
-int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method, http_client_on_success _on_success, const char* _response_out) 
+int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method, http_client_on_success _on_success, void* _context, char** _response_out) 
 {
   if (!_Client) {
     return ERR_INVALID_ARG;
@@ -55,6 +55,7 @@ int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _met
   URL_Parts url_parts = {0};
   _Client->url_parts = url_parts;
   _Client->response_out = _response_out;
+  _Client->context = _context;
 
   //Check url for http/https 
   _Client->tls = false;
@@ -419,8 +420,16 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) {
 HTTPClientState http_client_worktask_returning(HTTP_Client* _Client) {
   printf("print from worktask returning: %s\n", _Client->tcp_client->data.addr);
   
-  
-  _Client->on_success(&_Client->tcp_client->data.addr);
+  char* response_out = malloc(_Client->tcp_client->data.size + 1);
+  if (response_out == NULL)
+  {
+    perror("malloc");
+    return HTTP_CLIENT_ERROR;
+  }
+  memcpy(response_out, _Client->tcp_client->data.addr, _Client->tcp_client->data.size);
+  response_out[_Client->tcp_client->data.size] = '\0';
+  _Client->on_success(_Client->context, &response_out);
+
   return HTTP_CLIENT_DISPOSING;
 }
 

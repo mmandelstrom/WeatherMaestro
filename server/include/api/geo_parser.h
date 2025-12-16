@@ -5,7 +5,11 @@
 /* *********************** GEOLOCATION PARSER ************************ */
 /* ******************************************************************* */
 
-#include "api/weather_parser.h"
+#include "api/bigdatacloud.h"
+#include "api/nominatim.h"
+#include "time_utils.h"
+#include "file_utils.h"
+#include "md5.h"
 
 #define CACHE_DIR "data/cache/"
 #define CITY_COORD_BUFFER_LENGTH 12 // How many max chars we take from latitude+longitude param strings. 12 will for example allow -111.111111
@@ -21,8 +25,6 @@ typedef enum
 
 typedef struct
 {
-  Weather*    weather;
-
   const char* country;
   const char* county;
   const char* city;

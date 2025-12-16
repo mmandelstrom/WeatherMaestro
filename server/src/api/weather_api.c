@@ -37,11 +37,11 @@ const Weather_API_Endpoint Endpoints[ENDPOINTS_COUNT] = {
 
 
 void weather_api_taskwork(void* _context, uint64_t _montime);
-WeatherApiState worktask_decide_endpoint(Weather_API* _API);
-WeatherApiState worktask_validate_endpoint(Weather_API* _API);
-WeatherApiState worktask_respond(Weather_API* _API);
+WeatherApiState weather_api_worktask_decide_endpoint(Weather_API* _API);
+WeatherApiState weather_api_worktask_validate_endpoint(Weather_API* _API);
+WeatherApiState weather_api_worktask_respond(Weather_API* _API);
 
-int weather_api_on_parser_finish(void* _Context);
+void weather_api_on_parser_finish(void* _context, char** _json_output_ptr);
 
 /** -------------------------------------------------------------- */
 
@@ -65,7 +65,6 @@ int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req
   (*_Weather_API_Ptr)->http_response = _HTTP_Res;
   (*_Weather_API_Ptr)->on_api_finish = _on_finish;
   (*_Weather_API_Ptr)->context = _context;
-  (*_Weather_API_Ptr)->state = WEATHER_API_INITIALIZING;
 
   (*_Weather_API_Ptr)->task = scheduler_create_task((*_Weather_API_Ptr), weather_api_taskwork);
 
@@ -75,20 +74,22 @@ int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req
     return ERR_FATAL;
   }
 
+  (*_Weather_API_Ptr)->state = WEATHER_API_DECIDING_ENDPOINT;
   return SUCCESS;
 }
 
-int weather_api_on_parser_finish(void* _context)
+void weather_api_on_parser_finish(void* _context, char** _json_output_ptr)
 {
   if (!_context) {
-    return ERR_INVALID_ARG;
+    return;
   }
 
   Weather_API* API = (Weather_API*)_context;
 
+  API->http_response->body = *_json_output_ptr;
+
   printf("weather_api_on_parser_finish\n");
   API->state = WEATHER_API_RESPONDING;
-  return SUCCESS;
 }
 
 /** ---------------------- ENDPOINT FUNCTIONS -------------------- */
@@ -192,28 +193,23 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   /* Parse found query params and identify location */
   if (lat_found > 0 && lon_found > 0) // Could add an if else for city->name != NULL and let parser find coords for that city then
   {
-    Weather* W; // fuck it, skip the geo struct here
-    if (weather_parser_init_ptr() != 0)
+    if (weather_parser_init_ptr(&_API->weather_parser, 
+                                _API,
+                                weather_api_on_parser_finish,
+                                lat,
+                                lon,
+                                false) != 0)
     {
       perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;
-      return -2;
+      return ERR_INTERNAL;
     }
 
-    if (weather_parser_get_weather_by_coords(W, lat, lon, OPEN_METEO_WEATHER, &_API->http_response->body) != 0)
-    {
-      perror("weather_parser_get_location_by_coords");
-      weather_parser_dispose_ptr(&W, NULL);
-      _API->http_response->status_code = 500;
-      return -3;
-
-    }
-    weather_parser_dispose_ptr(&W, NULL);
   }
   else
   {
     _API->http_response->status_code = 400;
-    return 0;
+    return SUCCESS;
   }
 
   _API->http_response->status_code = 200;
@@ -221,15 +217,25 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   return SUCCESS;
 }
 
+int weather_api_handle_endpoint_not_found(Weather_API* _API)
+{
+
+  _API->http_response->status_code = 400;
+    
+  return SUCCESS;
+}
+
 /* --------------TASKWORK STATE FUNCTIONS-------------- */
 
-WeatherApiState worktask_decide_endpoint(Weather_API* _API)
+WeatherApiState weather_api_worktask_decide_endpoint(Weather_API* _API)
 {
-  const char* request_path = _API->http_request->path;
-
+  const char* request_path = _API->http_request->path; 
+  
   int i;
   for (i = 0; i < ENDPOINTS_COUNT; i++) {
-    const char* endpoint_path = Endpoints[i].path;
+    char endpoint_path[128];
+    strcpy(endpoint_path, API_ENDPOINT_ROOT);
+    strcat(endpoint_path, Endpoints[i].path);
     if (strcmp(request_path, endpoint_path) == 0) {
       _API->endpoint_func = Endpoints[i].endpoint_func;
       return WEATHER_API_VALIDATING;
@@ -240,21 +246,17 @@ WeatherApiState worktask_decide_endpoint(Weather_API* _API)
   return WEATHER_API_RESPONDING;
 }
 
-WeatherApiState worktask_validate_endpoint(Weather_API* _API)
+WeatherApiState weather_api_worktask_validate_endpoint(Weather_API* _API)
 {
-  if (_API->endpoint_func(_API) != SUCCESS)
-  {
-    
-  }
-
   // Start parser taskwork with promise of callback when done
   // callback: weather_api_on_parser_finish
-
+  if (_API->endpoint_func(_API) != SUCCESS)
+    return WEATHER_API_ERROR;
 
   return WEATHER_API_IDLING;
 }
 
-WeatherApiState worktask_respond(Weather_API* _API)
+WeatherApiState weather_api_worktask_respond(Weather_API* _API)
 {
   // Build response etc, should
 
@@ -277,19 +279,20 @@ void weather_api_taskwork(void* _context, uint64_t _montime)
     {
       printf("WEATHER_API_INITIALIZING\n");
 
+
     } break;
 
     case WEATHER_API_DECIDING_ENDPOINT:
     {
       printf("WEATHER_API_DECIDING_ENDPOINT\n");
-      API->state = worktask_decide_endpoint(API);
+      API->state = weather_api_worktask_decide_endpoint(API);
 
     } break;
 
     case WEATHER_API_VALIDATING:
     {
       printf("WEATHER_API_VALIDATING\n");
-      API->state = worktask_validate_endpoint(API);
+      API->state = weather_api_worktask_validate_endpoint(API);
 
     } break;
 
@@ -299,7 +302,7 @@ void weather_api_taskwork(void* _context, uint64_t _montime)
     case WEATHER_API_RESPONDING:
     {
       printf("WEATHER_API_RESPONDING\n");
-      API->state = worktask_respond(API);
+      API->state = weather_api_worktask_respond(API);
 
     } break;
 
@@ -311,6 +314,9 @@ void weather_api_taskwork(void* _context, uint64_t _montime)
 
     case WEATHER_API_ERROR:
     {
+      printf("WEATHER_API_ERROR\n");
+      API->state = WEATHER_API_DISPOSING;
+
 
     } break;
   }

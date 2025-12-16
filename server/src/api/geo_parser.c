@@ -551,9 +551,6 @@ void geo_parser_dispose_ptr(Geos** _Gs_Ptr)
     {
       if ((*_Gs_Ptr)->geo[i] != NULL)
       {
-        if ((*_Gs_Ptr)->geo[i]->weather != NULL)
-          weather_parser_dispose_weather_ptr(&(*_Gs_Ptr)->geo[i]->weather);
-
         if ((*_Gs_Ptr)->geo[i]->locality != NULL)
         {
           free((void*)(*_Gs_Ptr)->geo[i]->locality);

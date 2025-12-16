@@ -12,8 +12,6 @@
 #include "md5.h"
 
 #include "api/meteo.h"
-#include "api/bigdatacloud.h"
-#include "api/nominatim.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -71,6 +69,12 @@ typedef struct
   const char*     winddirection_unit;
 
   Weather_Values* values;
+
+  double          elevation;
+
+  float           latitude;        
+  float           longitude;        
+
   unsigned int    count;
 
 } Weather;
@@ -106,17 +110,9 @@ typedef struct
 
 /** Taskwork starter, _forecast=false gets current weather */
 int weather_parser_init_ptr(Weather_Parser** _WP_Ptr, void* _context, parser_on_finish _on_finish, float _lat, float _lon, bool _forecast);
-/** Heap init for data structs */
-int weather_parser_init_weather_ptr(Weather** _W_Ptr, unsigned int _count);
-
-/** Builds a response json using cache or external API */
-int weather_parser_get_current_by_coords(Weather_Parser* _Parser, float _lat, float _lon);
-int weather_parser_get_forecast_by_coords(Weather_Parser* _Parser, float _lat, float _lon);
 
 /** Taskwork ender */
 void weather_parser_dispose_ptr(Weather_Parser** _WP_Ptr);
-/** Heap dispose for data structs. */
-void weather_parser_dispose_weather_ptr(Weather** _W_Ptr);
 
 /* -------------------------------------------------------- */
 
