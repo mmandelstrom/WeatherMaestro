@@ -352,7 +352,7 @@ HTTPServerConnectionState worktask_request_validate(HTTP_Server_Connection* _Con
   return HTTP_SERVER_CONNECTION_WEATHER_HANDOVER;
 }
 
-
+//TODO: Clean this shit up
 HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
 {
 
@@ -378,7 +378,7 @@ HTTPServerConnectionState worktask_respond(HTTP_Server_Connection* _Connection)
     int result = tcp_client_write(TCP_C, full_response_len);
     printf("tcp result: %i\n", result);
   } 
-  else if (strcmp(_Connection->request->path, "/echo") == 0) // echo
+  else if (_Connection->request->path && strcmp(_Connection->request->path, "/echo") == 0) // echo
   {
     HTTP_Request* req = _Connection->request;
 
@@ -663,6 +663,30 @@ void http_server_connection_dispose(HTTP_Server_Connection* _Connection)
     {
       free(_Connection->response->full_response);
       _Connection->response->full_response = NULL;
+    }
+
+    if (_Connection->response->headers != NULL)
+    {
+      free(_Connection->response->headers);
+      _Connection->response->headers = NULL;
+    }
+
+    if (_Connection->response->version != NULL)
+    {
+      free(_Connection->response->version);
+      _Connection->response->version = NULL;
+    }
+
+    if (_Connection->response->reason_phrase != NULL)
+    {
+      free(_Connection->response->reason_phrase);
+      _Connection->response->reason_phrase = NULL;
+    }
+
+    if (_Connection->response->status_code_string != NULL)
+    {
+      free(_Connection->response->status_code_string);
+      _Connection->response->status_code_string = NULL;
     }
 
     free(_Connection->response);

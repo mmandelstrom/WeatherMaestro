@@ -1,6 +1,8 @@
 #include "http_parser.h"
 #include "http_client.h"
 
+void http_parser_dispose(HTTP_Request* _Req, HTTP_Response* _Resp);
+
 int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _Req, Linked_List **_params_out) {
 
   if (!_line || !_Req || !_params_out || _line_len < 1) {
@@ -21,7 +23,8 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   char* method = line_copy;
   char *first_space = strchr(line_copy, ' ');
   if (!first_space) {
-    free(line_copy);
+    if (line_copy != NULL)
+      free(line_copy);
     return ERR_BAD_FORMAT;
   }
   *first_space = '\0';
@@ -29,14 +32,16 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   char *request_target = first_space + 1;
   char *second_space = strchr(request_target, ' ');
   if (!second_space) {
-    free(line_copy);
+    if (line_copy != NULL)
+      free(line_copy);
     return ERR_BAD_FORMAT;
   }
   *second_space = '\0';
 
   char *version = second_space + 1;
   if (*version == 0) {
-    free(line_copy);
+    if (line_copy != NULL)
+      free(line_copy);
     return ERR_BAD_FORMAT;
   }
 
@@ -46,7 +51,8 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
     /*No query string*/
     _Req->path = strdup(request_target);
     if (!_Req->path) {
-      free(line_copy);
+      if (line_copy != NULL)
+        free(line_copy);
       return ERR_NO_MEMORY;
     }
 
@@ -54,14 +60,16 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
     *question_mark = '\0';
     _Req->path = strdup(request_target);
     if (!_Req->path) {
-      free(line_copy);
+      if (line_copy != NULL)
+        free(line_copy);
       return ERR_NO_MEMORY;
     }
 
     *_params_out = linked_list_create();
     if (!*_params_out) {
-      free(line_copy);
-      free(_Req->path);
+      if (line_copy != NULL)
+        free(line_copy);
+      http_parser_dispose(_Req, NULL);
       return ERR_NO_MEMORY;
     }
 
@@ -87,22 +95,17 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
 
       HTTP_Key_Value *param = malloc(sizeof(HTTP_Key_Value));
       if (!param) {
-        free(line_copy);
-        http_parser_dispose_linked_list(*_params_out);
-        free(_Req->path);
-        _Req->path = NULL;
+        if (line_copy != NULL) 
+          free(line_copy);
+        http_parser_dispose(_Req, NULL);
         return ERR_NO_MEMORY;
       }
       param->key = strdup(param_key);
       param->value = strdup(param_value);
       if (!param->key || !param->value) {
-        free(param->key);
-        free(param->value);
-        free(param);
-        free(line_copy);
-        http_parser_dispose_linked_list(*_params_out);
-        free(_Req->path);
-        _Req->path = NULL;
+        if (line_copy != NULL)
+          free(line_copy);
+        http_parser_dispose(_Req, NULL);
         return ERR_NO_MEMORY;
       }
 
@@ -114,17 +117,16 @@ int http_parser_first_line(const char *_line, size_t _line_len, HTTP_Request* _R
   _Req->method_str = strdup(method);
   _Req->version = strdup(version);
   if (!_Req->method_str || !_Req->version) {
-    free(_Req->method_str);
-    free(_Req->version);
-    free(_Req->path);
-    http_parser_dispose_linked_list(*_params_out);
-    free(line_copy);
+    if (line_copy != NULL)
+      free(line_copy);
+    http_parser_dispose(_Req, NULL);
     return ERR_NO_MEMORY;
   }
 
   _Req->method = http_method_string_to_enum(_Req->method_str);
 
-  free(line_copy);
+  if (line_copy != NULL)
+    free(line_copy);
   
   return SUCCESS;
 }
@@ -146,7 +148,8 @@ int http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Res
   char *version_string = line_copy;
   char *first_space = strchr(line_copy, ' ');
   if (!first_space) {
-    free(line_copy);
+    if (line_copy != NULL)
+      free(line_copy);
     return ERR_BAD_FORMAT;
   }
   *first_space = '\0';
@@ -154,7 +157,8 @@ int http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Res
   char* status_string = first_space + 1;
   char* second_space = strchr(status_string, ' ');
   if (!second_space) {
-    free(line_copy);
+    if (line_copy != NULL)
+      free(line_copy);
     return ERR_BAD_FORMAT;
   }
   *second_space = '\0';
@@ -162,40 +166,38 @@ int http_parser_response_firstline(const char* _line, size_t _line_len, HTTP_Res
 
   _Resp->version = strdup(version_string);
   if (!_Resp->version) {
-    free(line_copy);
+    if (line_copy != NULL)  
+      free(line_copy);
     return ERR_NO_MEMORY;
   }
 
   _Resp->status_code_string = strdup(status_string);
   if (!_Resp->status_code_string) {
-    free(line_copy);
-    free(_Resp->version);
-    _Resp->version = NULL;
+    if (line_copy != NULL)
+      free(line_copy);
+    http_parser_dispose(NULL, _Resp);
     return ERR_NO_MEMORY;
   }
 
   _Resp->reason_phrase = strdup(reason_string);
   if (!_Resp->reason_phrase) {
-    free(line_copy);
-    free(_Resp->version);
-    free(_Resp->status_code_string);
-    _Resp->version = NULL;
-    _Resp->status_code_string = NULL;
+    if (line_copy != NULL)
+      free(line_copy);
+    http_parser_dispose(NULL, _Resp);
     return ERR_NO_MEMORY;
   }
 
   int status_int = 0;
   parse_string_to_int(_Resp->status_code_string, &status_int);
   if (strcmp(_Resp->reason_phrase, HttpStatus_reasonPhrase(status_int)) != 0) {
-    free(line_copy);
-    free(_Resp->version);
-    free(_Resp->status_code_string);
-    _Resp->version = NULL;
-    _Resp->status_code_string = NULL;
+    if (line_copy != NULL)
+      free(line_copy);
+    http_parser_dispose(NULL, _Resp);
     return ERR_BAD_FORMAT;
   }
  
-  free(line_copy);
+  if (line_copy != NULL)
+    free(line_copy);
   return SUCCESS;
 
 }
@@ -278,7 +280,8 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
 
     char *colon = strchr(line, ':');
     if (!colon) {
-      free(line);
+      if (line != NULL)
+        free(line);
       http_parser_dispose_linked_list(*_headers_out);
       *_headers_out = NULL;
       return ERR_BAD_FORMAT;
@@ -318,7 +321,8 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
     HTTP_Key_Value *header = (HTTP_Key_Value*)malloc(sizeof(HTTP_Key_Value));
     if (!header) {
       perror("malloc");
-      free(line);
+      if (line != NULL)
+        free(line);
       http_parser_dispose_linked_list(*_headers_out);
       *_headers_out = NULL;
       return ERR_NO_MEMORY;
@@ -332,7 +336,8 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
       free(header->key);
       free(header->value);
       free(header);
-      free(line);
+      if (line != NULL)
+        free(line);
       http_parser_dispose_linked_list(*_headers_out);
       *_headers_out = NULL;
       return ERR_NO_MEMORY;
@@ -340,7 +345,8 @@ int http_parser_headers(const char *_buf, size_t _buf_len, Linked_List **_header
 
     linked_list_item_add(*(_headers_out), NULL, header);
 
-    free(line);
+    if (line != NULL)
+      free(line);
     start = line_end + 2;
   }
   
@@ -425,19 +431,8 @@ int http_parser_get_header_value(Linked_List* _headers, char* _name, const char*
 void http_parser_dispose_linked_list(Linked_List *_list) {
   if (!_list) return;
 
-  linked_list_foreach(_list, node) {
-    HTTP_Key_Value *obj = (HTTP_Key_Value*)node->item;
-    if (obj) {
-      if (obj->key)
-        free(obj->key);
-      if (obj->value)
-        free(obj->value);
-      free(obj);
-    }
-  }
-
   linked_list_items_dispose(_list);
-  linked_list_destroy(&_list);      
+  linked_list_destroy(&_list);
 }
 
 int http_parser_url(const char* _URL, void* _Context) {
@@ -543,4 +538,77 @@ int http_parser_url(const char* _URL, void* _Context) {
 
   return SUCCESS;
 
+}
+
+void http_parser_dispose(HTTP_Request* _Req, HTTP_Response* _Resp) {
+  if (_Req != NULL) {
+    if (_Req->method_str != NULL) {
+      free(_Req->method_str);
+      _Req->method_str = NULL;
+    }
+  
+    if (_Req->path != NULL) {
+      free(_Req->path);
+      _Req->path = NULL;
+    }
+
+    if (_Req->query != NULL) {
+      free(_Req->query);
+      _Req->query = NULL;
+    }
+
+    if (_Req->version != NULL) {
+      free(_Req->version);
+      _Req->version = NULL;
+    }
+
+    if (_Req->body != NULL) {
+      free(_Req->body);
+      _Req->body = NULL;
+    }
+
+    http_parser_dispose_linked_list(_Req->params);
+    _Req->params = NULL;
+    http_parser_dispose_linked_list(_Req->headers);
+    _Req->headers = NULL;
+  }
+
+
+  if (_Resp != NULL) {
+    
+    if (_Resp->firstline != NULL) {
+      free(_Resp->firstline);
+      _Resp->firstline = NULL;
+    }
+
+    if (_Resp->headers != NULL) {
+      free(_Resp->headers);
+      _Resp->headers = NULL;
+    }
+
+    if (_Resp->body != NULL) {
+      free(_Resp->body);
+      _Resp->body = NULL;
+    }
+
+    if (_Resp->full_response != NULL) {
+      free(_Resp->full_response);
+      _Resp->full_response = NULL;
+    }
+
+    if (_Resp->version != NULL) {
+      free(_Resp->version);
+      _Resp->version = NULL;
+    }
+
+    if (_Resp->reason_phrase != NULL) {
+      free(_Resp->reason_phrase);
+      _Resp->reason_phrase = NULL;
+    }
+
+    if (_Resp->status_code_string != NULL) {
+      free(_Resp->status_code_string);
+      _Resp->status_code_string = NULL;
+    }
+  } 
 }

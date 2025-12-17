@@ -73,3 +73,8 @@ $(addsuffix /fuzz-asan,$(MODULES)):
 	@MODULE=$(@D); \
 	echo "Building ASan fuzz binary for $$MODULE..."; \
 	$(MAKE) -C $$MODULE fuzz-asan
+
+$(addsuffix /run-asan,$(MODULES)):
+	@MODULE=$(@D); \
+	echo "Debugging module $$MODULE using asan..."; \
+	$(MAKE) -C $$MODULE run-asan

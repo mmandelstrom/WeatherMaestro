@@ -49,15 +49,11 @@ typedef struct
   TCP_Client*               tcp_client;
   HTTPClientState           state;
   const char*               URL;
-  HTTPMethod                method;
   bool                      tls;
   size_t                    bytes_sent;
   int                       bytes_received;
   int                       retries;
   uint64_t                  next_retry_at;
-  Linked_List*              params;
-  Linked_List*              headers;
-  int                       params_count;
   int                       content_length;
   HTTP_Request*             req;
   HTTP_Response*            resp;

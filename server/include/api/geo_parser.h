@@ -23,6 +23,20 @@ typedef enum
 
 } ExternalGeoAPI;
 
+typedef enum
+{
+  GEO_PARSER_INITIALIZING,
+  GEO_PARSER_CHECKING_CACHE,
+  GEO_PARSER_CALLING_EXT_API,
+  GEO_PARSER_IDLING,
+  GEO_PARSER_PARSING,
+  GEO_PARSER_RESPONDING,
+  GEO_PARSER_DISPOSING,
+  GEO_PARSER_ERROR
+
+} GeoParserState;
+
+
 typedef struct
 {
   const char* country;

@@ -2,6 +2,7 @@
 #include "cJSON.h"
 #include "http_parser.h"
 #include <error.h>
+#include <stdio.h>
 
 
 /* ---------------------- Internal functions ----------------------- */
@@ -36,9 +37,8 @@ int meteo_get_geo(Meteo** _M_Ptr, float _lat, float _lon, int _count, on_ext_api
 int meteo_get_weather_current(Meteo** _M_Ptr, float _lat, float _lon, on_ext_api_finish _on_finish, void* _context)
 {
 
-  Meteo_Current* Current;
+  Meteo_Current* Current = calloc(1, sizeof(Meteo_Current));
   meteo_init_ptr(_M_Ptr, NULL, &Current, NULL);
-  (*_M_Ptr)->current = Current;
 
   (*_M_Ptr)->on_finish = _on_finish;
   (*_M_Ptr)->context = _context;
@@ -64,7 +64,7 @@ int meteo_get_weather_hourly(Meteo** _M_Ptr, float _lat, float _lon, on_ext_api_
 int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr, Meteo_Hourly** _MF_Ptr)
 {
   /* Module struct */
-  if (_M_Ptr != NULL)
+  if (*_M_Ptr == NULL)
   {
     *_M_Ptr = calloc(1, sizeof(Meteo_Geo));
     if (*_M_Ptr == NULL)
@@ -125,6 +125,8 @@ void meteo_on_http_client_finish(void* _context, char** _response)
   Meteo* M = (Meteo*)_context;
   /* if (M->geo != NULL)
     meteo_parse_json_geo(M, const char *_json) */
+
+  printf("In meteo response: %s", *_response);
 
   if (M->current != NULL)
     meteo_parse_json_weather_current(M->current, *_response);

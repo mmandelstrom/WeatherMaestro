@@ -46,7 +46,6 @@ int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _met
   _Client->resp = resp;
   _Client->req = req;
   _Client->URL = url_copy;
-  _Client->method = _method;
   _Client->state = HTTP_CLIENT_CONNECTING;
   _Client->request_length = 0;
   _Client->bytes_sent = 0;
@@ -506,12 +505,9 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
       client->state = HTTP_CLIENT_DISPOSING;
       break;
     }
-    case HTTP_CLIENT_DISPOSING: {
-      if (client->task) {
-        scheduler_destroy_task(client->task);
-        client->task = NULL;
-      }
+    case HTTP_CLIENT_DISPOSING: { 
       printf("Disposing\n");
+      http_client_dispose(client);
       break;
     }
     default: {
@@ -522,14 +518,26 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
 }
 void http_client_dispose(HTTP_Client* _Client)
 {
-    if (!_Client) return;
-
-    _Client->request_length = 0;
-    _Client->bytes_sent = 0;
-    _Client->bytes_received = 0;
-    _Client->params_count = 0;
-    _Client->content_length = 0;
-    _Client->state = 0;
+  if (!_Client) return;
+  
+  if (_Client->URL != NULL) {
+    free((void*)_Client->URL);
     _Client->URL = NULL;
+  }
+
+  if (_Client->req != NULL) {
+    free(_Client->req);
+    _Client->req = NULL;
+  }
+
+  if (_Client->resp != NULL) {
+    free(_Client->resp);
+    _Client->resp = NULL;
+  }
+
+  if (_Client->task) {
+    scheduler_destroy_task(_Client->task);
+    _Client->task = NULL;
+  }
 }
 

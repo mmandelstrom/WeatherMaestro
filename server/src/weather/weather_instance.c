@@ -222,8 +222,10 @@ void weather_server_instance_taskwork(void* _context, uint64_t _montime)
 
 void weather_server_instance_dispose(Weather_Server_Instance* _Instance)
 {
-  if (_Instance->http_connection != NULL) 
+  if (_Instance->http_connection != NULL) {
+    printf("Disposing HTTPConnection\n");
     http_server_connection_dispose_ptr(&_Instance->http_connection);
+  }
   _Instance->http_connection = NULL;
 
   if (_Instance->weather_api != NULL)

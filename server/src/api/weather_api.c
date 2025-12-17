@@ -308,12 +308,12 @@ void weather_api_taskwork(void* _context, uint64_t _montime)
     case WEATHER_API_DISPOSING:
     {
       printf("WEATHER_API_DISPOSING\n");
-
     } break;
 
     case WEATHER_API_ERROR:
     {
       printf("WEATHER_API_ERROR\n");
+      weather_api_worktask_respond(API);
       API->state = WEATHER_API_DISPOSING;
 
 

@@ -35,7 +35,7 @@ CACHE_DIR := data/cache
 # CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Werror -Wfatal-errors -Wno-format-truncation -I../libs
 # CFLAGS := -std=c99 -MMD -MP -g -I../libs -I../utils
 CFLAGS := -std=c99 -MMD -MP -Wall -Wextra -Wfatal-errors -g -Iinclude -I../libs/include -I../core/utils/include -I../core/modules/include
-
+ASAN_FLAGS := -O1 -g3 -fno-omit-frame-pointer -fsanitize=address,undefined
 # Linker flags (auto-detect platform)
 ifeq ($(UNAME_S),Darwin)
 	LDFLAGS := -flto
@@ -71,7 +71,6 @@ FUZZ_SOURCES = \
 
 #Asan flags for fsanitize=address on Arch
 ASAN_CC     ?= gcc
-ASAN_CFLAGS ?= -fsanitize=address,undefined -g -DHTTP_FUZZ_MODE
 ASAN_OUT    ?= ../fuzz_http_asan
 
 
@@ -97,6 +96,10 @@ all: $(BIN)
 $(BIN): $(OBJ)
 	@echo "Linking..."
 	@$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
+
+asan: clean
+	@echo "Building ASan binary..."
+	@$(MAKE) CC=$(CC) CFLAGS="$(CFLAGS) $(ASAN_FLAGS)" LDFLAGS="$(LDFLAGS) $(ASAN_FLAGS)" all
 
 $(BUILD_DIR)/$(CORE_SRC_DIR)/%.o: ../$(CORE_SRC_DIR)/%.c
 	@echo "Compiling $<..."
@@ -157,6 +160,10 @@ fuzz-asan:
 	@echo ""
 	@echo "Built ASan binary: $(ASAN_OUT)"
 	@echo "Exempel: ./fuzz_http_asan < findings/default/crashes/ID_FILE"
+
+run-asan: asan
+	@echo "Running ASan build..."
+	@./$(BIN)
 
 print:
 	@echo "Source files: $(SRC)"
