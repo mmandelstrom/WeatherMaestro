@@ -209,11 +209,10 @@ int weather_api_handle_endpoint_weather_get(Weather_API* _API)
   else
   {
     _API->http_response->status_code = 400;
-    return SUCCESS;
+    return ERR_INVALID_ARG;
   }
 
   _API->http_response->status_code = 200;
-
   return SUCCESS;
 }
 
