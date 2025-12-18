@@ -39,7 +39,7 @@ int meteo_get_weather_current(Meteo** _M_Ptr, float _lat, float _lon, on_ext_api
 
   Meteo_Current* Current = calloc(1, sizeof(Meteo_Current));
   meteo_init_ptr(_M_Ptr, NULL, &Current, NULL);
-
+  (*_M_Ptr)->current = Current;
   (*_M_Ptr)->on_finish = _on_finish;
   (*_M_Ptr)->context = _context;
 
@@ -66,7 +66,7 @@ int meteo_init_ptr(Meteo** _M_Ptr, Meteo_Geo** _MG_Ptr, Meteo_Current** _MW_Ptr,
   /* Module struct */
   if (*_M_Ptr == NULL)
   {
-    *_M_Ptr = calloc(1, sizeof(Meteo_Geo));
+    *_M_Ptr = calloc(1, sizeof(Meteo));
     if (*_M_Ptr == NULL)
     {
       perror("malloc");
