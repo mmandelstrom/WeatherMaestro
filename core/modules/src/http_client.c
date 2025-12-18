@@ -1,6 +1,7 @@
 #include "http_client.h"
 #include "error.h"
 #include "tcp_client.h"
+#include <stddef.h>
 #include <stdio.h>
 
 
@@ -406,11 +407,46 @@ HTTPClientState http_client_worktask_decipher_chonkiness(HTTP_Client* _Client) {
 
   TCP_Client* TCP_C = _Client->tcp_client;
 
-  int line_end = http_parser_find_line_end(TCP_C->data.addr,
-                                           TCP_C->data.size);
-  
+  //Do we have a full line in buffer here ?=!?!?!?
+  //
+  int line_end = http_parser_find_line_end(TCP_C->data.addr, TCP_C->data.size);
+
   if (line_end < 0) {
-    return HTTP_CLIENT_ERROR;
+    //We dont have a full line
+    //How do we read more in to buffer without using readbody, new helper maybe?
+    //logic for reading more or less than 0
+    //
+    return HTTP_CLIENT_DECIPHER_CHONKINESS;
+  }
+
+  size_t line_len = (size_t)line_end;
+  size_t chunk_size = 0;
+
+  char line[48];
+  memcpy(line, TCP_C->data.addr, line_len);
+  line[line_len] = '\0';
+
+  char* endptr = NULL;
+  unsigned long long val = strtoull(line, &endptr, 16);
+  chunk_size = (size_t)val;
+
+  memmove(TCP_C->data.addr, TCP_C->data.addr + (line_len + 2), TCP_C->data.size - (line_len + 2));
+  TCP_C->data.size -= (line_len + 2);
+
+  //Find trailing \r\n\r\n
+  if (chunk_size == 0) {
+    int traling_end = http_parser_find_headers_end(TCP_C->data.addr, TCP_C->data.size);
+    if (traling_end < 0) {
+      //we need to read more
+      return HTTP_CLIENT_DECIPHER_CHONKINESS;
+    }
+     //Eat the traling_end + 4 ? to remove r\n\r\n
+    return HTTP_CLIENT_RETURNING;
+  }
+
+  _Client->chunked = (int)chunk_size;
+  return HTTP_READING_CHUNK
+
   }
 
 
@@ -462,12 +498,7 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client)
   unsigned int TCP_BUF_SIZE = 1024;
   TCP_Client* TCP_C = _Client->tcp_client;
 
-  if (_Client->chunked > 0) {
-    TCP_BUF_SIZE = _Client->chunked;
 
-  }
-
-  printf("Buf size: %d\n", TCP_BUF_SIZE);
 
   uint8_t tcp_buf[TCP_BUF_SIZE];
 
@@ -499,13 +530,6 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client)
       return HTTP_CLIENT_ERROR;
     }
 
-    if (_Client->chunked > 0) {
-      return HTTP_CLIENT_READING_BODY;
-    }
-
-    if (_Client->chunked == 0) {
-      return HTTP_CLIENT_DECIPHER_CHONKINESS;
-    }
   }
 
    if (TCP_C->data.size < (size_t)_Client->content_length) {
@@ -588,6 +612,7 @@ void http_client_taskwork(void* _context, uint64_t _montime)
     case HTTP_CLIENT_DECIPHER_CHONKINESS: {
       printf("HTTP_CLIENT_DECIPHER_CHONKINESS\n");
       client->state = http_client_worktask_decipher_chonkiness(client);
+      break;
     }
 
     case HTTP_CLIENT_READING_BODY: {
