@@ -11,7 +11,12 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_returning(HTTP_Client* _Client);
 
 
-int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _method, http_client_on_success _on_success, void* _context, char** _response_out) 
+int http_client_initiate(HTTP_Client* _Client, 
+                         const char* _URL, 
+                         HTTPMethod _method, 
+                         http_client_on_success _on_success, 
+                         void* _context, 
+                         char** _response_out) 
 {
   if (!_Client) {
     return ERR_INVALID_ARG;
@@ -63,7 +68,8 @@ int http_client_initiate(HTTP_Client* _Client, const char* _URL, HTTPMethod _met
 
 }
 
-HTTPClientState http_client_worktask_connecting(HTTP_Client* _Client) {
+HTTPClientState http_client_worktask_connecting(HTTP_Client* _Client) 
+{
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
   }
@@ -98,41 +104,42 @@ HTTPClientState http_client_worktask_connecting(HTTP_Client* _Client) {
   return HTTP_CLIENT_BUILDING_REQUEST;
 }
 
-HTTPClientState http_client_worktask_build_request(HTTP_Client* _Client) {
-     if (!_Client) {
-        return HTTP_CLIENT_ERROR;
-    }
-
-    const char* method_str = "GET";
-
-    size_t base_len = 92;
-    size_t max_len = strlen(_Client->URL) + base_len;
-    _Client->request_buffer = malloc(max_len);
-    if (!_Client->request_buffer) {
-        return HTTP_CLIENT_ERROR;
-    }
-
-     _Client->request_length = snprintf(
-        (char*)_Client->request_buffer,
-        max_len,
-        "%s %s HTTP/1.1\r\n"
-        "Host: %s\r\n"
-        "User-Agent: httpclient\r\n"
-        "Connection: close\r\n\r\n",
-        method_str, _Client->url_parts.path, _Client->url_parts.host
-    );
-
-
-    if (_Client->request_length < 0 || (size_t)_Client->request_length >= max_len) {
-        free(_Client->request_buffer);
-        _Client->request_buffer = NULL;
-        return HTTP_CLIENT_ERROR;
-    }
-
-    return HTTP_CLIENT_SENDING_REQUEST;
+HTTPClientState http_client_worktask_build_request(HTTP_Client* _Client) 
+{
+  if (!_Client) {
+      return HTTP_CLIENT_ERROR;
   }
 
-HTTPClientState http_client_worktask_send_request(HTTP_Client* _Client) {
+  const char* method_str = "GET";
+
+  size_t base_len = 92;
+  size_t max_len = strlen(_Client->URL) + base_len;
+  _Client->request_buffer = malloc(max_len);
+  if (!_Client->request_buffer) {
+      return HTTP_CLIENT_ERROR;
+  }
+
+   _Client->request_length = snprintf(
+      (char*)_Client->request_buffer,
+      max_len,
+      "%s %s HTTP/1.1\r\n"
+      "Host: %s\r\n"
+      "User-Agent: httpclient\r\n"
+      "Connection: close\r\n\r\n",
+      method_str, _Client->url_parts.path, _Client->url_parts.host
+  );
+
+  if (_Client->request_length < 0 || (size_t)_Client->request_length >= max_len) {
+      free(_Client->request_buffer);
+      _Client->request_buffer = NULL;
+      return HTTP_CLIENT_ERROR;
+  }
+
+  return HTTP_CLIENT_SENDING_REQUEST;
+}
+
+HTTPClientState http_client_worktask_send_request(HTTP_Client* _Client) 
+{
 
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
@@ -154,7 +161,7 @@ HTTPClientState http_client_worktask_send_request(HTTP_Client* _Client) {
       _Client->next_retry_at = SystemMonotonicMS() + 100;
       return HTTP_CLIENT_SENDING_REQUEST;
 
-    }else if (written == 0) {
+    } else if (written == 0) {
       _Client->retries++;
       _Client->next_retry_at = SystemMonotonicMS() + 1000;
 
@@ -181,10 +188,12 @@ HTTPClientState http_client_worktask_send_request(HTTP_Client* _Client) {
   return HTTP_CLIENT_READING_FIRSTLINE;
 }
 
-HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
+HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) 
+{
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
   }
+  printf("_Client->tcp_client->data.addr so far: \n%s\n", _Client->tcp_client->data.addr);
 
   TCP_Client* TCP_C = _Client->tcp_client;
 
@@ -204,8 +213,9 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
     printf("Connection closed by peer\n");
     return HTTP_CLIENT_ERROR;
   }
-
+  printf("tcp_buf before realloc: %s\n", tcp_buf);
   ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data, tcp_buf, (size_t)bytes_read);
+
   
   if (bytes_stored < 0) {
     return HTTP_CLIENT_ERROR;
@@ -220,7 +230,7 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
     /*No \r\n found yet*/
     if (TCP_C->data.size >= 1024) {
       /*Invalid request*/
-      printf("Request too large..\n");
+      printf("Response too large..\n");
       return HTTP_CLIENT_ERROR;
     }
     /*Keep looking for line end on next work call*/
@@ -231,7 +241,7 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
   size_t line_len = (size_t)line_end;
 
   if (line_len == 0 || line_len >= 1024) {
-    printf("Request too large..\n");
+    printf("Response too large..\n");
     return HTTP_CLIENT_ERROR;
   }
   
@@ -263,10 +273,12 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client) {
 }
 
 
-HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client) {
+HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client) 
+{
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
   }
+  printf("_Client->tcp_client->data.addr so far: \n%s\n", _Client->tcp_client->data.addr);
    
   TCP_Client* TCP_C = _Client->tcp_client;
 
@@ -372,10 +384,12 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client) {
 
 }
 
-HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) {
+HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) 
+{
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
   }
+  printf("_Client->tcp_client->data.addr so far: \n%s\n", _Client->tcp_client->data.addr);
   
   
   TCP_Client* TCP_C = _Client->tcp_client;
@@ -433,8 +447,8 @@ HTTPClientState http_client_worktask_returning(HTTP_Client* _Client) {
 }
 
 
-void http_client_taskwork(void* _context, uint64_t _montime) {
-  
+void http_client_taskwork(void* _context, uint64_t _montime) 
+{
   if (!_context) {
     return;
   }
@@ -446,72 +460,68 @@ void http_client_taskwork(void* _context, uint64_t _montime) {
   switch(client->state) {
 
     case HTTP_CLIENT_INITIALIZING: {
-      printf("init state\n");
+      printf("HTTP_CLIENT_INITIALIZING\n");
       break;
     }
     case HTTP_CLIENT_CONNECTING: {
-      printf("http_client_connecting\n");
+      printf("HTTP_CLIENT_CONNECTING\n");
       client->state = http_client_worktask_connecting(client);
       break;
     }
     case HTTP_CLIENT_BUILDING_REQUEST: {
-      printf("http_client_build_request\n");
+      printf("HTTP_CLIENT_BUILDING_REQUEST\n");
       client->state = http_client_worktask_build_request(client);
       break;
     }
     case HTTP_CLIENT_SENDING_REQUEST: {
-      printf("http_client_send_request before retry check\n");
+      printf("HTTP_CLIENT_SENDING_REQUEST\n");
       if (now >= client->next_retry_at) {
-        printf("http_client_send_request after retry check\n");
         client->state = http_client_worktask_send_request(client);
         break;
       }
       break;
     }
     case HTTP_CLIENT_READING_FIRSTLINE: {
-      printf("http_client_read_firstline before retry check\n");
+      printf("HTTP_CLIENT_READING_FIRSTLINE\n");
       if (now >= client->next_retry_at) {
-        printf("http_client_read_firstline after check\n");
         client->state = http_client_worktask_read_firstline(client);
         break;
       }
       break;
     }
     case HTTP_CLIENT_READING_HEADERS: {
-      printf("http_client_read_header before retry check\n");
+      printf("HTTP_CLIENT_READING_HEADERS\n");
        if (now >= client->next_retry_at) {
-        printf("http_client_read_headers after check\n");
         client->state = http_client_worktask_read_headers(client);
         break;
       }
       break;
     }
     case HTTP_CLIENT_READING_BODY: {
-      printf("http_client_read_body before retry check\n");
+      printf("HTTP_CLIENT_READING_BODY\n");
       if (now >= client->next_retry_at) {
-        printf("http_client_read_body after retry check\n");
         client->state = http_client_worktask_read_body(client);
         break;
       }
       break;
     }
      case HTTP_CLIENT_RETURNING: {
-      printf("http_client_returning\n");
+      printf("HTTP_CLIENT_RETURNING\n");
       client->state = http_client_worktask_returning(client);
       break;
     }
     case HTTP_CLIENT_ERROR: {
-      printf("Error\n");
+      printf("HTTP_CLIENT_ERROR\n");
       client->state = HTTP_CLIENT_DISPOSING;
       break;
     }
     case HTTP_CLIENT_DISPOSING: { 
-      printf("Disposing\n");
+      printf("HTTP_CLIENT_DISPOSING\n");
       http_client_dispose(client);
       break;
     }
     default: {
-      printf("default\n");
+      printf("HTTP_CLIENT default\n");
       break;
     }
   }
