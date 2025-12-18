@@ -116,6 +116,7 @@ HTTPServerConnectionState worktask_request_read_firstline(HTTP_Server_Connection
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
   int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, TCP_MESSAGE_BUFFER_MAX_SIZE);
   printf("Bytes read: %d\n", bytes_read);
+  printf("BUF IN CONNECT: \n\n%s\n", (char*)tcp_buf);
 
   if (bytes_read > 0) {
     ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data, tcp_buf, (size_t)bytes_read);

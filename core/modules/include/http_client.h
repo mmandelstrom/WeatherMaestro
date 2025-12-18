@@ -22,6 +22,7 @@ typedef enum
   HTTP_CLIENT_SENDING_REQUEST,
   HTTP_CLIENT_READING_FIRSTLINE,
   HTTP_CLIENT_READING_HEADERS,
+  HTTP_CLIENT_DECIPHER_CHONKINESS,
   HTTP_CLIENT_READING_BODY,
   HTTP_CLIENT_RETURNING,
   HTTP_CLIENT_DISPOSING,
@@ -41,26 +42,33 @@ typedef struct {
 
 typedef struct
 {
-  http_client_on_success    on_success;
-	uint8_t*                  request_buffer;
-  int                       request_length;
-  uint8_t*                  response_buffer;
-	Scheduler_Task*           task;
-  TCP_Client*               tcp_client;
-  HTTPClientState           state;
-  const char*               URL;
-  bool                      tls;
-  size_t                    bytes_sent;
-  int                       bytes_received;
-  int                       retries;
-  uint64_t                  next_retry_at;
-  int                       content_length;
-  HTTP_Request*             req;
-  HTTP_Response*            resp;
   URL_Parts                 url_parts;
 
+  uint64_t                  next_retry_at;
+
+  size_t                    bytes_sent;
+
+  Scheduler_Task*           task;
+  TCP_Client*               tcp_client;
+  const char*               URL;
+  HTTP_Request*             req;
+  HTTP_Response*            resp;
+  http_client_on_success    on_success;
   void*                     context;
   char**                    response_out;
+  uint8_t*                  request_buffer;
+  uint8_t*                  response_buffer;
+
+  int                       request_length;
+  int                       bytes_received;
+  int                       retries;
+  int                       content_length;
+  int                       chunked;
+
+  HTTPClientState           state;
+
+  bool                      tls;
+
 } HTTP_Client;
 
 

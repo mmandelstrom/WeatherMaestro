@@ -1,4 +1,7 @@
 #include "http_client.h"
+#include "error.h"
+#include "tcp_client.h"
+#include <stdio.h>
 
 
 void http_client_taskwork(void* _context, uint64_t _montime);
@@ -9,6 +12,8 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_returning(HTTP_Client* _Client);
+HTTPClientState http_client_worktask_decipher_chonkiness(HTTP_Client* _Client);
+
 
 
 int http_client_initiate(HTTP_Client* _Client, 
@@ -63,6 +68,7 @@ int http_client_initiate(HTTP_Client* _Client,
 
   //Check url for http/https 
   _Client->tls = false;
+  _Client->chunked = -1;
   
   return 0;
 
@@ -193,13 +199,15 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client)
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
   }
-  printf("_Client->tcp_client->data.addr so far: \n%s\n", _Client->tcp_client->data.addr);
 
   TCP_Client* TCP_C = _Client->tcp_client;
 
-  uint8_t tcp_buf[1024];
-  int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, sizeof(tcp_buf));
+  uint8_t tcp_buf[8096];
+  int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, 8095);
+  tcp_buf[bytes_read] = '\0';
   printf("Bytes read: %d\n", bytes_read);
+  printf("TCP_BUF: \n%s\n", tcp_buf);
+
 
   if (bytes_read < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
@@ -278,7 +286,6 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client)
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
   }
-  printf("_Client->tcp_client->data.addr so far: \n%s\n", _Client->tcp_client->data.addr);
    
   TCP_Client* TCP_C = _Client->tcp_client;
 
@@ -366,6 +373,14 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client)
   const char* content_length_string = NULL;
   int result = http_parser_get_header_value(_Client->req->headers,
                                             "Content-Length", &content_length_string);
+  const char* transfer_encoding_string = NULL;
+  int res = http_parser_get_header_value(_Client->req->headers, "Transfer-Encoding", &transfer_encoding_string);
+  
+  if (res == SUCCESS) {
+    printf("Time to read the chonk\n");
+    return HTTP_CLIENT_DECIPHER_CHONKINESS;
+  }
+
   if (result < 0) {
     printf("Content-Length header not found\n");
     return HTTP_CLIENT_RETURNING;
@@ -379,9 +394,63 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client)
     /*There is a body to read*/
     return HTTP_CLIENT_READING_BODY;
   }
-
+  
   return HTTP_CLIENT_RETURNING;
 
+}
+
+HTTPClientState http_client_worktask_decipher_chonkiness(HTTP_Client* _Client) {
+  if (_Client == NULL) {
+    return HTTP_CLIENT_ERROR;
+  }
+
+  TCP_Client* TCP_C = _Client->tcp_client;
+
+  int line_end = http_parser_find_line_end(TCP_C->data.addr,
+                                           TCP_C->data.size);
+  
+  if (line_end < 0) {
+    return HTTP_CLIENT_ERROR;
+  }
+
+
+
+  // char *line_copy = malloc(_Client->tcp_client->data.size);
+  // if (!line_copy) {
+  //   perror("malloc");
+  //   return HTTP_CLIENT_ERROR;
+  // }
+  //
+  // memcpy(line_copy, _Client->tcp_client->data.addr, _Client->tcp_client->data.size);
+  // line_copy[_Client->tcp_client->data.size] = '\0';
+  //
+  // char* first_line = line_copy;
+  // char* end_of_line = strchr(first_line, '\n');
+  //
+  // *end_of_line = '\0';
+  //
+  // char* body = end_of_line + 1;
+  // int body_len = strlen(body);
+  //
+  //  if (_Client->tcp_client->data.size > body_len) {
+  //
+  //   memmove(_Client->tcp_client->data.addr,
+  //           _Client->tcp_client->data.addr + body_len,
+  //           _Client->tcp_client->data.size - body_len);
+  // }
+  //
+  // _Client->tcp_client->data.size -= body_len;
+  //
+  // sscanf(first_line, "%x", &_Client->chunked);
+  // printf("Chonk-size: %d\n", _Client->chunked);
+  //
+  // free(line_copy);
+  //
+  // if (_Client->chunked > 0) {
+  //   return HTTP_CLIENT_READING_BODY;
+  // }
+  //
+  // return HTTP_CLIENT_RETURNING;
 }
 
 HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) 
@@ -389,15 +458,24 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client)
   if (!_Client) {
     return HTTP_CLIENT_ERROR;
   }
-  printf("_Client->tcp_client->data.addr so far: \n%s\n", _Client->tcp_client->data.addr);
-  
-  
+
+  unsigned int TCP_BUF_SIZE = 1024;
   TCP_Client* TCP_C = _Client->tcp_client;
 
-  uint8_t tcp_buf[1024];
+  if (_Client->chunked > 0) {
+    TCP_BUF_SIZE = _Client->chunked;
+
+  }
+
+  printf("Buf size: %d\n", TCP_BUF_SIZE);
+
+  uint8_t tcp_buf[TCP_BUF_SIZE];
+
   int bytes_read = tcp_client_read_simple(TCP_C,
                                           tcp_buf,
-                                          sizeof(tcp_buf));
+                                          TCP_BUF_SIZE);
+
+  printf("Buf: %s\n", tcp_buf);
 
   if (bytes_read < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
@@ -413,10 +491,20 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client)
   }
 
   if (bytes_read > 0) {
+    _Client->chunked -= bytes_read;
+    printf("Chunked read: %d\n\n", _Client->chunked);
     ssize_t bytes_stored = tcp_client_realloc_data(&TCP_C->data, tcp_buf, (size_t)bytes_read);
 
     if (bytes_stored < 0) {
       return HTTP_CLIENT_ERROR;
+    }
+
+    if (_Client->chunked > 0) {
+      return HTTP_CLIENT_READING_BODY;
+    }
+
+    if (_Client->chunked == 0) {
+      return HTTP_CLIENT_DECIPHER_CHONKINESS;
     }
   }
 
@@ -497,6 +585,11 @@ void http_client_taskwork(void* _context, uint64_t _montime)
       }
       break;
     }
+    case HTTP_CLIENT_DECIPHER_CHONKINESS: {
+      printf("HTTP_CLIENT_DECIPHER_CHONKINESS\n");
+      client->state = http_client_worktask_decipher_chonkiness(client);
+    }
+
     case HTTP_CLIENT_READING_BODY: {
       printf("HTTP_CLIENT_READING_BODY\n");
       if (now >= client->next_retry_at) {
