@@ -1,8 +1,13 @@
 #include "http_client.h"
 #include "error.h"
 #include "tcp_client.h"
+#include <asm-generic/errno-base.h>
+#include <asm-generic/errno.h>
+#include <errno.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 
 void http_client_taskwork(void* _context, uint64_t _montime);
@@ -14,8 +19,7 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_returning(HTTP_Client* _Client);
 HTTPClientState http_client_worktask_decipher_chonkiness(HTTP_Client* _Client);
-
-
+HTTPClientState http_client_worktask_read_body_chunked(HTTP_Client* _Client);
 
 int http_client_initiate(HTTP_Client* _Client, 
                          const char* _URL, 
@@ -159,7 +163,7 @@ HTTPClientState http_client_worktask_send_request(HTTP_Client* _Client)
 
     if (written > 0) {
       _Client->bytes_sent += written;
-      if (_Client->bytes_sent >= _Client->request_length) {
+      if (_Client->bytes_sent >= (size_t)_Client->request_length) {
 
         _Client->retries = 0;
         return HTTP_CLIENT_READING_FIRSTLINE;
@@ -205,7 +209,6 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client* _Client)
 
   uint8_t tcp_buf[8096];
   int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, 8095);
-  tcp_buf[bytes_read] = '\0';
   printf("Bytes read: %d\n", bytes_read);
   printf("TCP_BUF: \n%s\n", tcp_buf);
 
@@ -412,15 +415,45 @@ HTTPClientState http_client_worktask_decipher_chonkiness(HTTP_Client* _Client) {
   int line_end = http_parser_find_line_end(TCP_C->data.addr, TCP_C->data.size);
 
   if (line_end < 0) {
-    //We dont have a full line
-    //How do we read more in to buffer without using readbody, new helper maybe?
-    //logic for reading more or less than 0
-    //
+    
+    uint8_t buf[1024];
+    int additional_bytes_read = tcp_client_read_simple(TCP_C, buf, sizeof(buf));
+
+    if (additional_bytes_read < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        // Read again
+        return HTTP_CLIENT_DECIPHER_CHONKINESS;
+      }
+      perror("recv chunk");
+      return HTTP_CLIENT_ERROR;
+    }
+
+    if (additional_bytes_read == 0) {
+      //Connection closed
+      return HTTP_CLIENT_ERROR;
+    }
+
+    if (tcp_client_realloc_data(&TCP_C->data, buf, (size_t)additional_bytes_read) < 0) {
+      return HTTP_CLIENT_ERROR;
+    }
+
     return HTTP_CLIENT_DECIPHER_CHONKINESS;
   }
 
   size_t line_len = (size_t)line_end;
-  size_t chunk_size = 0;
+  int chunk_size;
+
+  for (size_t i = 0; i < (size_t)line_end; i++) {
+    uint8_t ch = TCP_C->data.addr[i];
+    if (ch == ';' || ch == ' ' || ch == '\t') {
+      line_len = i;
+      break;
+    }
+  }
+
+  if (line_len <= 0) {
+    return HTTP_CLIENT_ERROR;
+  }
 
   char line[48];
   memcpy(line, TCP_C->data.addr, line_len);
@@ -429,9 +462,13 @@ HTTPClientState http_client_worktask_decipher_chonkiness(HTTP_Client* _Client) {
   char* endptr = NULL;
   unsigned long long val = strtoull(line, &endptr, 16);
   chunk_size = (size_t)val;
+  printf("\n\nchunk-size: %d\n\n", chunk_size);
+  printf("\n\nWith chunksize: %s\n\n", TCP_C->data.addr);
+
 
   memmove(TCP_C->data.addr, TCP_C->data.addr + (line_len + 2), TCP_C->data.size - (line_len + 2));
   TCP_C->data.size -= (line_len + 2);
+  printf("\n\nWithout chunksize: %s\n\n", TCP_C->data.addr);
 
   //Find trailing \r\n\r\n
   if (chunk_size == 0) {
@@ -444,50 +481,97 @@ HTTPClientState http_client_worktask_decipher_chonkiness(HTTP_Client* _Client) {
     return HTTP_CLIENT_RETURNING;
   }
 
-  _Client->chunked = (int)chunk_size;
-  return HTTP_READING_CHUNK
+  _Client->chunk_remaining = (int)chunk_size;
+  return HTTP_CLIENT_READING_BODY_CHUNKED;
 
   }
 
+HTTPClientState http_client_worktask_read_body_chunked(HTTP_Client* _Client) {
+  if (!_Client || !_Client->tcp_client) {
+    return HTTP_CLIENT_ERROR;
+  }
+  
+  TCP_Client* TCP_C = _Client->tcp_client;
+
+  //Do we need more data?
+  if (TCP_C->data.size < _Client->chunk_remaining) {
+    uint8_t buf[1024];
+    int bytes_read = tcp_client_read_simple(TCP_C, buf, sizeof(buf));
+
+    if (bytes_read < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        //Keep reading
+        return HTTP_CLIENT_READING_BODY_CHUNKED;
+      }
+      perror("recv chunk-data");
+      return HTTP_CLIENT_ERROR;
+    }
+    
+    if (bytes_read == 0) {
+      //Connection closed
+      return HTTP_CLIENT_ERROR;
+    }
+
+    if (tcp_client_realloc_data(&TCP_C->data, buf, (size_t)bytes_read) < 0) {
+      return HTTP_CLIENT_ERROR;
+    }
+    
+    return HTTP_CLIENT_READING_BODY_CHUNKED;
+  }
+
+  _Client->decoded_body = realloc(_Client->decoded_body, _Client->chunk_remaining + 1);
+  if (_Client->decoded_body == NULL) {
+    return HTTP_CLIENT_ERROR;
+  }
+
+  memcpy(_Client->decoded_body, TCP_C->data.addr, _Client->chunk_remaining);
+  _Client->decoded_body[_Client->chunk_remaining] = '\0';
+
+  //Move read data out of tcpbuffer
+  memmove(TCP_C->data.addr, 
+          TCP_C->data.addr + _Client->chunk_remaining,
+          TCP_C->data.size - _Client->chunk_remaining);
+  TCP_C->data.size -= _Client->chunk_remaining;
+  _Client->chunk_remaining = 0;
 
 
-  // char *line_copy = malloc(_Client->tcp_client->data.size);
-  // if (!line_copy) {
-  //   perror("malloc");
-  //   return HTTP_CLIENT_ERROR;
-  // }
-  //
-  // memcpy(line_copy, _Client->tcp_client->data.addr, _Client->tcp_client->data.size);
-  // line_copy[_Client->tcp_client->data.size] = '\0';
-  //
-  // char* first_line = line_copy;
-  // char* end_of_line = strchr(first_line, '\n');
-  //
-  // *end_of_line = '\0';
-  //
-  // char* body = end_of_line + 1;
-  // int body_len = strlen(body);
-  //
-  //  if (_Client->tcp_client->data.size > body_len) {
-  //
-  //   memmove(_Client->tcp_client->data.addr,
-  //           _Client->tcp_client->data.addr + body_len,
-  //           _Client->tcp_client->data.size - body_len);
-  // }
-  //
-  // _Client->tcp_client->data.size -= body_len;
-  //
-  // sscanf(first_line, "%x", &_Client->chunked);
-  // printf("Chonk-size: %d\n", _Client->chunked);
-  //
-  // free(line_copy);
-  //
-  // if (_Client->chunked > 0) {
-  //   return HTTP_CLIENT_READING_BODY;
-  // }
-  //
-  // return HTTP_CLIENT_RETURNING;
+  if (TCP_C->data.size < 2) {
+    //NO CRLF found
+    uint8_t buf[1024];
+    int bytes_read = tcp_client_read_simple(TCP_C, buf, sizeof(buf));
+
+    if (bytes_read < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
+        return HTTP_CLIENT_READING_BODY_CHUNKED;
+      }
+      perror("chunck recv");
+      return HTTP_CLIENT_ERROR;
+    }
+    
+    if (bytes_read == 0) {
+      //Connection closed
+      return HTTP_CLIENT_ERROR;
+    }
+
+    if (tcp_client_realloc_data(&TCP_C->data, buf, (size_t)bytes_read) < 0) {
+      return HTTP_CLIENT_ERROR;
+    }
+
+    return HTTP_CLIENT_READING_BODY_CHUNKED;
+  }
+
+  if (TCP_C->data.addr[0] != '\r' || TCP_C->data.addr[1] != '\n') {
+    return HTTP_CLIENT_ERROR;
+  }
+
+  memmove(TCP_C->data.addr, 
+          TCP_C->data.addr + 2,
+          TCP_C->data.size - 2);
+  TCP_C->data.size -= 2;
+
+  return HTTP_CLIENT_DECIPHER_CHONKINESS;
 }
+
 
 HTTPClientState http_client_worktask_read_body(HTTP_Client* _Client) 
 {
@@ -612,6 +696,11 @@ void http_client_taskwork(void* _context, uint64_t _montime)
     case HTTP_CLIENT_DECIPHER_CHONKINESS: {
       printf("HTTP_CLIENT_DECIPHER_CHONKINESS\n");
       client->state = http_client_worktask_decipher_chonkiness(client);
+      break;
+    }
+    case HTTP_CLIENT_READING_BODY_CHUNKED: {
+      printf("HTTP_CLIENT_READING_BODY_CHUNKED");
+      client->state = http_client_worktask_read_body_chunked(client);
       break;
     }
 

@@ -23,6 +23,7 @@ typedef enum
   HTTP_CLIENT_READING_FIRSTLINE,
   HTTP_CLIENT_READING_HEADERS,
   HTTP_CLIENT_DECIPHER_CHONKINESS,
+  HTTP_CLIENT_READING_BODY_CHUNKED,
   HTTP_CLIENT_READING_BODY,
   HTTP_CLIENT_RETURNING,
   HTTP_CLIENT_DISPOSING,
@@ -58,12 +59,14 @@ typedef struct
   char**                    response_out;
   uint8_t*                  request_buffer;
   uint8_t*                  response_buffer;
+  uint8_t*                  decoded_body; //Might be too small
 
   int                       request_length;
   int                       bytes_received;
   int                       retries;
   int                       content_length;
   int                       chunked;
+  int                       chunk_remaining;
 
   HTTPClientState           state;
 
