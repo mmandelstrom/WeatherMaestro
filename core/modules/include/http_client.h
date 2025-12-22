@@ -48,6 +48,7 @@ typedef struct
   uint64_t                  next_retry_at;
 
   size_t                    bytes_sent;
+  size_t                    decoded_body_len;
 
   Scheduler_Task*           task;
   TCP_Client*               tcp_client;
