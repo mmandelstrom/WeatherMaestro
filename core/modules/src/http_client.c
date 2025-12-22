@@ -1,6 +1,7 @@
 #include "http_client.h"
 #include "error.h"
 #include "tcp_client.h"
+#include <stddef.h>
 
 
 void http_client_taskwork(void* _context, uint64_t _montime);
@@ -544,7 +545,7 @@ HTTPClientState http_client_worktask_read_body_chunked(HTTP_Client* _Client) {
   TCP_Client* TCP_C = _Client->tcp_client;
 
   //Do we need more data?
-  if (TCP_C->data.size < _Client->chunk_remaining) {
+  if (TCP_C->data.size < (size_t)_Client->chunk_remaining) {
     uint8_t buf[1024];
     int bytes_read = tcp_client_read_simple(TCP_C, buf, sizeof(buf));
 
