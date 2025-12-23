@@ -1,11 +1,10 @@
 #include "api/geo_parser.h"
 #include "error.h"
 #include "file_utils.h"
+#include "api/nominatim.h"
 #include "scheduler.h"
 #include "weather_parser.h"
-#include <stdint.h>
-#include <stdio.h>
-#include <unistd.h>
+
 
 /* Pre-hashed cache filename definitions */
 #define CACHE_FILENAME_GEO_COORDS "lat%.3f_lon%.3f_geo"
@@ -26,6 +25,7 @@ int geo_parser_parse_nominatim_geo(Geo* _Geo, Nominatim_Geo* _NOM_Geo, int _geo_
 
 int geo_parser_get_geo_from_api_by_coords(Geo* _Geo, ExternalGeoAPI _ExtAPI);
 int geo_parser_get_geo_from_api_by_query(Geo* _Geo, ExternalGeoAPI ExtAPI);
+int geo_parser_init_geo_ptr(Geo** _GEO_Ptr, int _count); 
 
 /** Builds and returns the parsed json output from Geo struct
  * Also saves cache file */
@@ -36,38 +36,47 @@ char* geo_parser_build_json(Geo* _Geo);
 void geo_parser_on_ext_api_finish(void* _context, void* _ext_api);
 
 void geo_parser_taskwork(void* _context, uint64_t _montime);
-GeoParserState geo_parser_worktask_check_cache(Geo_Parser* _GP);
-GeoParserState geo_parser_worktask_call_ext_api(Geo_Parser* _GP);
-GeoParserState geo_parser_worktask_parse_api_response(Geo_Parser* _GP);
-GeoParserState geo_parser_worktask_respond(Geo_Parser* _GP);
-
+GeoParserState geo_parser_worktask_check_cache(Geo_Parser* _Parser);
+GeoParserState geo_parser_worktask_call_ext_api(Geo_Parser* _Parser);
+GeoParserState geo_parser_worktask_parse_api_response(Geo_Parser* _Parser);
+GeoParserState geo_parser_worktask_respond(Geo_Parser* _Parser);
+void geo_dispose_ptr(Geo** _G_ptr);
 /* ----------------------------------------------------------------- */
 
 
-int geo_parser_init_ptr(Geo_Parser** _Parser_Ptr, void* _context, bool _use_query, const char* _query, float _lat, float _lon)
+int geo_parser_init_ptr(Geo_Parser** _Parser_Ptr, void* _context, parser_on_finish _on_finish, bool _use_query, const char* _query, float _lat, float _lon)
 {
   if (_Parser_Ptr == NULL) {
     return ERR_INVALID_ARG;
   } 
 
-  *_Parser_Ptr = malloc(sizeof(Geo_Parser));
-  if (*_Parser_Ptr) {
+  *_Parser_Ptr = calloc(1, sizeof(Geo_Parser));
+  if (*_Parser_Ptr == NULL) {
     perror("malloc");
     return ERR_NO_MEMORY;
   }
 
-  Geo* geo = malloc(sizeof(Geo));
-  if (geo == NULL) {
-    perror("malloc");
-    return ERR_NO_MEMORY;
+  Geo* geo = NULL;
+  int result = geo_parser_init_geo_ptr(&geo, 1);
+  if (result != SUCCESS) {
+    return result;
   }
 
+  (*_Parser_Ptr)->context = _context;
+  (*_Parser_Ptr)->on_finish = _on_finish;
   (*_Parser_Ptr)->geo = geo;
-  (*_Parser_Ptr)->query = _query;
   (*_Parser_Ptr)->latitude = _lat;
   (*_Parser_Ptr)->longitude = _lon;
   (*_Parser_Ptr)->use_query = _use_query;
   (*_Parser_Ptr)->task = scheduler_create_task((*_Parser_Ptr), geo_parser_taskwork);
+
+  if (_use_query && _query) {
+    (*_Parser_Ptr)->query = strdup(_query);
+  }
+  if ((*_Parser_Ptr)->query == NULL) {
+    geo_parser_dispose_ptr(_Parser_Ptr);
+    return ERR_NO_MEMORY;
+  } 
 
   if (!(*_Parser_Ptr)->task) {
     geo_parser_dispose_ptr(_Parser_Ptr);
@@ -75,6 +84,45 @@ int geo_parser_init_ptr(Geo_Parser** _Parser_Ptr, void* _context, bool _use_quer
   }
 
   (*_Parser_Ptr)->state = GEO_PARSER_CHECKING_CACHE;
+
+  return SUCCESS;
+}
+
+int geo_parser_init_geo_ptr(Geo** _GEO_Ptr, int _count) {
+  if (_GEO_Ptr == NULL || _count <= 0) {
+    return ERR_INVALID_ARG;
+  }
+
+  Geo* G = calloc(1, sizeof(Geo));
+
+  if (G == NULL) {
+    perror("malloc");
+    return ERR_NO_MEMORY;
+  }
+
+  G->values = calloc((size_t)_count, sizeof(Geo_Values));
+  if (G->values == NULL) {
+    perror("malloc");
+    free(G);
+    return ERR_NO_MEMORY;
+  }
+
+  for (int i = 0; i < _count; i++) {
+    G->values[i] = calloc(1, sizeof(Geo_Values));
+    if (G->values[i] == NULL) {
+      //Cleanup 
+      for (int j = 0; j < i; j++) {
+        free(G->values[j]);
+        G->values[j] = NULL;
+      }
+      free(G->values);
+      free(G);
+      return ERR_NO_MEMORY;
+    }
+  }
+  
+  G->count = _count;
+  *(_GEO_Ptr) = G;
 
   return SUCCESS;
 }
@@ -105,12 +153,20 @@ GeoParserState geo_parser_worktask_call_ext_api(Geo_Parser* _Parser) {
   int result;
 
   if (_Parser->use_query == true) {
-    result = geo_parser_get_geo_by_query(_Parser);
+    _Parser->geo->query = _Parser->query; 
+    
+    int result = nominatim_get_geo(&_Parser->nom,
+                                   true,
+                                   _Parser->query,
+                                   0.0f,
+                                   0.0f,
+                                   geo_parser_on_ext_api_finish,
+                                   _Parser);
+
     if (result != SUCCESS) {
       return GEO_PARSER_ERROR;
     }
     return GEO_PARSER_IDLING;
-
   } else {
 
     result = geo_parser_get_geo_by_coords(_Parser);
@@ -122,6 +178,44 @@ GeoParserState geo_parser_worktask_call_ext_api(Geo_Parser* _Parser) {
   }
 
   return GEO_PARSER_ERROR;
+}
+
+void geo_parser_on_ext_api_finish(void* _context, void* _ext_api) {
+  if (_context == NULL) {
+    return;
+  }
+  
+  Geo_Parser* Parser = (Geo_Parser*)_context;
+
+  Parser->nom_result = (Nominatim_Result*)_ext_api;
+
+  if (Parser->nom_result == NULL) {
+    Parser->state = GEO_PARSER_ERROR;
+    return;
+  }
+
+  Parser->state = GEO_PARSER_PARSING;
+}
+
+GeoParserState geo_parser_worktask_parse_api_response(Geo_Parser* _Parser) {
+
+  if (_Parser == NULL || _Parser->nom_result == NULL || _Parser->geo == NULL) {
+    return GEO_PARSER_ERROR;
+  }
+  
+  int result = geo_parser_parse_nominatim_geo(_Parser->geo,
+                                              _Parser->nom_result->geo,
+                                              _Parser->nom_result->count);
+
+  if (result != SUCCESS) {
+    return GEO_PARSER_ERROR;
+  }
+
+  //Geo is populated we can dispose nominatim
+  nominatim_dispose(&_Parser->nom);
+  _Parser->nom_result = NULL;
+
+  return GEO_PARSER_RESPONDING;
 }
 
 
@@ -170,6 +264,21 @@ int geo_parser_get_geo_by_coords(Geo_Parser* _Parser)
   _Parser->json_output = geo_parser_build_json(_Parser->geo);
 
   return SUCCESS;
+}
+
+GeoParserState geo_parser_worktask_respond(Geo_Parser* _Parser) {
+  if (_Parser == NULL || _Parser->geo == NULL) {
+    return GEO_PARSER_ERROR;
+  }
+
+  char* response = geo_parser_build_json(_Parser->geo);
+  if (response == NULL) {
+    return GEO_PARSER_ERROR;
+  }
+
+  _Parser->on_finish(_Parser->context, &response);
+
+  return GEO_PARSER_DISPOSING;
 }
 
 int geo_parser_get_geo_from_api_by_query(Geo* _Geo, ExternalGeoAPI _ExtAPI)
@@ -327,85 +436,85 @@ int geo_parser_parse_nominatim_geo(Geo* _Geo, Nominatim_Geo* _NOM_Geo, int _geo_
 
   return 0;
 }
-
-int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
-{
-  _Geo->lat = _BDC_Geo->latitude; // should these be updated here?
-  _Geo->lon = _BDC_Geo->longitude;
-
-  /* Assign string members */
-  memcpy(_Geo->country_code, _BDC_Geo->country_code, 2);
-  _Geo->country_code[2] = '\0';
-
-  _Geo->city         = strdup(_BDC_Geo->city);
-  _Geo->country      = strdup(_BDC_Geo->country_name);
-  _Geo->locality     = strdup(_BDC_Geo->locality);
-
-  if (_Geo->locality == NULL ||
-      _Geo->country  == NULL || 
-      _Geo->city     == NULL)
-  {
-    perror("Failed to duplicate bigdatacloud strings");
-    return -1;
-  }
-
-  printf("_BDC_Geo->latitude: %f", _BDC_Geo->latitude);
-  printf("_Geo->latitude: %f", _Geo->lat);
-
-  return 0;
-}
-
-/** Pre-reqs either _Geo->query set or _Geo->values[0] lat and lon set */
-char* geo_parser_get_cache_filepath(Geo_Parser* _Parser)
-{
-  char* file_ext = ".json";
-  char filename_buf[256];
-
-  int filename_len; 
-  int file_ext_len = strlen(file_ext);
-  int cache_dir_len = strlen(CACHE_DIR);
-  int filepath_len; // full path
-
-  if (_Parser->use_query == true) // use query for filename
-  {
-    int query_len = strlen(_Parser->geo->query);
-    const char* hashed_filename = MD5_HashToString(_Parser->geo->query, query_len);
-
-    filepath_len = cache_dir_len + strlen(hashed_filename) + query_len;
-    char* full_filepath = malloc(filepath_len + 1);
-    if (full_filepath == NULL)
-    {
-      perror("malloc");
-      return NULL;
-    }
-    snprintf(full_filepath, filepath_len, "%s%s%s",
-        CACHE_DIR, hashed_filename, file_ext);
-
-    return full_filepath;
-  }
-  else if (_Parser->use_query == false) // use lat+lon for filename via CACHE_FILENAME_LOCATION template
-  {
-    filename_len = snprintf(filename_buf, 256,
-          CACHE_FILENAME_GEO_COORDS,
-          _Parser->geo->values[0]->lat,
-          _Parser->geo->values[0]->lon);
-    const char* hashed_filename = MD5_HashToString(filename_buf, filename_len);
-
-    filepath_len = cache_dir_len + strlen(hashed_filename) + filename_len;
-    char* full_filepath = malloc(filepath_len + 1);
-    if (full_filepath == NULL)
-    {
-      perror("malloc");
-      return NULL;
-    }
-    snprintf(full_filepath, filepath_len, "%s%s%s",
-        CACHE_DIR, hashed_filename, file_ext);
-
-    return full_filepath;
-  }
-
-  return NULL;
-}
+//
+// int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
+// {
+//   _Geo->lat = _BDC_Geo->latitude; // should these be updated here?
+//   _Geo->lon = _BDC_Geo->longitude;
+//
+//   /* Assign string members */
+//   memcpy(_Geo->country_code, _BDC_Geo->country_code, 2);
+//   _Geo->country_code[2] = '\0';
+//
+//   _Geo->city         = strdup(_BDC_Geo->city);
+//   _Geo->country      = strdup(_BDC_Geo->country_name);
+//   _Geo->locality     = strdup(_BDC_Geo->locality);
+//
+//   if (_Geo->locality == NULL ||
+//       _Geo->country  == NULL || 
+//       _Geo->city     == NULL)
+//   {
+//     perror("Failed to duplicate bigdatacloud strings");
+//     return -1;
+//   }
+//
+//   printf("_BDC_Geo->latitude: %f", _BDC_Geo->latitude);
+//   printf("_Geo->latitude: %f", _Geo->lat);
+//
+//   return 0;
+// }
+//
+// /** Pre-reqs either _Geo->query set or _Geo->values[0] lat and lon set */
+// char* geo_parser_get_cache_filepath(Geo_Parser* _Parser)
+// {
+//   char* file_ext = ".json";
+//   char filename_buf[256];
+//
+//   int filename_len; 
+//   int file_ext_len = strlen(file_ext);
+//   int cache_dir_len = strlen(CACHE_DIR);
+//   int filepath_len; // full path
+//
+//   if (_Parser->use_query == true) // use query for filename
+//   {
+//     int query_len = strlen(_Parser->geo->query);
+//     const char* hashed_filename = MD5_HashToString(_Parser->geo->query, query_len);
+//
+//     filepath_len = cache_dir_len + strlen(hashed_filename) + query_len;
+//     char* full_filepath = malloc(filepath_len + 1);
+//     if (full_filepath == NULL)
+//     {
+//       perror("malloc");
+//       return NULL;
+//     }
+//     snprintf(full_filepath, filepath_len, "%s%s%s",
+//         CACHE_DIR, hashed_filename, file_ext);
+//
+//     return full_filepath;
+//   }
+//   else if (_Parser->use_query == false) // use lat+lon for filename via CACHE_FILENAME_LOCATION template
+//   {
+//     filename_len = snprintf(filename_buf, 256,
+//           CACHE_FILENAME_GEO_COORDS,
+//           _Parser->geo->values[0]->lat,
+//           _Parser->geo->values[0]->lon);
+//     const char* hashed_filename = MD5_HashToString(filename_buf, filename_len);
+//
+//     filepath_len = cache_dir_len + strlen(hashed_filename) + filename_len;
+//     char* full_filepath = malloc(filepath_len + 1);
+//     if (full_filepath == NULL)
+//     {
+//       perror("malloc");
+//       return NULL;
+//     }
+//     snprintf(full_filepath, filepath_len, "%s%s%s",
+//         CACHE_DIR, hashed_filename, file_ext);
+//
+//     return full_filepath;
+//   }
+//
+//   return NULL;
+// }
 
 /** Builds Geo struct from cache path
  * This was obviously not needed, we can just read the cache file directly to the output pointer... But I guess we could use it if we want to update a cache file for some reason */
@@ -610,10 +719,10 @@ void geo_parser_taskwork(void* _context, uint64_t _montime) {
       geo_parser_dispose_ptr(&Parser);
       break;
     }
-    case WEATHER_PARSER_ERROR: {
+    case GEO_PARSER_ERROR: {
       printf("WEATHER_PARSER_ERROR\n");
       fprintf(stderr, "geo_parser_taskwork failed, Geo_Parser: %p\n", Parser);
-      weather_parser_dispose_ptr(&Parser);
+      geo_parser_dispose_ptr(&Parser);
       break;
     }
 
@@ -622,74 +731,85 @@ void geo_parser_taskwork(void* _context, uint64_t _montime) {
   }
 }
 
-
-void geo_parser_dispose_ptr(Geo** _Gs_Ptr)
+void geo_dispose_ptr(Geo** _G_ptr)
 {
-  /* Dispose of Geo */
-  if (*_Gs_Ptr != NULL)
-  {
-    if ((*_Gs_Ptr)->query != NULL)
-    {
-      free((void*)(*_Gs_Ptr)->query);
-      (*_Gs_Ptr)->query = NULL;
-    }
-    if ((*_Gs_Ptr)->cache_path != NULL)
-    {
-      free((void*)(*_Gs_Ptr)->cache_path);
-      (*_Gs_Ptr)->cache_path = NULL;
-    }
-    
-    for (int i = 0; i < (*_Gs_Ptr)->count; i++)
-    {
-      if ((*_Gs_Ptr)->values[i] != NULL)
-      {
-        if ((*_Gs_Ptr)->values[i]->locality != NULL)
-        {
-          free((void*)(*_Gs_Ptr)->values[i]->locality);
-          (*_Gs_Ptr)->values[i]->locality = NULL;
-        }
-        if ((*_Gs_Ptr)->values[i]->city != NULL)
-        {
-          free((void*)(*_Gs_Ptr)->values[i]->city);
-          (*_Gs_Ptr)->values[i]->city = NULL;
-        }
-        if ((*_Gs_Ptr)->values[i]->country != NULL)
-        {
-          free((void*)(*_Gs_Ptr)->values[i]->country);
-          (*_Gs_Ptr)->values[i]->country = NULL;
-        }
-        if ((*_Gs_Ptr)->values[i]->timezone != NULL)
-        {
-          free((void*)(*_Gs_Ptr)->values[i]->timezone);
-          (*_Gs_Ptr)->values[i]->timezone = NULL;
-        }
-        if ((*_Gs_Ptr)->values[i]->county != NULL)
-        {
-          free((void*)(*_Gs_Ptr)->values[i]->county);
-          (*_Gs_Ptr)->values[i]->county = NULL;
-        }
-        if ((*_Gs_Ptr)->values[i]->postcode != NULL)
-        {
-          free((void*)(*_Gs_Ptr)->values[i]->postcode);
-          (*_Gs_Ptr)->values[i]->postcode = NULL;
-        }
-        if ((*_Gs_Ptr)->values[i]->street != NULL)
-        {
-          free((void*)(*_Gs_Ptr)->values[i]->street);
-          (*_Gs_Ptr)->values[i]->street = NULL;
-        }
-        if ((*_Gs_Ptr)->values[i]->house_number != NULL)
-        {
-          free((void*)(*_Gs_Ptr)->values[i]->house_number);
-          (*_Gs_Ptr)->values[i]->house_number = NULL;
-        }
-        free((*_Gs_Ptr)->values[i]);
-        (*_Gs_Ptr)->values[i] = NULL;
-      }
-    }
-    free((*_Gs_Ptr)->values);
-    free(*_Gs_Ptr);
-    *_Gs_Ptr = NULL;
+  if (_G_ptr == NULL || *_G_ptr == NULL){
+    return;
   }
-  _Gs_Ptr = NULL;
+
+  Geo* G = *_G_ptr;
+
+  G->query = NULL;
+
+  if (G->cache_path) {
+    free((void*)G->cache_path);
+    G->cache_path = NULL;
+  }
+
+  if (G->values) {
+    for (int i = 0; i < G->count; i++) {
+      Geo_Values* V = G->values[i];
+      if (!V) continue;
+
+      free((void*)V->country);      V->country = NULL;
+      free((void*)V->county);       V->county = NULL;
+      free((void*)V->city);         V->city = NULL;
+      free((void*)V->postcode);     V->postcode = NULL;
+      free((void*)V->street);       V->street = NULL;
+      free((void*)V->house_number); V->house_number = NULL;
+      free((void*)V->locality);     V->locality = NULL;
+      free((void*)V->timezone);     V->timezone = NULL;
+
+      free(V);
+      G->values[i] = NULL;
+    }
+
+    free(G->values);
+    G->values = NULL;
+  }
+
+  G->count = 0;
+
+  free(G);
+  *_G_ptr = NULL;
 }
+
+
+void geo_parser_dispose_ptr(Geo_Parser** _GP_ptr)
+{
+  if (!_GP_ptr || !*_GP_ptr) return;
+  Geo_Parser* P = *_GP_ptr;
+
+  if (P->task) {
+    scheduler_destroy_task(P->task);
+    P->task = NULL;
+  }
+
+  if (P->nom) {
+    nominatim_dispose(&P->nom);
+    P->nom = NULL;
+  }
+  P->nom_result = NULL;
+
+  if (P->json_output) {
+    free(P->json_output);
+    P->json_output = NULL;
+  }
+
+  if (P->query) {
+    free((void*)P->query);
+    P->query = NULL;
+  }
+
+  if (P->geo) {
+    geo_dispose_ptr(&P->geo);
+    P->geo = NULL;
+  }
+
+  P->context = NULL;
+  P->on_finish = NULL;
+
+  free(P);
+  *_GP_ptr = NULL;
+}
+

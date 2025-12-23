@@ -68,11 +68,17 @@ typedef struct
 } Geo; // wrapper for Geo structs
 
 
+typedef void (*parser_on_finish)(void* _context, char** _json_output_ptr);
+
 typedef struct {
   Geo*              geo;
   const char*       query;
   Scheduler_Task*   task;
   char*             json_output;
+  void*             context;
+  Nominatim*        nom;
+  Nominatim_Result* nom_result;
+  parser_on_finish  on_finish;
   
   float             latitude;
   float             longitude;
@@ -87,7 +93,7 @@ typedef struct {
 
 /** Heap init for multi Geo wrapper struct. Count decides how many Geo structs to init 
  * To init their weather/forecast structs, pass true as that arg */
-int geo_parser_init_ptr(Geo_Parser** _Parser_Ptr, void* _context, bool use_query, const char* _query, float _lat, float _lon);
+int geo_parser_init_ptr(Geo_Parser** _Parser_Ptr, void* _context, parser_on_finish _on_finish, bool use_query, const char* _query, float _lat, float _lon);
 /** Pre-reqs: Geo must be inited */
 int geo_parser_get_geo_by_query(Geo_Parser* _Parser);
 
@@ -101,7 +107,7 @@ int geo_parser_get_geo_by_coords(Geo_Parser* _Parser);
 int geo_parser_lat_lon(const char* _val, float* _target_coord);
 
 /** Heap dispose for data structs. To skip one, pass NULL as argument */
-void geo_parser_dispose_ptr(Geo** _C_Ptr);
+void geo_parser_dispose_ptr(Geo_Parser** _GP_ptr);
 
 /* -------------------------------------------------------- */
 

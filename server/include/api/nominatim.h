@@ -37,14 +37,43 @@ typedef struct
 
 } Nominatim_Geo;
 
+typedef struct {
+
+  Nominatim_Geo* geo;
+
+  int count;
+
+} Nominatim_Result;
+
+
+
+typedef void (*on_ext_api_finish)(void* _context, void* _ext_api);
+
+typedef struct {
+
+  on_ext_api_finish on_finish;
+  void*             context;
+  HTTP_Client*      http_client;
+  char*             http_response;
+  Nominatim_Result* result;
+  char*             query;
+
+  float             lat;
+  float             lon;
+
+  bool              use_query;
+  
+} Nominatim;
+
 /* ---------------------- Interface ----------------------- */
+int nominatim_get_geo(Nominatim** _NOM, bool _use_query, const char* _query, float _lat, float _lon, on_ext_api_finish _on_finish, void* _context);
 
 int nominatim_init_ptr(Nominatim_Geo** _NOM_Geo_Ptr);
-
 /* *_geo_count will return how many Nominatim_Geo structs will be in pointer */
 int nominatim_get_geo_by_query(Nominatim_Geo** _NOM_Geo_Ptr, int* _geo_count, const char* _query);
 // int nominatim_get_geo_by_coords(Nominatim_Geo* _NOM_Geo, int* _geo_count, float _lat, float _lon);
 
+void nominatim_dispose(Nominatim** _N_Ptr);
 void nominatim_dispose_ptr(Nominatim_Geo** _NOM_Geo_Ptr, int _count);
 
 /* -------------------------------------------------------- */

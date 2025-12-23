@@ -1,6 +1,7 @@
 #include "api/weather_api.h"
 #include "HTTPStatusCodes.h"
 #include "error.h"
+#include "geo_parser.h"
 #include "scheduler.h"
 #include "api/weather_parser.h"
 #include <string.h>
@@ -129,9 +130,15 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
 
   if (query_found > 0)
   {
-    Geos* geos;
+    Geo_Parser* Parser;
     /* Init Location without weather or forecast*/
-    if (geo_parser_init_ptr(&geos, geos_count, false, false) != 0)
+    if (geo_parser_init_ptr(Parser,
+                            _API,
+                            on_api_finish,
+                            true,
+                            query, 
+                            0.0f, 
+                            0.0f) != 0)
     {
       perror("weather_parser_init_ptr");
       _API->http_response->status_code = 500;
