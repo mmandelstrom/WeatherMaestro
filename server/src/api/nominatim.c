@@ -24,6 +24,13 @@ int nominatim_get_geo(Nominatim** _NOM, bool _use_query, const char* _query, flo
     return ERR_NO_MEMORY;
   }
 
+  N->result = calloc(1, sizeof(Nominatim_Result));
+  if (!N->result) {
+    perror("calloc");
+    free(N);
+    return ERR_NO_MEMORY;
+  }
+
   N->on_finish = _on_finish;
   N->context = _context;
   N->use_query = _use_query;
@@ -48,9 +55,19 @@ int nominatim_get_geo(Nominatim** _NOM, bool _use_query, const char* _query, flo
 
   *_NOM = N;
 
-  return SUCCESS;
+  int res = nominatim_get_geo_json(N);
+  if (res != SUCCESS) {
+    nominatim_dispose(&N);
+    return res;
+    }
 
+  return SUCCESS;
+  
 }
+
+
+
+
 
 int nominatim_init_ptr(Nominatim_Geo** _NOM_Geo_Ptr)
 {

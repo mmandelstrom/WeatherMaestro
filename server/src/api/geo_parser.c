@@ -1,10 +1,4 @@
 #include "api/geo_parser.h"
-#include "error.h"
-#include "file_utils.h"
-#include "api/nominatim.h"
-#include "scheduler.h"
-#include "weather_parser.h"
-
 
 /* Pre-hashed cache filename definitions */
 #define CACHE_FILENAME_GEO_COORDS "lat%.3f_lon%.3f_geo"
@@ -330,76 +324,76 @@ int geo_parser_get_geo_from_api_by_query(Geo* _Geo, ExternalGeoAPI _ExtAPI)
 
   return 0;
 }
-int geo_parser_get_geo_from_api_by_coords(Geo* _Geo, ExternalGeoAPI _ExtAPI)
-{
-  int result;
+ int geo_parser_get_geo_from_api_by_coords(Geo* _Geo, ExternalGeoAPI _ExtAPI)
+ {
+   int result;
 
-  /* NOT IMPLEMENTED YET*/
-  if (_ExtAPI == NOMINATIM_OSM_GEO)
-  {
-    Nominatim_Geo* NOM_Geo;
-    result = nominatim_init_ptr(&NOM_Geo);
-    if (result != 0)
-    {
-      perror("nominatim_init_ptr");
-      return -2;
-    }
+   /* NOT IMPLEMENTED YET*/
+   if (_ExtAPI == NOMINATIM_OSM_GEO)
+   {
+     Nominatim_Geo* NOM_Geo;
+     result = nominatim_init_ptr(&NOM_Geo);
+     if (result != 0)
+     {
+       perror("nominatim_init_ptr");
+       return -2;
+     }
+//
+     /*TODO: FInish get geo by coord*/
+     /* Get fresh struct from external API */
+     int nom_geo_count = 0;
+     /* result = nominatim_get_geo_by_coords(NOM_Geo, &nom_geo_count, _Geo->lat, _Geo->lon); */
+     if (result != 0)
+     {
+       perror("nominatim_get_geo_by_coords");
+       nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
+       return -3;
+     }
 
-    /*TODO: FInish get geo by coord*/
-    /* Get fresh struct from external API */
-    int nom_geo_count = 0;
-    /* result = nominatim_get_geo_by_coords(NOM_Geo, &nom_geo_count, _Geo->lat, _Geo->lon); */
-    if (result != 0)
-    {
-      perror("nominatim_get_geo_by_coords");
-      nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
-      return -3;
-    }
-    
-    printf("---Nominatim Geo---\ncityname: %s | country %s\n lat: %f, lon: %f\n\n", NOM_Geo->city, NOM_Geo->country, NOM_Geo->lat, NOM_Geo->lon);
+     printf("---Nominatim Geo---\ncityname: %s | country %s\n lat: %f, lon: %f\n\n", NOM_Geo->city, NOM_Geo->country, NOM_Geo->lat, NOM_Geo->lon);
 
-    result = geo_parser_parse_nominatim_geo(_Geo, NOM_Geo, nom_geo_count);
-    if (result != 0)
-    {
-      perror("geo_parser_parse_nominatim_geo");
-      nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
-      return -4;
-    }
-    nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
+     result = geo_parser_parse_nominatim_geo(_Geo, NOM_Geo, nom_geo_count);
+     if (result != 0)
+     {
+       perror("geo_parser_parse_nominatim_geo");
+       nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
+       return -4;
+     }
+     nominatim_dispose_ptr(&NOM_Geo, nom_geo_count);
 
-  }
-  else if (_ExtAPI == BIGDATACLOUD_GEO)
-  {
-    Bigdatacloud_Geo* BDC_Geo;
-    result = bigdatacloud_init_ptr(&BDC_Geo);
-    if (result != 0)
-    {
-      perror("bigdatacloud_init_ptr");
-      return -2;
-    }
+   }
+   else if (_ExtAPI == BIGDATACLOUD_GEO)
+   {
+     Bigdatacloud_Geo* BDC_Geo;
+     result = bigdatacloud_init_ptr(&BDC_Geo);
+     if (result != 0)
+     {
+       perror("bigdatacloud_init_ptr");
+       return -2;
+     }
 
-    result = bigdatacloud_get_geo_by_coords(BDC_Geo, _Geo->values[0]->lat, _Geo->values[0]->lon);
-    if (result != 0)
-    {
-      perror("bigdatacloud_get_geo_by_coords");
-      bigdatacloud_dispose_ptr(&BDC_Geo);
-      return -3;
-    }
+     result = bigdatacloud_get_geo_by_coords(BDC_Geo, _Geo->values[0]->lat, _Geo->values[0]->lon);
+     if (result != 0)
+     {
+       perror("bigdatacloud_get_geo_by_coords");
+       bigdatacloud_dispose_ptr(&BDC_Geo);
+       return -3;
+     }
 
-    printf("---Bigdatacloud Geo---\ncityname: %s | country %s\n lat: %f, lon: %f\n\n", BDC_Geo->city, BDC_Geo->country_name, BDC_Geo->latitude, BDC_Geo->longitude);
+     printf("---Bigdatacloud Geo---\ncityname: %s | country %s\n lat: %f, lon: %f\n\n", BDC_Geo->city, BDC_Geo->country_name, BDC_Geo->latitude, BDC_Geo->longitude);
 
-    result = geo_parser_parse_bigdatacloud_geo(_Geo->values[0], BDC_Geo);
-    if (result != 0)
-    {
-      perror("geo_parser_parse_bigdatacloud_geo");
-      bigdatacloud_dispose_ptr(&BDC_Geo);
-      return -4;
-    }
-    bigdatacloud_dispose_ptr(&BDC_Geo);
-  }
+     result = geo_parser_parse_bigdatacloud_geo(_Geo, BDC_Geo);
+     if (result != 0)
+     {
+       perror("geo_parser_parse_bigdatacloud_geo");
+       bigdatacloud_dispose_ptr(&BDC_Geo);
+       return -4;
+     }
+     bigdatacloud_dispose_ptr(&BDC_Geo);
+   }
 
-  return -1;
-}
+   return -1;
+ }
 
 int geo_parser_parse_nominatim_geo(Geo* _Geo, Nominatim_Geo* _NOM_Geo, int _geo_count)
 {
@@ -436,85 +430,127 @@ int geo_parser_parse_nominatim_geo(Geo* _Geo, Nominatim_Geo* _NOM_Geo, int _geo_
 
   return 0;
 }
-//
-// int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
-// {
-//   _Geo->lat = _BDC_Geo->latitude; // should these be updated here?
-//   _Geo->lon = _BDC_Geo->longitude;
-//
-//   /* Assign string members */
-//   memcpy(_Geo->country_code, _BDC_Geo->country_code, 2);
-//   _Geo->country_code[2] = '\0';
-//
-//   _Geo->city         = strdup(_BDC_Geo->city);
-//   _Geo->country      = strdup(_BDC_Geo->country_name);
-//   _Geo->locality     = strdup(_BDC_Geo->locality);
-//
-//   if (_Geo->locality == NULL ||
-//       _Geo->country  == NULL || 
-//       _Geo->city     == NULL)
-//   {
-//     perror("Failed to duplicate bigdatacloud strings");
-//     return -1;
-//   }
-//
-//   printf("_BDC_Geo->latitude: %f", _BDC_Geo->latitude);
-//   printf("_Geo->latitude: %f", _Geo->lat);
-//
-//   return 0;
-// }
-//
+int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
+{
+  if (!_Geo || !_BDC_Geo || !_Geo->values || _Geo->count <= 0)
+    return -1;
+
+  Geo_Values* v = _Geo->values[0];
+  if (!v)
+    return -1;
+
+  /* lat / lon */
+  v->lat = (float)_BDC_Geo->latitude;
+  v->lon = (float)_BDC_Geo->longitude;
+
+  if (_BDC_Geo->country_code) {
+    memcpy(v->country_code, _BDC_Geo->country_code, 2);
+    v->country_code[2] = '\0';
+  } else {
+    v->country_code[0] = '\0';
+  }
+
+  free((void*)v->city);
+  free((void*)v->country);
+  free((void*)v->locality);
+
+  v->city     = _BDC_Geo->city         ? strdup(_BDC_Geo->city)         : NULL;
+  v->country  = _BDC_Geo->country_name ? strdup(_BDC_Geo->country_name) : NULL;
+  v->locality = _BDC_Geo->locality     ? strdup(_BDC_Geo->locality)     : NULL;
+
+  if (!v->city || !v->country || !v->locality) {
+    perror("Failed to duplicate bigdatacloud strings");
+    return -1;
+  }
+
+  printf("_BDC_Geo->latitude: %f\n", _BDC_Geo->latitude);
+  printf("Geo->values[0]->lat: %f\n", v->lat);
+
+  return 0;
+}
+ //
+ // int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
+ // {
+ //   _Geo->values->lat = _BDC_Geo->latitude; // should these be updated here?
+ //   _Geo->values->lon = _BDC_Geo->longitude;
+ //
+ //   /* Assign string members */
+ //   memcpy(_Geo->country_code, _BDC_Geo->country_code, 2);
+ //   _Geo->country_code[2] = '\0';
+ //
+ //   _Geo->city         = strdup(_BDC_Geo->city);
+ //   _Geo->country      = strdup(_BDC_Geo->country_name);
+ //   _Geo->locality     = strdup(_BDC_Geo->locality);
+ //
+ //   if (_Geo->locality == NULL ||
+ //       _Geo->country  == NULL || 
+ //       _Geo->city     == NULL)
+ //   {
+ //     perror("Failed to duplicate bigdatacloud strings");
+ //     return -1;
+ //   }
+ //
+ //   printf("_BDC_Geo->latitude: %f", _BDC_Geo->latitude);
+ //   printf("_Geo->latitude: %f", _Geo->lat);
+ //
+ //   return 0;
+ // }
+ //
 // /** Pre-reqs either _Geo->query set or _Geo->values[0] lat and lon set */
-// char* geo_parser_get_cache_filepath(Geo_Parser* _Parser)
-// {
-//   char* file_ext = ".json";
-//   char filename_buf[256];
-//
-//   int filename_len; 
-//   int file_ext_len = strlen(file_ext);
-//   int cache_dir_len = strlen(CACHE_DIR);
-//   int filepath_len; // full path
-//
-//   if (_Parser->use_query == true) // use query for filename
-//   {
-//     int query_len = strlen(_Parser->geo->query);
-//     const char* hashed_filename = MD5_HashToString(_Parser->geo->query, query_len);
-//
-//     filepath_len = cache_dir_len + strlen(hashed_filename) + query_len;
-//     char* full_filepath = malloc(filepath_len + 1);
-//     if (full_filepath == NULL)
-//     {
-//       perror("malloc");
-//       return NULL;
-//     }
-//     snprintf(full_filepath, filepath_len, "%s%s%s",
-//         CACHE_DIR, hashed_filename, file_ext);
-//
-//     return full_filepath;
-//   }
-//   else if (_Parser->use_query == false) // use lat+lon for filename via CACHE_FILENAME_LOCATION template
-//   {
-//     filename_len = snprintf(filename_buf, 256,
-//           CACHE_FILENAME_GEO_COORDS,
-//           _Parser->geo->values[0]->lat,
-//           _Parser->geo->values[0]->lon);
-//     const char* hashed_filename = MD5_HashToString(filename_buf, filename_len);
-//
-//     filepath_len = cache_dir_len + strlen(hashed_filename) + filename_len;
-//     char* full_filepath = malloc(filepath_len + 1);
-//     if (full_filepath == NULL)
-//     {
-//       perror("malloc");
-//       return NULL;
-//     }
-//     snprintf(full_filepath, filepath_len, "%s%s%s",
-//         CACHE_DIR, hashed_filename, file_ext);
-//
-//     return full_filepath;
-//   }
-//
-//   return NULL;
-// }
+ char* geo_parser_get_cache_filepath(Geo_Parser* _Parser)
+ {
+   char* file_ext = ".json";
+   char filename_buf[256];
+
+   int filename_len; 
+   int file_ext_len = strlen(file_ext);
+   int cache_dir_len = strlen(CACHE_DIR);
+   int filepath_len; // full path
+
+   if (_Parser->use_query == true) // use query for filename
+   {
+     if (!_Parser->query) {
+      return NULL;
+    }
+
+     int query_len = strlen(_Parser->query);
+     const char* hashed_filename = MD5_HashToString(_Parser->query, query_len);
+
+     filepath_len = cache_dir_len + strlen(hashed_filename) + file_ext_len;
+     char* full_filepath = malloc(filepath_len + 1);
+     if (full_filepath == NULL)
+     {
+       perror("malloc");
+       return NULL;
+     }
+     snprintf(full_filepath, filepath_len + 1, "%s%s%s",
+         CACHE_DIR, hashed_filename, file_ext);
+
+     return full_filepath;
+   }
+   else if (_Parser->use_query == false) // use lat+lon for filename via CACHE_FILENAME_LOCATION template
+   {
+     filename_len = snprintf(filename_buf, 256,
+           CACHE_FILENAME_GEO_COORDS,
+           _Parser->geo->values[0]->lat,
+           _Parser->geo->values[0]->lon);
+     const char* hashed_filename = MD5_HashToString(filename_buf, filename_len);
+
+     filepath_len = cache_dir_len + strlen(hashed_filename) + filename_len;
+     char* full_filepath = malloc(filepath_len + 1);
+     if (full_filepath == NULL)
+     {
+       perror("malloc");
+       return NULL;
+     }
+     snprintf(full_filepath, filepath_len, "%s%s%s",
+         CACHE_DIR, hashed_filename, file_ext);
+
+     return full_filepath;
+   }
+
+   return NULL;
+ }
 
 /** Builds Geo struct from cache path
  * This was obviously not needed, we can just read the cache file directly to the output pointer... But I guess we could use it if we want to update a cache file for some reason */

@@ -1,10 +1,5 @@
 #include "api/weather_api.h"
-#include "HTTPStatusCodes.h"
-#include "error.h"
-#include "geo_parser.h"
-#include "scheduler.h"
-#include "api/weather_parser.h"
-#include <string.h>
+#include <stdio.h>
 
 /** ----------------------- INTERNAL DEFS ------------------------ */
 
@@ -99,11 +94,12 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
 {
   if (_API->http_request->params_count < 1)
   {
+    printf("Invalid param_count\n");
     _API->http_response->status_code = 400;
     return ERR_INVALID_ARG;
   }
 
-  char* query;
+  char* query = NULL;
   int geos_count = 5; // default amount of geos (max) to get
   int query_found = 0;
   linked_list_foreach(_API->http_request->params, node)
@@ -121,7 +117,7 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
         int c = 0;
         if (parse_string_to_int(Param->value, &c) == 0)
         {
-          if (geos_count <= MAX_GEO_RESULTS)
+          if (c > 0 && c <= MAX_GEO_RESULTS)
             geos_count = c;
         }
       }
@@ -132,9 +128,9 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
   {
     Geo_Parser* Parser;
     /* Init Location without weather or forecast*/
-    if (geo_parser_init_ptr(Parser,
+    if (geo_parser_init_ptr(&Parser,
                             _API,
-                            on_api_finish,
+                            weather_api_on_parser_finish,
                             true,
                             query, 
                             0.0f, 
@@ -146,15 +142,7 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
       return ERR_INTERNAL;
     }
 
-    if (geo_parser_get_geo_by_query(geos, query, &_API->http_response->body) != 0)
-    {
-      perror("geo_parser_get_geo_by_query");
-      geo_parser_dispose_ptr(&geos);
-      _API->http_response->status_code = 500;
-      return ERR_INTERNAL;
     }
-    geo_parser_dispose_ptr(&geos);
-  }
   else
   {
     _API->http_response->status_code = 400;
@@ -163,7 +151,7 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
   }
 
   _API->http_response->status_code = 200;
-
+  free(query);
   return SUCCESS;
 }
 
@@ -242,7 +230,10 @@ WeatherApiState weather_api_worktask_decide_endpoint(Weather_API* _API)
     char endpoint_path[128];
     strcpy(endpoint_path, API_ENDPOINT_ROOT);
     strcat(endpoint_path, Endpoints[i].path);
+    printf("request_path: %s\n", request_path);
+    printf("endpoint_path: %s\n", endpoint_path);
     if (strcmp(request_path, endpoint_path) == 0) {
+      printf("Setting endpoint func\n");
       _API->endpoint_func = Endpoints[i].endpoint_func;
       return WEATHER_API_VALIDATING;
     }
@@ -256,6 +247,7 @@ WeatherApiState weather_api_worktask_validate_endpoint(Weather_API* _API)
 {
   // Start parser taskwork with promise of callback when done
   // callback: weather_api_on_parser_finish
+
   if (_API->endpoint_func(_API) != SUCCESS)
     return WEATHER_API_ERROR;
 
