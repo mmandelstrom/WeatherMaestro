@@ -39,14 +39,14 @@ typedef enum
 
 typedef struct
 {
-  const char* country;
-  const char* county;
-  const char* city;
-  const char* postcode;
-  const char* street;
-  const char* house_number;
-  const char* locality; // Maybe only bigdatacloud specific
-  const char* timezone; // local timezone, ex: "Europe/Stockholm"
+  char* country;
+  char* county;
+  char* city;
+  char* postcode;
+  char* street;
+  char* house_number;
+  char* locality; // Maybe only bigdatacloud specific
+  char* timezone; // local timezone, ex: "Europe/Stockholm"
 
   char        timezone_gmt[7]; // local timezone, ex: "GMT+12"
   
@@ -59,11 +59,13 @@ typedef struct
 
 typedef struct
 {
-  const char*     query;
-  const char*     cache_path;
+  char*           query;
+  char*           cache_path;
 
-  Geo_Values**    values;
-  int             count;
+  Geo_Values*     values;
+
+  size_t          count;
+  size_t          capacity;
 
 } Geo; // wrapper for Geo structs
 
@@ -72,7 +74,7 @@ typedef void (*parser_on_finish)(void* _context, char** _json_output_ptr);
 
 typedef struct {
   Geo*              geo;
-  const char*       query;
+  char*             query;
   Scheduler_Task*   task;
   char*             json_output;
   void*             context;

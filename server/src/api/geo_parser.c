@@ -1,5 +1,7 @@
 #include "api/geo_parser.h"
-
+#include "cJSON.h"
+#include "error.h"
+#include "json_utils.h"
 /* Pre-hashed cache filename definitions */
 #define CACHE_FILENAME_GEO_COORDS "lat%.3f_lon%.3f_geo"
 #define CACHE_FILENAME_GEO_QUERY "%s_geo"
@@ -25,6 +27,12 @@ int geo_parser_init_geo_ptr(Geo** _GEO_Ptr, int _count);
  * Also saves cache file */
 char* geo_parser_build_json(Geo* _Geo);
 
+
+/* Helpers to allocate geo and count*/
+static int geo_parser_ensure_capacity(Geo* _Geo, size_t _needed);
+static int geo_parser_set_count(Geo* _Geo, size_t _new_count);
+static void geo_values_clear_strings(Geo_Values* _Geo_vals);
+/*-------------------------------------------------------------*/
 
 /* TASKWORK */
 void geo_parser_on_ext_api_finish(void* _context, void* _ext_api);
@@ -82,41 +90,28 @@ int geo_parser_init_ptr(Geo_Parser** _Parser_Ptr, void* _context, parser_on_fini
   return SUCCESS;
 }
 
-int geo_parser_init_geo_ptr(Geo** _GEO_Ptr, int _count) {
-  if (_GEO_Ptr == NULL || _count <= 0) {
+int geo_parser_init_geo_ptr(Geo** _GEO_Ptr, int _initial_capacity) {
+  if (!_GEO_Ptr || !_initial_capacity) {
     return ERR_INVALID_ARG;
   }
 
-  Geo* G = calloc(1, sizeof(Geo));
-
-  if (G == NULL) {
-    perror("malloc");
+  Geo* g = calloc(1, sizeof(Geo));
+  if (!g) {
+    perror("calloc");
     return ERR_NO_MEMORY;
   }
 
-  G->values = calloc((size_t)_count, sizeof(Geo_Values));
-  if (G->values == NULL) {
-    perror("malloc");
-    free(G);
+  g->values = calloc((size_t)_initial_capacity, sizeof(*g->values));
+  if (!g->values) {
+    perror("calloc");
+    free(g);
     return ERR_NO_MEMORY;
   }
 
-  for (int i = 0; i < _count; i++) {
-    G->values[i] = calloc(1, sizeof(Geo_Values));
-    if (G->values[i] == NULL) {
-      //Cleanup 
-      for (int j = 0; j < i; j++) {
-        free(G->values[j]);
-        G->values[j] = NULL;
-      }
-      free(G->values);
-      free(G);
-      return ERR_NO_MEMORY;
-    }
-  }
-  
-  G->count = _count;
-  *(_GEO_Ptr) = G;
+  g->capacity = (size_t)_initial_capacity;
+  g->count = 0;
+
+  *_GEO_Ptr = g;
 
   return SUCCESS;
 }
@@ -132,8 +127,14 @@ GeoParserState geo_parser_worktask_check_cache(Geo_Parser* _Parser) {
   printf("geo cache path: %s\n", _Parser->geo->cache_path);
 
   if (file_exists(_Parser->geo->cache_path)) {
+
     printf("Getting geo from cache\n");
     _Parser->json_output = read_file_to_string(_Parser->geo->cache_path);
+   if (_Parser->json_output == NULL) {
+      fprintf(stderr, "Failed to read cache file: %s\n", _Parser->geo->cache_path);
+      return GEO_PARSER_CALLING_EXT_API;
+    }
+
     return GEO_PARSER_RESPONDING;
   } 
   
@@ -213,6 +214,7 @@ GeoParserState geo_parser_worktask_parse_api_response(Geo_Parser* _Parser) {
 }
 
 
+static int geo_parser_set_count(Geo* _Geo, size_t _new_count);
 /** Builds Geo structs using cache or external API by query
  * If the same query has been made before then there is a cache */
 int geo_parser_get_geo_by_query(Geo_Parser* _Parser)
@@ -261,7 +263,19 @@ int geo_parser_get_geo_by_coords(Geo_Parser* _Parser)
 }
 
 GeoParserState geo_parser_worktask_respond(Geo_Parser* _Parser) {
-  if (_Parser == NULL || _Parser->geo == NULL) {
+  if (_Parser == NULL) {
+    return GEO_PARSER_ERROR;
+  }
+
+  //If we already have json saved
+  if (_Parser->json_output != NULL) {
+    char* out = _Parser->json_output;
+    _Parser->json_output = NULL;
+    _Parser->on_finish(_Parser->context, &out);
+    return GEO_PARSER_DISPOSING;
+  }
+  
+  if (_Parser->geo == NULL) {
     return GEO_PARSER_ERROR;
   }
 
@@ -274,6 +288,65 @@ GeoParserState geo_parser_worktask_respond(Geo_Parser* _Parser) {
 
   return GEO_PARSER_DISPOSING;
 }
+
+static int geo_parser_ensure_capacity(Geo* _Geo, size_t _needed) {
+  if (!_Geo) {
+    return ERR_INVALID_ARG;
+  }
+  
+  if (_needed <= _Geo->capacity) {
+    return SUCCESS;
+  }
+  
+  size_t new_cap = _Geo->capacity ? _Geo->capacity : 1;
+
+  while (new_cap < _needed) {
+    new_cap *= 2;
+  }
+
+  Geo_Values* temp = realloc(_Geo->values, new_cap * sizeof(*temp));
+  if (!temp) {
+    return ERR_NO_MEMORY;
+  }
+
+  //Make sure newly allocated is nulled
+  memset(temp + _Geo->capacity, 0, (new_cap - _Geo->capacity) * sizeof(*temp));
+  
+  _Geo->values = temp;
+  _Geo->capacity = new_cap;
+
+  return SUCCESS;
+}
+
+static int geo_parser_set_count(Geo* _Geo, size_t _new_count) {
+  
+  int result = geo_parser_ensure_capacity(_Geo, _new_count);
+
+  if (result != SUCCESS) {
+    return result;
+  } 
+
+  _Geo->count = _new_count;
+  return SUCCESS;
+
+}
+
+static void geo_values_clear_strings(Geo_Values* _Geo_vals) {
+  if (!_Geo_vals) {
+    return;
+  }
+
+  free(_Geo_vals->country);      _Geo_vals->country = NULL;
+  free(_Geo_vals->county);       _Geo_vals->county = NULL;
+  free(_Geo_vals->city);         _Geo_vals->city = NULL;
+  free(_Geo_vals->postcode);     _Geo_vals->postcode = NULL;
+  free(_Geo_vals->street);       _Geo_vals->street = NULL;
+  free(_Geo_vals->house_number); _Geo_vals->house_number = NULL;
+  free(_Geo_vals->locality);     _Geo_vals->locality = NULL;
+  free(_Geo_vals->timezone);     _Geo_vals->timezone = NULL;
+
+}
+
 
 int geo_parser_get_geo_from_api_by_query(Geo* _Geo, ExternalGeoAPI _ExtAPI)
 {
@@ -372,7 +445,7 @@ int geo_parser_get_geo_from_api_by_query(Geo* _Geo, ExternalGeoAPI _ExtAPI)
        return -2;
      }
 
-     result = bigdatacloud_get_geo_by_coords(BDC_Geo, _Geo->values[0]->lat, _Geo->values[0]->lon);
+     result = bigdatacloud_get_geo_by_coords(BDC_Geo, _Geo->values[0].lat, _Geo->values[0].lon);
      if (result != 0)
      {
        perror("bigdatacloud_get_geo_by_coords");
@@ -397,76 +470,70 @@ int geo_parser_get_geo_from_api_by_query(Geo* _Geo, ExternalGeoAPI _ExtAPI)
 
 int geo_parser_parse_nominatim_geo(Geo* _Geo, Nominatim_Geo* _NOM_Geo, int _geo_count)
 {
-  /* Reallocate more memory for Geo if there are more than one Nom_Geo structs */
-
-  for (int i = 0; i < _geo_count; i++)
-  {
-    if (i < _Geo->count) // Make sure we don't try to parse more than we have allocated
-    {
-      _Geo->values[i]->lat = _NOM_Geo[i].lat;
-      _Geo->values[i]->lon = _NOM_Geo[i].lon;
-
-      /* Assign string members */
-      memcpy(_Geo->values[i]->country_code, _NOM_Geo[i].country_code, 2);
-      _Geo->values[i]->country_code[2] = '\0';
-
-      if(_NOM_Geo[i].country       != NULL)
-        _Geo->values[i]->country  = strdup(_NOM_Geo[i].country);
-      if(_NOM_Geo[i].county        != NULL)
-        _Geo->values[i]->county   = strdup(_NOM_Geo[i].county);
-      if(_NOM_Geo[i].city          != NULL)
-        _Geo->values[i]->city     = strdup(_NOM_Geo[i].city);
-      if(_NOM_Geo[i].postcode      != NULL)
-        _Geo->values[i]->postcode = strdup(_NOM_Geo[i].postcode);
-      if(_NOM_Geo[i].road          != NULL)
-        _Geo->values[i]->street   = strdup(_NOM_Geo[i].road);
-      if (_NOM_Geo[i].house_number != NULL)
-        _Geo->values[i]->house_number = strdup(_NOM_Geo[i].house_number);
-
-      printf("_NOM_Geo[i].latitude: %f", _NOM_Geo[i].lat);
-      printf("_Geo->values[i]->latitude: %f", _Geo->values[i]->lat);
-    }
+  if (!_Geo || !_NOM_Geo || _geo_count <= 0) {
+    return ERR_INVALID_ARG;
+  }
+  
+  int result = geo_parser_set_count(_Geo, (size_t)_geo_count); 
+  if (result != SUCCESS) {
+    return result;
   }
 
-  return 0;
+  for (int i = 0; i < _geo_count; i++) {
+    Geo_Values* val = &_Geo->values[i];
+    geo_values_clear_strings(val);
+
+    val->lat = (float)_NOM_Geo[i].lat;
+    val->lon = (float)_NOM_Geo[i].lon;
+
+    //TODO: Make this if nicer
+    if (_NOM_Geo[i].country_code[0] && _NOM_Geo[i].country_code[1]) {
+      memcpy(val->country_code, _NOM_Geo[i].country_code, 2);
+      val->country_code[2] = '\0';
+    } else {
+      val->country_code[0] = '\0';
+    }
+    
+    if (_NOM_Geo[i].country)      val->country = strdup(_NOM_Geo[i].country);
+    if (_NOM_Geo[i].county)       val->county = strdup(_NOM_Geo[i].county);
+    if (_NOM_Geo[i].city)         val->city = strdup(_NOM_Geo[i].city);
+    if (_NOM_Geo[i].postcode)     val->postcode = strdup(_NOM_Geo[i].postcode);
+    if (_NOM_Geo[i].road)         val->street = strdup(_NOM_Geo[i].road);
+    if (_NOM_Geo[i].house_number) val->house_number = strdup(_NOM_Geo[i].house_number);
+
+  } 
+  return SUCCESS;
 }
+
 int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
 {
-  if (!_Geo || !_BDC_Geo || !_Geo->values || _Geo->count <= 0)
-    return -1;
+  if (!_Geo || !_BDC_Geo) {
+    return ERR_INVALID_ARG;
+  }
 
-  Geo_Values* v = _Geo->values[0];
-  if (!v)
-    return -1;
+  int result = geo_parser_set_count(_Geo, 1);
+  if (result != SUCCESS) {
+    return result;
+  }
 
-  /* lat / lon */
+  Geo_Values* v = &_Geo->values[0];
+  geo_values_clear_strings(v);
+
   v->lat = (float)_BDC_Geo->latitude;
   v->lon = (float)_BDC_Geo->longitude;
 
-  if (_BDC_Geo->country_code) {
+  if (_BDC_Geo->country_code[0] && _BDC_Geo->country_code[1]) {
     memcpy(v->country_code, _BDC_Geo->country_code, 2);
     v->country_code[2] = '\0';
   } else {
     v->country_code[0] = '\0';
   }
-
-  free((void*)v->city);
-  free((void*)v->country);
-  free((void*)v->locality);
-
+  
   v->city     = _BDC_Geo->city         ? strdup(_BDC_Geo->city)         : NULL;
   v->country  = _BDC_Geo->country_name ? strdup(_BDC_Geo->country_name) : NULL;
   v->locality = _BDC_Geo->locality     ? strdup(_BDC_Geo->locality)     : NULL;
 
-  if (!v->city || !v->country || !v->locality) {
-    perror("Failed to duplicate bigdatacloud strings");
-    return -1;
-  }
-
-  printf("_BDC_Geo->latitude: %f\n", _BDC_Geo->latitude);
-  printf("Geo->values[0]->lat: %f\n", v->lat);
-
-  return 0;
+  return SUCCESS;
 }
  //
  // int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
@@ -532,8 +599,8 @@ int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
    {
      filename_len = snprintf(filename_buf, 256,
            CACHE_FILENAME_GEO_COORDS,
-           _Parser->geo->values[0]->lat,
-           _Parser->geo->values[0]->lon);
+           _Parser->geo->values[0].lat,
+           _Parser->geo->values[0].lon);
      const char* hashed_filename = MD5_HashToString(filename_buf, filename_len);
 
      filepath_len = cache_dir_len + strlen(hashed_filename) + filename_len;
@@ -621,66 +688,95 @@ int geo_parser_parse_bigdatacloud_geo(Geo* _Geo, Bigdatacloud_Geo* _BDC_Geo)
  * Last stage, everything in Geo should be populated by now */
 char* geo_parser_build_json(Geo* _Geo)
 {
+  if (!_Geo) {
+    return NULL;
+  }
+
   cJSON* Json_Root = cJSON_CreateObject();
+  if (!Json_Root) {
+    return NULL;
+  }
+
   json_set_string(Json_Root, "query", _Geo->query);
 
   cJSON* Json_Geo = cJSON_CreateArray();
-
-  for (int i = 0; i < _Geo->count; i++)
-  {
-    Geo_Values Geo_Values = *_Geo->values[i];
-    if (Geo_Values.lat != 0 && Geo_Values.lon != 0) // don't add these to json
-    {
-      cJSON* Json_Geo = cJSON_CreateObject();
-
-      json_set_double(Json_Geo, "latitude",  Geo_Values.lat);
-      json_set_double(Json_Geo, "longitude", Geo_Values.lon);
-
-      if(Geo_Values.country  != NULL && strcmp(Geo_Values.country, "Unknown") != 0)
-        json_set_string(Json_Geo, "country", Geo_Values.country);
-
-      if(Geo_Values.country_code[0]   != '\0') // is this viable?
-        json_set_string(Json_Geo, "country_code", Geo_Values.country_code);
-
-      if(Geo_Values.county   != NULL && strcmp(Geo_Values.county, "Unknown") != 0)
-        json_set_string(Json_Geo, "county", Geo_Values.county);
-
-      if(Geo_Values.city     != NULL && strcmp(Geo_Values.city, "Unknown") != 0)
-        json_set_string(Json_Geo, "city", Geo_Values.city);
-
-      if(Geo_Values.postcode != NULL && strcmp(Geo_Values.postcode, "Unknown") != 0)
-        json_set_string(Json_Geo, "postcode", Geo_Values.postcode);
-
-      if(Geo_Values.street   != NULL && strcmp(Geo_Values.street, "Unknown") != 0)
-        json_set_string(Json_Geo, "street", Geo_Values.street);
-
-      if (Geo_Values.house_number != NULL && strcmp(Geo_Values.house_number, "Unknown") != 0)
-        json_set_string(Json_Geo, "house_number", Geo_Values.house_number);
-
-      if (Geo_Values.locality != NULL && strcmp(Geo_Values.locality, "Unknown") != 0)
-        json_set_string(Json_Geo, "locality", Geo_Values.locality);
-
-      if(Geo_Values.timezone != NULL && strcmp(Geo_Values.timezone, "Unknown") != 0)
-        json_set_string(Json_Geo, "timezone", Geo_Values.timezone);
-      
-      if(Geo_Values.timezone_gmt[0]   != '\0')
-        json_set_string(Json_Geo, "timezone_gmt", Geo_Values.timezone_gmt);
-
-      cJSON_AddItemToArray(Json_Geo, Json_Geo);
-    }
-
+  if (!Json_Geo) {
+    cJSON_Delete(Json_Root);
+    return NULL;
   }
+
+    for (int i = 0; i < _Geo->count; i++) {
+
+      Geo_Values* Geo_Values = &_Geo->values[i];
+      // Don't add these
+      if (Geo_Values->lat == 0.0f && Geo_Values->lon == 0.0f) {
+        continue;
+      } 
+      
+      cJSON* Geo_obj = cJSON_CreateObject();
+      if (!Geo_obj) {
+        continue;
+      }
+      
+      json_set_double(Geo_obj, "latitude", Geo_Values->lat);
+      json_set_double(Geo_obj, "longitude", Geo_Values->lon);
+
+      if (Geo_Values->country && strcmp(Geo_Values->country, "Unknown") != 0) {
+        json_set_string(Geo_obj, "country", Geo_Values->country);
+      }
+
+      if (Geo_Values->country_code[0] != '\0') {
+        json_set_string(Geo_obj, "country_code", Geo_Values->country_code);
+      }
+
+      if (Geo_Values->county && strcmp(Geo_Values->county, "Unknown") != 0) {
+        json_set_string(Geo_obj, "county", Geo_Values->county);
+      }
+
+      if (Geo_Values->city && strcmp(Geo_Values->city, "Unknown") != 0) {
+        json_set_string(Geo_obj, "city", Geo_Values->city);
+      }
+
+      if (Geo_Values->postcode && strcmp(Geo_Values->postcode, "Unknown") != 0) {
+        json_set_string(Geo_obj, "postcode", Geo_Values->postcode);
+      }
+
+      if (Geo_Values->street && strcmp(Geo_Values->street, "Unknown") != 0) {
+        json_set_string(Geo_obj, "street", Geo_Values->street);
+      }
+
+      if (Geo_Values->house_number && strcmp(Geo_Values->house_number, "Unknown") != 0) {
+        json_set_string(Geo_obj, "house_number", Geo_Values->house_number);
+      }
+
+      if (Geo_Values->locality && strcmp(Geo_Values->locality, "Unknown") != 0) {
+        json_set_string(Geo_obj, "locality", Geo_Values->locality);
+      }
+
+      if (Geo_Values->timezone && strcmp(Geo_Values->timezone, "Unknown") != 0) {
+        json_set_string(Geo_obj, "timezone", Geo_Values->timezone);
+      }
+
+      if (Geo_Values->timezone_gmt[0] != '\0') {
+        json_set_string(Geo_obj, "timezone_gmt", Geo_Values->timezone_gmt);
+      }
+
+      cJSON_AddItemToArray(Json_Geo, Geo_obj);
+    }
+    
   cJSON_AddItemToObject(Json_Root, "geo", Json_Geo);
-  char* json_str = cJSON_Print(Json_Root); // Uses realloc and ends up in heap
-
-  if (write_string_to_file(json_str, _Geo->cache_path) != 0)
-    fprintf(stderr, "FAILED TO WRITE STRING \"%p\" TO CACHE \"%s\"\n", json_str, _Geo->cache_path); 
-
+  char* json_str = cJSON_Print(Json_Root);
   cJSON_Delete(Json_Root);
 
+  if (json_str && _Geo->cache_path) {
+    if (write_string_to_file(json_str, _Geo->cache_path) != 0) {
+      fprintf(stderr, "FAILED TO WRITE STRING \"%p\" TO CACHE \"%s\"\n", json_str, _Geo->cache_path);
+    }
+  }
   return json_str;
 }
 
+  
 /** Takes a string and tries to convert it to float
  * Only takes COORD_BUFFER_LENGTH amount of chars to target
  * Returns 1 if succesful parse, 0 if none parsed and -1 on error */
@@ -767,47 +863,32 @@ void geo_parser_taskwork(void* _context, uint64_t _montime) {
   }
 }
 
-void geo_dispose_ptr(Geo** _G_ptr)
+void geo_dispose_ptr(Geo** _Geo_Ptr)
 {
-  if (_G_ptr == NULL || *_G_ptr == NULL){
+  if (!_Geo_Ptr || !*_Geo_Ptr) {
     return;
-  }
+  } 
 
-  Geo* G = *_G_ptr;
+  Geo* g = *_Geo_Ptr;
 
-  G->query = NULL;
+  g->query = NULL;
 
-  if (G->cache_path) {
-    free((void*)G->cache_path);
-    G->cache_path = NULL;
-  }
+  free(g->cache_path);
+  g->cache_path = NULL;
 
-  if (G->values) {
-    for (int i = 0; i < G->count; i++) {
-      Geo_Values* V = G->values[i];
-      if (!V) continue;
-
-      free((void*)V->country);      V->country = NULL;
-      free((void*)V->county);       V->county = NULL;
-      free((void*)V->city);         V->city = NULL;
-      free((void*)V->postcode);     V->postcode = NULL;
-      free((void*)V->street);       V->street = NULL;
-      free((void*)V->house_number); V->house_number = NULL;
-      free((void*)V->locality);     V->locality = NULL;
-      free((void*)V->timezone);     V->timezone = NULL;
-
-      free(V);
-      G->values[i] = NULL;
+  if (g->values) {
+    for (size_t i = 0; i < g->count; i++) {
+      geo_values_clear_strings(&g->values[i]);
     }
-
-    free(G->values);
-    G->values = NULL;
+    free(g->values);
+    g->values = NULL;
   }
 
-  G->count = 0;
+  g->count = 0;
+  g->capacity = 0;
 
-  free(G);
-  *_G_ptr = NULL;
+  free(g);
+  *_Geo_Ptr = NULL;
 }
 
 
