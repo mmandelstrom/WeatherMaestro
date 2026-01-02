@@ -165,6 +165,9 @@ run-asan: asan
 	@echo "Running ASan build..."
 	@./$(BIN)
 
+asan:
+	@$(MAKE) CC=$(CC) CFLAGS="$(CFLAGS) $(ASAN_FLAGS)" LDFLAGS="$(LDFLAGS) $(ASAN_FLAGS)" all
+
 print:
 	@echo "Source files: $(SRC)"
 	@echo "Object files: $(OBJ)"

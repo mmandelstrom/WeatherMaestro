@@ -1,7 +1,4 @@
 #include "api/geo_parser.h"
-#include "cJSON.h"
-#include "error.h"
-#include "json_utils.h"
 /* Pre-hashed cache filename definitions */
 #define CACHE_FILENAME_GEO_COORDS "lat%.3f_lon%.3f_geo"
 #define CACHE_FILENAME_GEO_QUERY "%s_geo"
@@ -116,6 +113,22 @@ int geo_parser_init_geo_ptr(Geo** _GEO_Ptr, int _initial_capacity) {
   return SUCCESS;
 }
 
+static int geo_parser_valid_cache(const char* _json) {
+  if (_json == NULL) {
+    return 0;
+  }
+  
+  cJSON* root = cJSON_Parse(_json);
+  if (root == NULL) {
+    return 0;
+  }
+
+  cJSON* geo = cJSON_GetObjectItemCaseSensitive(root, "geo");
+  int res = (geo && cJSON_IsArray(geo) && cJSON_GetArraySize(geo) > 0);
+  cJSON_Delete(root);
+
+  return res;
+}
 
 GeoParserState geo_parser_worktask_check_cache(Geo_Parser* _Parser) {
   if (_Parser == NULL) {
@@ -132,6 +145,13 @@ GeoParserState geo_parser_worktask_check_cache(Geo_Parser* _Parser) {
     _Parser->json_output = read_file_to_string(_Parser->geo->cache_path);
    if (_Parser->json_output == NULL) {
       fprintf(stderr, "Failed to read cache file: %s\n", _Parser->geo->cache_path);
+      return GEO_PARSER_CALLING_EXT_API;
+    }
+  
+  if (geo_parser_valid_cache(_Parser->json_output) == 0) {
+      printf("Cache exists but is an empty array, ignoring add delete function\n");
+      free(_Parser->json_output);
+      _Parser->json_output = NULL;
       return GEO_PARSER_CALLING_EXT_API;
     }
 
@@ -182,13 +202,14 @@ void geo_parser_on_ext_api_finish(void* _context, void* _ext_api) {
   
   Geo_Parser* Parser = (Geo_Parser*)_context;
 
-  Parser->nom_result = (Nominatim_Result*)_ext_api;
-
-  if (Parser->nom_result == NULL) {
+  Nominatim_Result** Nom_Ptr = (Nominatim_Result**)_ext_api;
+  
+  if (Nom_Ptr == NULL || *Nom_Ptr == NULL) {
     Parser->state = GEO_PARSER_ERROR;
     return;
   }
 
+  Parser->nom_result = *Nom_Ptr;
   Parser->state = GEO_PARSER_PARSING;
 }
 

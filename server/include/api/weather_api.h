@@ -53,7 +53,7 @@ struct Weather_API
   HTTP_Response*          http_response;
 
   Weather_Parser*         weather_parser;
-  /* Geo_Parser*             geo_parser; */
+  Geo_Parser*             geo_parser; 
 
   Scheduler_Task*         task;
   on_api_finish           on_api_finish; 

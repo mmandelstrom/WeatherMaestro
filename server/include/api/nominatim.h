@@ -15,7 +15,7 @@
 #include <stdio.h>
 
 
-#define NOMINATIM_GEOCODE_QUERY "https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=%s"
+#define NOMINATIM_GEOCODE_QUERY "http://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=%s"
 
 
 typedef struct

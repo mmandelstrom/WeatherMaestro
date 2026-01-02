@@ -76,12 +76,13 @@ int weather_api_init_ptr(Weather_API** _Weather_API_Ptr, HTTP_Request* _HTTP_Req
 
 void weather_api_on_parser_finish(void* _context, char** _json_output_ptr)
 {
-  if (!_context) {
+  if (!_context || !_json_output_ptr || !*_json_output_ptr) {
     return;
   }
 
   Weather_API* API = (Weather_API*)_context;
 
+  API->http_response->status_code = 200;
   API->http_response->body = *_json_output_ptr;
 
   printf("weather_api_on_parser_finish\n");
@@ -127,8 +128,9 @@ int weather_api_handle_endpoint_geo_get(Weather_API* _API)
   if (query_found > 0)
   {
     Geo_Parser* Parser;
+    _API->geo_parser = Parser;
     /* Init Location without weather or forecast*/
-    if (geo_parser_init_ptr(&Parser,
+    if (geo_parser_init_ptr(&_API->geo_parser,
                             _API,
                             weather_api_on_parser_finish,
                             true,

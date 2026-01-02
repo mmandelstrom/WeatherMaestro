@@ -12,6 +12,7 @@
 
 # === External Libraries ===
 -Ilibs/include
+-Ilibs/mbedtls/include
 
 # === Server Public Includes ===
 -Iserver/include

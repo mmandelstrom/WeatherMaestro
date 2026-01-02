@@ -1,6 +1,8 @@
 #include "weather/weather_server.h"
 #include <signal.h>
 
+
+
 volatile sig_atomic_t stop = 0;
 Weather_Server Server;
 
