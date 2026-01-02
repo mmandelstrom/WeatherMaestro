@@ -46,6 +46,9 @@ typedef struct {
   char* writeData; /*Allocated in TCP_Client_Read, free'd in dispose*/
 
   TCP_Data  data;
+  struct sockaddr_storage remote_addr;
+  socklen_t               remote_addr_len;
+  int                     has_remote_addr;
 
 } TCP_Client;
 
@@ -63,9 +66,9 @@ ssize_t tcp_client_realloc_data(TCP_Data* _Data, void* _input, size_t _size);
 
 int tcp_client_write(TCP_Client* _Client, size_t _length);
 int tcp_client_write_simple(TCP_Client* _Client, const uint8_t* _buf, int _len);
+int tcp_client_connect_step(TCP_Client* _Client); //For nonblocking tls
 
 void tcp_client_disconnect(TCP_Client* _Client);
-
 void tcp_client_dispose(TCP_Client* _Client);
 void tcp_client_dispose_ptr(TCP_Client** _ClientPtr);
 

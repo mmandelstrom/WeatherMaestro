@@ -1,4 +1,6 @@
 #include "tcp_client.h"
+#include <asm-generic/errno.h>
+#include <error.h>
 #include <limits.h>
 #include <stdint.h>
 
@@ -44,7 +46,10 @@ int tcp_client_init(TCP_Client* _Client, const char* _Host, const char* _Port) {
 
     int cres = connect(fd, addr_info->ai_addr, addr_info->ai_addrlen);
     if (cres == 0) {
-      /*connected*/
+      memset(&_Client->remote_addr, 0, sizeof(_Client->remote_addr));
+      memcpy(&_Client->remote_addr, addr_info->ai_addr, addr_info->ai_addrlen);
+      _Client->remote_addr_len = (socklen_t)addr_info->ai_addrlen;
+      _Client->has_remote_addr = 1;
       break;
     }
     if (cres < 0 && errno == EINPROGRESS) {
@@ -172,6 +177,30 @@ void tcp_client_disconnect(TCP_Client* _Client)
     close(_Client->fd);
 
   _Client->fd = -1;
+}
+
+int tcp_client_connect_step(TCP_Client* _Client) {
+  if (!_Client || _Client->fd < 0 || !_Client->has_remote_addr) {
+    return ERR_INVALID_ARG;
+  }
+  
+  int res = connect(_Client->fd, (struct sockaddr*)&_Client->remote_addr, _Client->remote_addr_len);
+
+  if (res == 0) {
+    return SUCCESS;
+  }
+
+  if (errno == EISCONN) {
+    //Connected now
+    return SUCCESS;
+  }
+
+  if (errno == EINPROGRESS || errno == EALREADY) {
+    //Still connecting
+    return ERR_BUSY;
+  }
+
+  return ERR_IO; //Failed to connect
 }
 
 void tcp_client_dispose(TCP_Client* _Client) {
