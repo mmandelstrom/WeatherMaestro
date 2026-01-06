@@ -35,8 +35,21 @@ class WeatherClient {
 
     public:
         WeatherClient(std::string _City, std::string _Country); 
+        int setCityData(std::string _Name, std::string _Country, double _Lat, double _Lon); // DBG
         int getWeather();
         int getCoords(std::string _Name);
+
+        float getTemp();
+        float getWindspeed();
+        float getPrecipitation();
+        int getWinddirection();
+        int getWeatherCode();
+        std::string getTemperature_unit();
+        std::string getWindspeed_unit();
+        std::string getPrecipitation_unit();
+        std::string getWinddirection_unit();
+        std::string getDate();
+        std::string getTime();
         
 
 

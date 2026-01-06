@@ -14,9 +14,12 @@ int main() {
   c.add(c2);
   c.add(c3);
 
+  std::cout << "WeatherMaestro C++ edition!" << std::endl << std::endl;
+
   c.listCities();
-  c.getCity("Sune");
-  c.getCity("Sundbyberg");
+
+  client.setCityData(c1.getName(), c1.getCountry(), c1.getLat(), c1.getLon());
+  client.getWeather();
   
   return 0; 
 }

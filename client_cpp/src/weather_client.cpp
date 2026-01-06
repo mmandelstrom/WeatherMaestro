@@ -124,3 +124,23 @@ int WeatherClient::getCoords(std::string _Name) {
 }
 
 
+int WeatherClient::setCityData(std::string _Name, std::string _Country, double _Lat, double _Lon) {
+    this->city = _Name;
+    this->country = _Country;
+    this->lat = _Lat;
+    this->lon = _Lon;
+    return 0;
+}
+
+// Misc getters...
+float WeatherClient::getTemp() {return this->temperature;}
+float WeatherClient::getWindspeed() {return this->windspeed;}
+float WeatherClient::getPrecipitation() {return this->precipitation;}
+int WeatherClient::getWinddirection() {return this->winddirection;}
+int WeatherClient::getWeatherCode() {return this->wmo_code;}
+std::string WeatherClient::getTemperature_unit() {return this->temperature_unit;}
+std::string WeatherClient::getWindspeed_unit() {return this->windspeed_unit;}
+std::string WeatherClient::getPrecipitation_unit() {return this->precipitation_unit;}
+std::string WeatherClient::getWinddirection_unit() {return this->winddirection_unit;}
+std::string WeatherClient::getDate() {return this->time;}
+std::string WeatherClient::getTime() {return this->date;}
