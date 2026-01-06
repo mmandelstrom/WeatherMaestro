@@ -142,5 +142,5 @@ std::string WeatherClient::getTemperature_unit() {return this->temperature_unit;
 std::string WeatherClient::getWindspeed_unit() {return this->windspeed_unit;}
 std::string WeatherClient::getPrecipitation_unit() {return this->precipitation_unit;}
 std::string WeatherClient::getWinddirection_unit() {return this->winddirection_unit;}
-std::string WeatherClient::getDate() {return this->time;}
-std::string WeatherClient::getTime() {return this->date;}
+std::string WeatherClient::getDate() {return this->date;}
+std::string WeatherClient::getTime() {return this->time;}
