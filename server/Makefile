@@ -86,7 +86,7 @@ OBJ := $(SRC_OBJ) $(CORE_OBJ) $(UTILS_OBJ) $(LIBS_OBJ)
 DEP := $(OBJ:.o=.d)
 
 # Binary name
-BIN := ../server_app
+BIN := ../bin/server_app
 
 # ==================== Recipes ====================
 

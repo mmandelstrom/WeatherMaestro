@@ -87,7 +87,7 @@ OBJ := $(SRC_OBJ) $(CORE_OBJ) $(UTILS_OBJ) $(LIBS_OBJ)
 DEP := $(OBJ:.o=.d)
 
 # Binary name
-BIN := ../maestro_cli
+BIN := ../bin/maestro_cli
 
 # ==================== Recipes ====================
 

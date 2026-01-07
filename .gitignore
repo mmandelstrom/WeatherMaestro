@@ -57,8 +57,8 @@ dkms.conf
 # No .bak
 *.bak
 
-# No binaries ending with _app
-*_app
+# No binaries
+bin/
 
 # No build folder
 build/
@@ -80,7 +80,6 @@ fuzz_http_asan
 /*.cur_input
 /*.state
 /*.synced
-
 
 
 #Untracking these for now
