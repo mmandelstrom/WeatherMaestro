@@ -21,7 +21,7 @@ LIBS_SRC_DIR  := libs/src
 # Source files to build
 SRC       := $(shell find -L $(SRC_DIR) 	-type f -name '*.c')
 CORE_SRC  := #$(shell find -L ../$(CORE_SRC_DIR)  -type f -name '*.c')
-UTILS_SRC := #$(shell find -L ../$(UTILS_SRC_DIR) -type f -name '*.c')
+UTILS_SRC := ../$(UTILS_SRC_DIR)/misc_utils.c #$(shell find -L ../$(UTILS_SRC_DIR) -type f -name '*.c')
 LIBS_SRC  := #../libs/src/HTTPStatusCodes.c ../libs/src/cJSON.c ../libs/src/md5.c
 
 ALL_SRC := $(SRC) $(CORE_SRC) $(UTILS_SRC) $(LIBS_SRC)
@@ -87,7 +87,7 @@ OBJ := $(SRC_OBJ) $(CORE_OBJ) $(UTILS_OBJ) $(LIBS_OBJ)
 DEP := $(OBJ:.o=.d)
 
 # Binary name
-BIN := ../maestro
+BIN := ../maestro_cli
 
 # ==================== Recipes ====================
 

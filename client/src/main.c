@@ -1,2 +1,2 @@
-#include "cli/cli_client.h"
-int main(int _argc, const char** _argv) { return cli_dispatch(_argc, _argv); }
+#include "cli/maestro_cli.h"
+int main(int _argc, const char** _argv) { return maestro_cli_dispatch(_argc, _argv); }
