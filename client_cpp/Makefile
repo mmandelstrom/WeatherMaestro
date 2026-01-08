@@ -32,9 +32,9 @@ CFLAGS := -std=c++11 -MMD -MP -Wall -Wextra -Wfatal-errors -g -I../libs -I../uti
 
 # Linker flags (auto-detect platform)
 ifeq ($(UNAME_S),Darwin)
-	LDFLAGS := -flto
+	LDFLAGS := -flto -lncurses
 else
-	LDFLAGS := -flto -Wl,--gc-sections
+	LDFLAGS := -flto -Wl,--gc-sections -lncurses
 endif
 
 # Linked libraries
@@ -61,7 +61,7 @@ all: $(BIN)
 
 $(BIN): $(OBJ)
 	@echo "Linking..."
-	@$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
+	@$(CC) $(OBJ) -o $@ $(LDFLAGS) $(LIBS)
 
 $(BUILD_DIR)/utils/%.o: ../utils/src/%.c
 	@echo "Compiling $<..."
