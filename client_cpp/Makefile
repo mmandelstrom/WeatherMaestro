@@ -11,6 +11,7 @@ else
 endif
 
 BUILD_DIR := build
+BIN_DIR		:= ../bin
 
 # Source files directories
 SRC_DIR   := src
@@ -52,7 +53,7 @@ OBJ := $(SRC_OBJ) $(UTILS_OBJ) $(LIBS_OBJ)
 DEP := $(OBJ:.o=.d)
 
 # Binary name
-BIN := ../cpp_client
+BIN := cpp_client
 
 # ==================== Recipes ====================
 
@@ -61,7 +62,8 @@ all: $(BIN)
 
 $(BIN): $(OBJ)
 	@echo "Linking..."
-	@$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
+	@mkdir -p $(BIN_DIR)
+	@$(CC) $(LDFLAGS) $(OBJ) -o $(BIN_DIR)/$@ $(LIBS)
 
 $(BUILD_DIR)/utils/%.o: ../utils/src/%.c
 	@echo "Compiling $<..."

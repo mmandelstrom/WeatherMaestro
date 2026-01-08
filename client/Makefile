@@ -11,6 +11,7 @@ else
 endif
 
 BUILD_DIR := build
+BIN_DIR 	:= ../bin
 
 # Source files directories
 SRC_DIR   		:= src
@@ -87,7 +88,7 @@ OBJ := $(SRC_OBJ) $(CORE_OBJ) $(UTILS_OBJ) $(LIBS_OBJ)
 DEP := $(OBJ:.o=.d)
 
 # Binary name
-BIN := ../bin/maestro_cli
+BIN := maestro_cli
 
 # ==================== Recipes ====================
 
@@ -96,7 +97,8 @@ all: $(BIN)
 
 $(BIN): $(OBJ)
 	@echo "Linking..."
-	@$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
+	@mkdir -p $(BIN_DIR)
+	@$(CC) $(LDFLAGS) $(OBJ) -o $(BIN_DIR)/$@ $(LIBS)
 
 asan: clean
 	@echo "Building ASan binary..."

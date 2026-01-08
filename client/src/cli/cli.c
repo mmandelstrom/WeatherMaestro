@@ -82,7 +82,7 @@ void cli_cmd_print_help(const char* _cmd_name, const CLI_Cmd* _Commands)
   for (i = 0; _Commands[i].name; i++)
   {
     printf("  %-10s", _Commands[i].name); 
-    if (_Commands[i].shrt != 0) printf(" -%c", _Commands[i].shrt);   
+    if (_Commands[i].shrt != 0) printf(" %c", _Commands[i].shrt);   
     printf("  %s\n", _Commands[i].desc);
   }
 
