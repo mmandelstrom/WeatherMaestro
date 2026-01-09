@@ -59,7 +59,6 @@ typedef struct {
   int interval;
 
   Meteo_Weather_Values *values;
-
 } Meteo_Current;
 
 typedef struct {
@@ -96,7 +95,6 @@ typedef struct Meteo Meteo;
 typedef void (*on_ext_api_finish)(void *_context, void *_ext_api);
 
 typedef struct Meteo {
-  HTTP_Client http_client;
   void *context;
   on_ext_api_finish on_finish;
 

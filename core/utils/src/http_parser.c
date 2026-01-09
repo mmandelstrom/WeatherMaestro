@@ -1,5 +1,7 @@
 #include "http_parser.h"
 #include "http_client.h"
+#include "linked_list.h"
+#include <stdio.h>
 
 void http_parser_dispose(HTTP_Request* _Req, HTTP_Response* _Resp);
 
@@ -430,7 +432,19 @@ int http_parser_get_header_value(Linked_List* _headers, char* _name, const char*
 
 void http_parser_dispose_linked_list(Linked_List *_list) {
   if (!_list) return;
-
+  
+  linked_list_foreach(_list, node) {
+    HTTP_Key_Value* h = (HTTP_Key_Value*)node->item;
+    if (h->key != NULL) {
+      free(h->key);
+    }
+    if (h->value != NULL) {
+      free(h->value);
+    }
+    if (h != NULL) {
+      free(h);
+    }
+  }
   linked_list_items_dispose(_list);
   linked_list_destroy(&_list);
 }

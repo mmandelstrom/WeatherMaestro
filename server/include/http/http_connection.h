@@ -47,12 +47,12 @@ typedef struct
   int                                 line_buf_len;
   int                                 retries; // counter for parsing to avoid infinite loop on lost tcp connection
 
-  TCP_Client*                         tcp_client;
+  TCP_Client                          tcp_client;
   HTTP_Request*                       request;
   HTTP_Response*                      response;
 
 	http_server_connection_on_request   on_request;
-	http_server_connection_on_dispose  on_dispose;
+	http_server_connection_on_dispose   on_dispose;
   int                                 content_length;
   int                                 weather_done;
 

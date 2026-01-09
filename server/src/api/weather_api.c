@@ -310,6 +310,11 @@ void weather_api_dispose_ptr(Weather_API **_API_Ptr) {
     if ((*_API_Ptr)->forecast != NULL)
       weather_parser_dispose_ptr(NULL, &(*_API_Ptr)->forecast); */
 
+    if ((*_API_Ptr)->weather_parser != NULL) {
+      weather_parser_dispose_ptr(&(*_API_Ptr)->weather_parser);
+      (*_API_Ptr)->weather_parser = NULL;
+    }
+
     scheduler_destroy_task((*_API_Ptr)->task);
     (*_API_Ptr)->task = NULL;
 

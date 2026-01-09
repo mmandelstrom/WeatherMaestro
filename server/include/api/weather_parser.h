@@ -64,7 +64,6 @@ typedef struct {
 
 typedef struct {
   const char *cache_path;
-
   const char *temperature_unit;
   const char *windspeed_unit;
   const char *precipitation_unit;
@@ -97,6 +96,8 @@ typedef struct {
 
   Weather *weather;
   Meteo *meteo;
+  const char *cache_path;
+
 
   float latitude;
   float longitude;

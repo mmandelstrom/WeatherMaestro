@@ -28,25 +28,20 @@ int http_server_connection_init(HTTP_Server_Connection *_Connection, int _fd) {
   }
 
   // Change to real init/disposeon_api_finish
-  TCP_Client *TCPC = (TCP_Client *)calloc(1, sizeof(TCP_Client));
   HTTP_Request *req = (HTTP_Request *)calloc(1, sizeof(HTTP_Request));
   HTTP_Response *resp = (HTTP_Response *)calloc(1, sizeof(HTTP_Response));
 
-  if (!TCPC || !req || !resp) {
-    free(TCPC);
+  if (!req || !resp) {
     free(req);
     free(resp);
     return ERR_NO_MEMORY;
   }
 
-  _Connection->tcp_client = TCPC;
-  _Connection->tcp_client->fd = _fd;
-  _Connection->tcp_client->data.addr = calloc(1, sizeof(uint8_t));
-  if (!_Connection->tcp_client->data.addr) {
-    free(TCPC);
+  _Connection->tcp_client.fd = _fd;
+  _Connection->tcp_client.data.addr = calloc(1, sizeof(uint8_t));
+  if (!_Connection->tcp_client.data.addr) {
     free(req);
     free(resp);
-    _Connection->tcp_client = NULL;
     return ERR_NO_MEMORY;
   }
   _Connection->request = req;
@@ -56,11 +51,9 @@ int http_server_connection_init(HTTP_Server_Connection *_Connection, int _fd) {
 
   if (!_Connection->task) {
 
-    free(_Connection->tcp_client->data.addr);
-    free(_Connection->tcp_client);
+    free(_Connection->tcp_client.data.addr);
     free(_Connection->request);
     free(_Connection->response);
-    _Connection->tcp_client = NULL;
     _Connection->request = NULL;
     _Connection->response = NULL;
     return ERR_FATAL;
@@ -119,7 +112,7 @@ worktask_request_read_firstline(HTTP_Server_Connection *_Connection) {
     return HTTP_SERVER_CONNECTION_ERROR;
   }
 
-  TCP_Client *TCP_C = _Connection->tcp_client;
+  TCP_Client *TCP_C = &_Connection->tcp_client;
 
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
   int bytes_read =
@@ -218,7 +211,7 @@ worktask_request_read_headers(HTTP_Server_Connection *_Connection) {
     }
   */
 
-  TCP_Client *TCP_C = _Connection->tcp_client;
+  TCP_Client *TCP_C = &_Connection->tcp_client;
 
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
   int bytes_read =
@@ -314,7 +307,7 @@ worktask_request_read_body(HTTP_Server_Connection *_Connection) {
   if (_Connection->retries++ > HTTP_SERVER_CONNECTION_MAX_RETRIES)
     return HTTP_SERVER_CONNECTION_ERROR;
 
-  TCP_Client *TCP_C = _Connection->tcp_client;
+  TCP_Client *TCP_C = &_Connection->tcp_client;
 
   uint8_t tcp_buf[TCP_MESSAGE_BUFFER_MAX_SIZE];
   int bytes_read =
@@ -361,7 +354,7 @@ worktask_request_validate(HTTP_Server_Connection *_Connection) {
 HTTPServerConnectionState
 worktask_respond(HTTP_Server_Connection *_Connection) {
 
-  TCP_Client *TCP_C = _Connection->tcp_client;
+  TCP_Client *TCP_C = &_Connection->tcp_client;
 
   if (_Connection->response->full_response != NULL &&
       _Connection->response->status_code != 500 &&
@@ -574,7 +567,7 @@ void http_server_connection_taskwork(void *_Context, uint64_t _montime) {
 
   case HTTP_SERVER_CONNECTION_DISPOSING: {
     printf("HTTP_SERVER_CONNECTION_DISPOSING\n");
-    tcp_client_disconnect(_Connection->tcp_client);
+    tcp_client_disconnect(&_Connection->tcp_client);
     _Connection->on_dispose(_Connection->context);
 
   } break;
@@ -593,11 +586,11 @@ void http_server_connection_dispose(HTTP_Server_Connection *_Connection) {
     return;
   }
 
-  tcp_client_dispose(_Connection->tcp_client);
-  if (_Connection->tcp_client != NULL) {
-    free(_Connection->tcp_client);
-    _Connection->tcp_client = NULL;
-  }
+  tcp_client_dispose(&_Connection->tcp_client);
+  // if (&_Connection->tcp_client != NULL) {
+  //   free(&_Connection->tcp_client);
+  //   _Connection->tcp_client = NULL;
+  // }
   
   http_parser_dispose(_Connection->request, _Connection->response);
   free(_Connection->request);

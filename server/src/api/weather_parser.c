@@ -2,6 +2,7 @@
 #include "api/meteo.h"
 #include "scheduler.h"
 #include <error.h>
+#include <stdio.h>
 
 /* ---------------------- INTERNAL DEFS ----------------------- */
 
@@ -25,7 +26,7 @@ void weather_parser_dispose_weather_ptr(Weather** _W_Ptr);
 int weather_parser_parse_meteo_current(Weather_Parser* _Parser);
 /** Builds a json formatted string from struct members 
  * Saves it to cache file as well */
-char* weather_parser_build_json_current(Weather* _Weather);
+char* weather_parser_build_json_current(Weather* _Weather, const char* _cache_path);
 
 /* FORECAST WEATHER */
 
@@ -33,7 +34,7 @@ char* weather_parser_build_json_current(Weather* _Weather);
 int weather_parser_parse_meteo_hourly(Weather_Parser* _Parser);
 /** Builds a json formatted string from struct members 
  * Saves it to cache file as well */
-char* weather_parser_build_json_forecast(Weather* _Weather);
+char* weather_parser_build_json_forecast(Weather* _Weather, const char* _cache_path);
 
 /* TASKWORK */
 
@@ -135,7 +136,6 @@ void weather_parser_taskwork(void* _context, uint64_t _montime)
     case WEATHER_PARSER_DISPOSING:
     {
       printf("WEATHER_PARSER_DISPOSING\n");
-      weather_parser_dispose_ptr(&Parser);
 
     } break;
 
@@ -172,6 +172,10 @@ WeatherParserState weather_parser_worktask_check_cache(Weather_Parser* _Parser)
     }
 
     const char* cache_path = weather_parser_get_cache_filepath(_Parser->latitude, _Parser->longitude, false);
+    _Parser->cache_path = cache_path; 
+   
+
+    printf("File cache_path: %s\n", cache_path);
 
     if (cache_path == NULL)
     {
@@ -183,7 +187,6 @@ WeatherParserState weather_parser_worktask_check_cache(Weather_Parser* _Parser)
       printf("Getting weather from cache\n");
 
       char* json_output = read_file_to_string(cache_path);
-      free((void*)cache_path);
       if (json_output == NULL)
       {
         perror("read_file_to_string");
@@ -203,6 +206,7 @@ WeatherParserState weather_parser_worktask_check_cache(Weather_Parser* _Parser)
   }
   return WEATHER_PARSER_ERROR;
 }
+
 WeatherParserState weather_parser_worktask_call_ext_api(Weather_Parser* _Parser)
 {
   int result;
@@ -274,32 +278,13 @@ WeatherParserState weather_parser_worktask_parse_respond(Weather_Parser* _Parser
   char* response;
 
   if (_Parser->forecast)
-    response = weather_parser_build_json_forecast(_Parser->weather);
+    response = weather_parser_build_json_forecast(_Parser->weather, _Parser->cache_path);
   else
-    response = weather_parser_build_json_current(_Parser->weather);
+    response = weather_parser_build_json_current(_Parser->weather, _Parser->cache_path);
 
   _Parser->on_finish(_Parser->context, &response);
   
   return WEATHER_PARSER_DISPOSING;
-}
-
-void weather_parser_dispose_ptr(Weather_Parser** _WP_Ptr)
-{
-  if (_WP_Ptr != NULL)
-  {
-    if ((*_WP_Ptr) != NULL)
-    {
-      scheduler_destroy_task((*_WP_Ptr)->task);
-      (*_WP_Ptr)->task = NULL;
-      if ((*_WP_Ptr)->weather != NULL)
-      {
-        weather_parser_dispose_weather_ptr(&(*_WP_Ptr)->weather);
-        (*_WP_Ptr)->weather = NULL;
-      }
-      (*_WP_Ptr) = NULL;
-    }
-    _WP_Ptr = NULL;
-  }
 }
 
 /* ********************** CURRENT & FORECAST *********************** */
@@ -355,9 +340,10 @@ char* weather_parser_get_cache_filepath(float _lat, float _lon, bool _forecast)
   char* file_ext = ".json";
   int filepath_len = strlen(CACHE_DIR) + strlen(hashed_filename) + strlen(file_ext);
   char* full_filepath = malloc(filepath_len + 1);
-  snprintf(full_filepath, filepath_len, "%s%s%s",
+  snprintf(full_filepath, filepath_len + 1, "%s%s%s",
       CACHE_DIR, hashed_filename, file_ext);
 
+  printf("full_filepath: %s\n", full_filepath);
   return full_filepath;
 }
 
@@ -412,50 +398,6 @@ bool weather_parser_recent_cache_exists(const char* _filepath, int _interval, bo
   return false;
 }
 
-void weather_parser_dispose_weather_ptr(Weather** _W_Ptr)
-{
-  if (_W_Ptr != NULL)
-  {
-    if ((*_W_Ptr) != NULL)
-    {
-      if ((*_W_Ptr)->values != NULL)
-      {
-        free((*_W_Ptr)->values);
-        (*_W_Ptr)->values = NULL;
-      }
-
-      if ((*_W_Ptr)->cache_path != NULL)
-      {
-        free((void*)(*_W_Ptr)->cache_path);
-        (*_W_Ptr)->cache_path = NULL;
-      }
-      if ((*_W_Ptr)->temperature_unit   != NULL)  
-      {
-        free((void*)(*_W_Ptr)->temperature_unit);
-        (*_W_Ptr)->temperature_unit = NULL;
-      }
-      if ((*_W_Ptr)->windspeed_unit     != NULL)    
-      {
-        free((void*)(*_W_Ptr)->windspeed_unit);
-        (*_W_Ptr)->windspeed_unit = NULL;
-      }
-      if ((*_W_Ptr)->precipitation_unit != NULL)
-      {
-        free((void*)(*_W_Ptr)->precipitation_unit);
-        (*_W_Ptr)->precipitation_unit = NULL;
-      }
-      if ((*_W_Ptr)->winddirection_unit != NULL)
-      {
-        free((void*)(*_W_Ptr)->winddirection_unit);
-        (*_W_Ptr)->winddirection_unit = NULL;
-      }
-
-      free((*_W_Ptr));
-      (*_W_Ptr) = NULL;
-    }
-    _W_Ptr = NULL;
-  }
-}
 
 /************************ CURRENT WEATHER *************************/
 
@@ -499,7 +441,7 @@ int weather_parser_parse_meteo_current(Weather_Parser* _Parser)
   return SUCCESS;
 }
 
-char* weather_parser_build_json_current(Weather* _Weather)
+char* weather_parser_build_json_current(Weather* _Weather, const char* _cache_path)
 {
   if (!_Weather || !_Weather->values)
     return NULL;
@@ -535,8 +477,9 @@ char* weather_parser_build_json_current(Weather* _Weather)
 
   char* json_str = cJSON_Print(Json_Root); // Uses realloc and ends up in heap
 
-  if (write_string_to_file(json_str, _Weather->cache_path) != 0)
-    fprintf(stderr, "Failed to write string \"%p\" to cache \"%p\"\n", json_str, _Weather->cache_path); 
+  //printf("cache_path: %s\n", _cache_path);
+  if (write_string_to_file(json_str, _cache_path) != 0)
+    fprintf(stderr, "Failed to write string \"%p\" to cache \"%p\"\n", json_str, _cache_path); 
 
   free((void*)iso_timestamp);
   cJSON_Delete(Json_Root);
@@ -593,7 +536,7 @@ int weather_parser_parse_meteo_hourly(Weather_Parser* _Parser)
   return SUCCESS;
 }
 
-char* weather_parser_build_json_forecast(Weather* _Weather)
+char* weather_parser_build_json_forecast(Weather* _Weather, const char* _cache_path)
 {
   if (!_Weather || !_Weather->values)
     return NULL;
@@ -637,10 +580,77 @@ char* weather_parser_build_json_forecast(Weather* _Weather)
 
   char* json_str = cJSON_Print(Json_Root); // Uses realloc and ends up in heap
 
-  if (write_string_to_file(json_str, _Weather->cache_path) != 0)
-    fprintf(stderr, "Failed to write string \"%p\" to cache \"%p\"\n", json_str, _Weather->cache_path); 
+  if (write_string_to_file(json_str, _cache_path) != 0)
+    fprintf(stderr, "Failed to write string \"%p\" to cache \"%p\"\n", json_str, _cache_path); 
 
   cJSON_Delete(Json_Root);
 
   return json_str;
+}
+
+
+/*******************************DISPOSE SECTION**************************************/
+
+void weather_parser_dispose_ptr(Weather_Parser** _WP_Ptr)
+{
+  if (_WP_Ptr != NULL)
+  {
+    if ((*_WP_Ptr) != NULL)
+    {
+      if ((*_WP_Ptr)->cache_path != NULL) {
+        free((void*)(*_WP_Ptr)->cache_path);
+        (*_WP_Ptr)->cache_path = NULL;
+      } 
+      scheduler_destroy_task((*_WP_Ptr)->task);
+      (*_WP_Ptr)->task = NULL;
+      if ((*_WP_Ptr)->weather != NULL)
+      {
+        weather_parser_dispose_weather_ptr(&(*_WP_Ptr)->weather);
+        (*_WP_Ptr)->weather = NULL;
+      }
+      free(*_WP_Ptr);
+      (*_WP_Ptr) = NULL;
+    }
+    _WP_Ptr = NULL;
+  }
+}
+
+void weather_parser_dispose_weather_ptr(Weather** _W_Ptr)
+{
+  if (_W_Ptr != NULL)
+  {
+    if ((*_W_Ptr) != NULL)
+    {
+      if ((*_W_Ptr)->values != NULL)
+      {
+        free((*_W_Ptr)->values);
+        (*_W_Ptr)->values = NULL;
+      }
+
+      if ((*_W_Ptr)->temperature_unit   != NULL)  
+      {
+        free((void*)(*_W_Ptr)->temperature_unit);
+        (*_W_Ptr)->temperature_unit = NULL;
+      }
+      if ((*_W_Ptr)->windspeed_unit     != NULL)    
+      {
+        free((void*)(*_W_Ptr)->windspeed_unit);
+        (*_W_Ptr)->windspeed_unit = NULL;
+      }
+      if ((*_W_Ptr)->precipitation_unit != NULL)
+      {
+        free((void*)(*_W_Ptr)->precipitation_unit);
+        (*_W_Ptr)->precipitation_unit = NULL;
+      }
+      if ((*_W_Ptr)->winddirection_unit != NULL)
+      {
+        free((void*)(*_W_Ptr)->winddirection_unit);
+        (*_W_Ptr)->winddirection_unit = NULL;
+      }
+
+      free((*_W_Ptr));
+      (*_W_Ptr) = NULL;
+    }
+    _W_Ptr = NULL;
+  }
 }

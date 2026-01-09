@@ -1,0 +1,18 @@
+{
+	"timestamp":	"2026-01-09T16:00",
+	"latitude":	32.25,
+	"longitude":	32.3125,
+	"units":	{
+		"temperature_unit":	"°C",
+		"windspeed_unit":	"km/h",
+		"precipitation_unit":	"mm",
+		"winddirection_unit":	"°"
+	},
+	"weather":	{
+		"temperature":	17.5,
+		"precipitation":	0,
+		"windspeed":	54.700000762939453,
+		"winddirection":	300,
+		"wmo_code":	2
+	}
+}

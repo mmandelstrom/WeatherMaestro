@@ -125,6 +125,7 @@ void meteo_on_http_client_finish(void *_context, char **_response) {
   if (M->hourly != NULL)
     meteo_parse_json_weather_hourly(M->hourly, *_response);
 
+  free((*_response));
   M->on_finish(M->context, M);
 }
 
@@ -402,6 +403,11 @@ void meteo_dispose_ptr(Meteo **_M_Ptr, Meteo_Geo **_MG_Ptr,
       if ((*_MW_Ptr)->wind_direction_10m_unit != NULL) {
         free((void *)(*_MW_Ptr)->wind_direction_10m_unit);
         (*_MW_Ptr)->wind_direction_10m_unit = NULL;
+      }
+
+      if ((*_MW_Ptr)->values != NULL) {
+        free((*_MW_Ptr)->values);
+        (*_MW_Ptr)->values = NULL;
       }
 
       free(*_MW_Ptr);

@@ -1,4 +1,5 @@
 #include "file_utils.h"
+#include <error.h>
 
 /* Returns true or false whether directory exists */
 bool directory_exists(const char* _path) 
@@ -49,6 +50,10 @@ int create_directory_if_not_exists(const char* _path) {
 /* Writes string to given file */
 int write_string_to_file(const char* _str, const char* _filename)
 {
+  if (_str == NULL || _filename == NULL) {
+    return ERR_INVALID_ARG;
+  }
+
   FILE *f = fopen(_filename, "w");
   if (f == NULL) {
    printf("Error: Unable to open the file.\n");

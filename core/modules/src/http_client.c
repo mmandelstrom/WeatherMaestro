@@ -35,7 +35,7 @@ int http_client_initiate(HTTP_Client *_Client, const char *_URL,
     free(req);
     return ERR_BUSY;
   }
-  printf("URL in init: %s\n", _URL);
+ // printf("URL in init: %s\n", _URL);
 
   char *url_copy = strdup(_URL);
   if (!url_copy) {
@@ -76,15 +76,15 @@ HTTPClientState http_client_worktask_connecting(HTTP_Client *_Client) {
 
   http_parser_url(_Client->URL, (void *)&_Client->url_parts);
 
-  printf("Scheme: %s\n", _Client->url_parts.scheme);
-  printf("Host: %s\n", _Client->url_parts.host);
-  printf("path: %s\n", _Client->url_parts.path);
-  printf("PorT: %s\n", _Client->url_parts.port);
-
+  // printf("Scheme: %s\n", _Client->url_parts.scheme);
+  // printf("Host: %s\n", _Client->url_parts.host);
+  // printf("path: %s\n", _Client->url_parts.path);
+  // printf("PorT: %s\n", _Client->url_parts.port);
+ 
   if (_Client->tls == false) {
     const char *PORT = "80";
-    printf("URL: %s\n", _Client->url_parts.host);
-    printf("Pprt: %s\n", PORT);
+    // printf("URL: %s\n", _Client->url_parts.host);
+    // printf("Pprt: %s\n", PORT);
     int result =
         tcp_client_init(&_Client->tcp_client, _Client->url_parts.host, PORT);
 
@@ -194,8 +194,6 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client *_Client) {
 
   uint8_t tcp_buf[8096];
   int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, 8095);
-  printf("Bytes read: %d\n", bytes_read);
-  printf("TCP_BUF: \n%s\n", tcp_buf);
 
   if (bytes_read < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
@@ -209,7 +207,6 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client *_Client) {
     printf("Connection closed by peer\n");
     return HTTP_CLIENT_ERROR;
   }
-  printf("tcp_buf before realloc: %s\n", tcp_buf);
   ssize_t bytes_stored =
       tcp_client_realloc_data(&TCP_C->data, tcp_buf, (size_t)bytes_read);
 
@@ -247,10 +244,10 @@ HTTPClientState http_client_worktask_read_firstline(HTTP_Client *_Client) {
     return HTTP_CLIENT_ERROR;
   }
 
-  printf("Version: %s\n", _Client->resp->version);
-  printf("status_code_string: %s\n", _Client->resp->status_code_string);
-  printf("reason_phrase: %s\n", _Client->resp->reason_phrase);
-
+  // printf("Version: %s\n", _Client->resp->version);
+  // printf("status_code_string: %s\n", _Client->resp->status_code_string);
+  // printf("reason_phrase: %s\n", _Client->resp->reason_phrase);
+  //
   /*We have handled first line + 2 for \r\n*/
   size_t parsed = line_len + 2;
 
@@ -362,7 +359,6 @@ HTTPClientState http_client_worktask_read_headers(HTTP_Client *_Client) {
       _Client->req->headers, "Transfer-Encoding", &transfer_encoding_string);
 
   if (res == SUCCESS) {
-    printf("Time to read the chonk\n");
     return HTTP_CLIENT_DECIPHER_CHONKINESS;
   }
 
@@ -456,7 +452,7 @@ HTTPClientState http_client_worktask_decipher_chonkiness(HTTP_Client *_Client) {
 
   TCP_C->data.size -= consume_len;
 
-  printf("%.*s\n", (int)TCP_C->data.size, (char *)TCP_C->data.addr);
+  // printf("%.*s\n", (int)TCP_C->data.size, (char *)TCP_C->data.addr);
 
   // Find trailing \r\n\r\n
   if (chunk_size == 0) {
@@ -621,7 +617,7 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client *_Client) {
 
   int bytes_read = tcp_client_read_simple(TCP_C, tcp_buf, TCP_BUF_SIZE);
 
-  printf("Buf: %s\n", tcp_buf);
+  // printf("Buf: %s\n", tcp_buf);
 
   if (bytes_read < 0) {
     if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
@@ -652,8 +648,6 @@ HTTPClientState http_client_worktask_read_body(HTTP_Client *_Client) {
     return HTTP_CLIENT_READING_BODY;
   }
 
-  printf("EXPECTED: %d, HAVE: %zu\n", _Client->content_length,
-         TCP_C->data.size);
   _Client->retries = 0;
   return HTTP_CLIENT_RETURNING;
 }
