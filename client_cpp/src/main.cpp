@@ -2,17 +2,18 @@
 #include "../include/weather_client.hpp"
 #include "../include/cities.hpp"
 #include "../include/city.hpp"
+#include "../include/menubar.hpp"
+
 
 #include <ncurses.h>
 
-void resetMenu(WINDOW* _Win) {
+void resetMenuBar(WINDOW* _Win) {
   mvwprintw(_Win, 0, 2, "[City]");
   mvwprintw(_Win, 0, 10, "[Weather]");
   mvwprintw(_Win, 0, 21, "[Settings]");
 }
 
 int main() {
-
   
   initscr();
   noecho();
@@ -33,9 +34,11 @@ int main() {
   WINDOW* main = newwin(term_y/1.5, term_x - 4, 1, 2);
   box(main, 0, 0);
 
+  /*
   mvwprintw(main, 0, 2, "[City]");
   mvwprintw(main, 0, 10, "[Weather]");
   mvwprintw(main, 0, 21, "[Settings]");
+  */
 
   if (term_x >= 80) {
     mvprintw((term_y/1.5) + 2, 2, " _    _            _   _              ___  ___                _");
@@ -56,7 +59,7 @@ int main() {
   }
 
   refresh();
-
+  
   
   
 
@@ -72,45 +75,44 @@ int main() {
 
   // c.listCities();
 
-  client.setCityData(c1.getName(), c1.getCountry(), c1.getLat(), c1.getLon());
-  client.getWeather();
+  //client.getCoords("Stockholm");
+  //client.getWeather();
   // std::cout << client.getTemp() << client.getTemperature_unit() << std::endl;
-  
+    std::string menu_options_city[] = {
+      "Select city",
+      "Add new city",
+      "Remove city"
+    };
+
+    std::string menu_options_weather[] = {
+      "Get current weather for coordinates",
+      "Get current weather for selected city",
+      "Get forecast for selected city",
+      "Save forecast for selected city"
+    };
+
+    std::string menu_options_settings[] = {
+      "Celsius C° (X)",
+      "Farenheit F° ( )"
+    };
+
+    // Text, input key, option list, number of options
+    Menu menus[] = {
+    Menu("[City]", 'c', menu_options_city, 3),
+    Menu("[Weather]", 'w', menu_options_weather, 4),
+    Menu("[Settings]", 's', menu_options_settings, 2)
+  };
+
+  MenuBar mb(main, menus, 3);
+
   char input;
-  while (input = wgetch(main)) //includes refresh
+  while ((input = wgetch(mb.getWindow()))) //includes refresh
   {
-    switch (input)
-    {
-    case 'c':
-      resetMenu(main);
-      wattron(main, COLOR_PAIR(2));
-      mvwprintw(main, 0, 2, "[City]");
-      wattroff(main, COLOR_PAIR(2));
-      break;
-
-    case 'w':
-      resetMenu(main);
-      wattron(main, COLOR_PAIR(2));
-      mvwprintw(main, 0, 10, "[Weather]");
-      wattroff(main, COLOR_PAIR(2));
-      break;
-
-    case 's':
-      resetMenu(main);
-      wattron(main, COLOR_PAIR(2));
-      mvwprintw(main, 0, 21, "[Settings]");
-      wattroff(main, COLOR_PAIR(2));
-      break;
-    
-    default:
-    resetMenu(main);
-      break;
-    }
+    mb.detectInput(input);
+    mb.draw();
   }
-  
-
-
 
   endwin();
+  
   return 0; 
 }

@@ -4,7 +4,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #define HOST "stockholm2.onvo.se"
-#define PORT "81"
+#define PORT "80"
 
 #include <string>
 #include <iostream>

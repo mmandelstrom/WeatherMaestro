@@ -18,8 +18,8 @@ int WeatherClient::getWeather() {
     TCP_Client client;
 
     std::string request =
-    "GET /api/v1/weather?latitude=" + std::to_string(this->lat) + "&longitude=" + std::to_string(this->lon) +" HTTP/1.1\r\n"
-    "Host: stockholm2.onvo.se:81\r\n"
+    "GET /api/v1/weather?lat=" + std::to_string(this->lat) + "&lon=" + std::to_string(this->lon) +" HTTP/1.1\r\n"
+    "Host: stockholm2.onvo.se\r\n"
     "User-Agent: CPPCLIENT/0.1\r\n"
     "Accept: /\r\n"
     "Connection: close\r\n"
@@ -105,9 +105,9 @@ int WeatherClient::getCoords(std::string _Name) {
 
     //TODO ADD HTTPS
     std::string request =
-    "GET /v1/search?name=" + _Name + " HTTP/1.1\r\n"
-    "Host: geocoding-api.open-meteo.com\r\n"
-    "User-Agent: curl/8.16.0\r\n"
+    "GET /api/v1/geo?q=" + _Name + " HTTP/1.1\r\n"
+    "Host: stockholm2.onvo.se\r\n"
+    "User-Agent: CPPCLIENT/0.1\r\n"
     "Accept: */*\r\n"
     "Connection: close\r\n"
     "\r\n";
