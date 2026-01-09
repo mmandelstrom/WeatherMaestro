@@ -16,7 +16,7 @@
 
     void Menu::selectPrev() {
         selected_item--;
-        if (selected_item >= item_count) {selected_item = item_count - 1;}
+        if (selected_item < 0) {selected_item = item_count - 1;}
     }
 
     std::string Menu::getTitle() {return this->title;}
