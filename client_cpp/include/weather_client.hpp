@@ -34,8 +34,8 @@ class WeatherClient {
         int parseBody();
 
     public:
-        WeatherClient(std::string _City, std::string _Country); 
-        int setCityData(std::string _Name, std::string _Country, double _Lat, double _Lon); // DBG
+        WeatherClient(); 
+        int setCityData(std::string _Name, std::string _Country, double _Lat, double _Lon); // Rename?
         int getWeather();
         int getCoords(std::string _Name);
 

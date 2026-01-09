@@ -50,7 +50,8 @@ int main() {
   
   
   // Hard coded bork
-  WeatherClient client("Sundbyberg", "Sweden");
+  WeatherClient client; //Debug ctor
+  /*
   Cities c;
   City c1("Stockholm", "Stockholms Län", "Sverige", 52.123f, 12.234f);
   City c2("Sundbyberg", "Stockholms Län", "Sverige", 52.123f, 12.234f);
@@ -59,7 +60,7 @@ int main() {
   c.add(c1);
   c.add(c2);
   c.add(c3);
-
+  */
   // c.listCities();
 
   //client.getCoords("Stockholm");

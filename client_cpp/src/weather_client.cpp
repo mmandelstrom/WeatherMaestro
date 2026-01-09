@@ -1,8 +1,8 @@
 #include "../include/weather_client.hpp"
 
-WeatherClient::WeatherClient(std::string _City, std::string _Country)
-    : lat(59.3753f), 
-    lon(17.969f), 
+WeatherClient::WeatherClient()
+    : lat(0.0f),
+    lon(0.0f),
     http_response_code(-1),
     temperature(0.0f),
     windspeed(0.0f),
@@ -10,8 +10,6 @@ WeatherClient::WeatherClient(std::string _City, std::string _Country)
     winddirection(0),
     wmo_code(0)
     {
-        this->city = _City;
-        this->country = _Country;
     }
 
 int WeatherClient::getWeather() {
