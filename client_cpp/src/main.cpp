@@ -7,12 +7,6 @@
 
 #include <ncurses.h>
 
-void resetMenuBar(WINDOW* _Win) {
-  mvwprintw(_Win, 0, 2, "[City]");
-  mvwprintw(_Win, 0, 10, "[Weather]");
-  mvwprintw(_Win, 0, 21, "[Settings]");
-}
-
 int main() {
   
   initscr();
@@ -53,7 +47,6 @@ int main() {
   }
 
   refresh();
-  
   
   
   // Hard coded bork
