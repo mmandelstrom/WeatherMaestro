@@ -34,12 +34,6 @@ int main() {
   WINDOW* main = newwin(term_y/1.5, term_x - 4, 1, 2);
   box(main, 0, 0);
 
-  /*
-  mvwprintw(main, 0, 2, "[City]");
-  mvwprintw(main, 0, 10, "[Weather]");
-  mvwprintw(main, 0, 21, "[Settings]");
-  */
-
   if (term_x >= 80) {
     mvprintw((term_y/1.5) + 2, 2, " _    _            _   _              ___  ___                _");
     mvprintw((term_y/1.5) + 3, 2, "| |  | |          | | | |             |  \\/  |               | |");
@@ -62,7 +56,7 @@ int main() {
   
   
   
-
+  // Hard coded bork
   WeatherClient client("Sundbyberg", "Sweden");
   Cities c;
   City c1("Stockholm", "Stockholms Län", "Sverige", 52.123f, 12.234f);
@@ -78,22 +72,22 @@ int main() {
   //client.getCoords("Stockholm");
   //client.getWeather();
   // std::cout << client.getTemp() << client.getTemperature_unit() << std::endl;
-    std::string menu_options_city[] = {
-      "Select city",
-      "Add new city",
-      "Remove city"
+    MenuItem menu_options_city[] = {
+      MenuItem("Select city", nullptr), //FARLIGA NULLPTRS
+      MenuItem("Add new city", nullptr),
+      MenuItem("Remove city", nullptr)
     };
 
-    std::string menu_options_weather[] = {
-      "Get current weather for coordinates",
-      "Get current weather for selected city",
-      "Get forecast for selected city",
-      "Save forecast for selected city"
+    MenuItem menu_options_weather[] = {
+      MenuItem("Get current weather for coordinates", nullptr),
+      MenuItem("Get current weather for selected city", nullptr),
+      MenuItem("Get forecast for selected city", nullptr),
+      MenuItem("Save forecast for selected city", nullptr)
     };
 
-    std::string menu_options_settings[] = {
-      "Celsius C° (X)",
-      "Farenheit F° ( )"
+    MenuItem menu_options_settings[] = {
+      MenuItem("Celsius C° (X)", nullptr),
+      MenuItem("Farenheit F° ( )", nullptr)
     };
 
     // Text, input key, option list, number of options

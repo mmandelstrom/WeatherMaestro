@@ -4,6 +4,8 @@
 #include <ncurses.h>
 #include <string>
 
+#include "../client_cpp/include/menuitem.hpp"
+
 class Menu {
     private:
         int item_count;
@@ -12,21 +14,23 @@ class Menu {
         char key;
 
         std::string title;
-        std::string* menu_items;
+        MenuItem* menu_items;
 
     public:
-        Menu(std::string _Title, char _Key, std::string* _Menu_items, int _Item_count);
+        Menu(std::string _Title, char _Key, MenuItem* _Menu_items, int _Item_count);
 
+        void executeMenuItem();
         void selectNext();
         void selectPrev();
         std::string getTitle();
         void setPos(int _Pos);
         int getPos();
         char getKey();
-        std::string getMenuItem(int _Index);
+        MenuItem getMenuItem(int _Index);
         int getItemCount();
         int getSelectedItem();
         void setSelected(int _Index);
+        
 
 };
 

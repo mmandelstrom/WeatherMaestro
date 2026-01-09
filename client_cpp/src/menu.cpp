@@ -1,8 +1,12 @@
 #include "../include/menu.hpp"
 
-    Menu::Menu(std::string _Title, char _Key, std::string* _Menu_items, int _Item_count)
+    Menu::Menu(std::string _Title, char _Key, MenuItem* _Menu_items, int _Item_count)
         : item_count(_Item_count), selected_item(0), key(_Key), title(_Title), menu_items(_Menu_items)
     {
+    }
+
+    void Menu::executeMenuItem() {
+        menu_items[selected_item].execute();
     }
 
     void Menu::selectNext() {
@@ -23,11 +27,12 @@
 
     char Menu::getKey() {return this->key;}
 
-    std::string Menu::getMenuItem(int _Index) {
+    // Returns empty MenuItem upon failure.
+    MenuItem Menu::getMenuItem(int _Index) {
         if (_Index >= 0) {
             return this->menu_items[_Index];
         } else {
-            return NULL;
+            return MenuItem(0, nullptr);
         }
     }
 

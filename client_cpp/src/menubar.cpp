@@ -3,7 +3,6 @@
     MenuBar::MenuBar(WINDOW* _Win, Menu* _Menus, int _Count)
         : count(_Count), selected(-1), window(_Win), menus(_Menus) 
     {
-
         int x_max, y_max, x_beg, y_beg;
         getmaxyx(window, y_max, x_max);
         getbegyx(window, y_beg, x_beg);
@@ -43,6 +42,9 @@
                     case KEY_DOWN:
                         menus[i].selectNext();
                         break;
+                    case KEY_ENTER:
+                        menus[i].executeMenuItem();
+                        break;
                     default:
                         exit_loop = true;
                         break;
@@ -59,20 +61,24 @@
             }
         }
         selected = -1;
+
+        mvwaddstr(window, 2, 3, "Weather facts for location: ");
     }
 
     void MenuBar::drawMenuWindow(Menu _Menu) {
         int x_max = getmaxx(menu_window);
 
         for (int i = 0; i < _Menu.getItemCount(); i++) {
-            mvwaddstr(menu_window, i, 0, _Menu.getMenuItem(i).c_str());
-            if (menus[i].getSelectedItem() == i) {
+            std::string menu_text = _Menu.getMenuItem(i).getLabel();
+            mvwaddstr(menu_window, i, 3, menu_text.c_str());
+            if (_Menu.getSelectedItem() == i) {
                 //Selected menu item
                 mvwchgat(menu_window, i, 0, x_max, A_NORMAL, 2, NULL);
             } else {
                 //Non-selected menu item
                 mvwchgat(menu_window, i, 0, x_max, A_STANDOUT, 0, NULL);
             }
+            wrefresh(menu_window);
         }
     }
 
