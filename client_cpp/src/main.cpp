@@ -73,14 +73,14 @@ int main() {
   //client.getWeather();
   // std::cout << client.getTemp() << client.getTemperature_unit() << std::endl;
     MenuItem menu_options_city[] = {
-      MenuItem("Select city", nullptr), //FARLIGA NULLPTRS
-      MenuItem("Add new city", nullptr),
-      MenuItem("Remove city", nullptr)
+      MenuItem("Select city", [&client]() { client.setCityData("Stockholm", "Sverige", 52.123f, 12.234f);}), 
+      MenuItem("Add new city", [&client]() { client.getCoords("Stockholm");}), 
+      MenuItem("Remove city", nullptr) //FARLIGA NULLPTRS
     };
 
     MenuItem menu_options_weather[] = {
       MenuItem("Get current weather for coordinates", nullptr),
-      MenuItem("Get current weather for selected city", nullptr),
+      MenuItem("Get current weather for selected city", [&client]() { client.getWeather(); }),
       MenuItem("Get forecast for selected city", nullptr),
       MenuItem("Save forecast for selected city", nullptr)
     };

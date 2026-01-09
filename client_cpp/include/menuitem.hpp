@@ -2,13 +2,14 @@
 #define __MENUITEM_HPP_
 
 #include <string>
+#include <functional>
 
 class MenuItem {
 private:
     std::string label;
-    void (*action)();
+    std::function<void()> action;
 public:
-    MenuItem(std::string _Label, void (*action)());
+    MenuItem(std::string _Label, std::function<void()> _Action = nullptr);
     std::string getLabel();
     void execute();
 

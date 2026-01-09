@@ -1,4 +1,5 @@
 #include "../include/menubar.hpp"
+#include <iostream>
 
     MenuBar::MenuBar(WINDOW* _Win, Menu* _Menus, int _Count)
         : count(_Count), selected(-1), window(_Win), menus(_Menus) 
@@ -42,8 +43,9 @@
                     case KEY_DOWN:
                         menus[i].selectNext();
                         break;
-                    case KEY_ENTER:
+                    case 10:
                         menus[i].executeMenuItem();
+                        exit_loop = true;
                         break;
                     default:
                         exit_loop = true;

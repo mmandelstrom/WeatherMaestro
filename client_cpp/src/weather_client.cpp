@@ -112,17 +112,14 @@ int WeatherClient::getCoords(std::string _Name) {
     "Connection: close\r\n"
     "\r\n";
 
-    std::cout << "Request: " << request << std::endl;
     client.setTransmitData(request);
     client.transmit();
     client.recieve();
     std::string response = client.getRecieveData();
 
-    std::cout << "Response: " << response << std::endl;
 
     return 0;
 }
-
 
 int WeatherClient::setCityData(std::string _Name, std::string _Country, double _Lat, double _Lon) {
     this->city = _Name;
